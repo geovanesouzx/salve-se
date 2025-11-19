@@ -6,6 +6,7 @@
     <title>Salve-se | Painel Híbrido</title>
     
     <!-- PWA Settings -->
+    <!-- O href deste link será preenchido dinamicamente pelo script.js -->
     <link rel="manifest" id="pwa-manifest">
     <meta name="theme-color" content="#4f46e5">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -121,7 +122,7 @@
                 <i class="fas fa-envelope mr-3 w-5 text-center"></i> Templates
             </a>
         </nav>
-        <!-- Footer da Sidebar mantido... -->
+        
         <div class="p-4 border-t border-gray-200 dark:border-darkborder bg-gray-50 dark:bg-darkcard">
             <div class="flex items-center gap-3">
                 <div class="w-9 h-9 rounded-full bg-indigo-100 dark:bg-neutral-800 flex items-center justify-center text-indigo-600 dark:text-indigo-400 transition-colors duration-300">
@@ -377,9 +378,8 @@
                 </div>
             </div>
 
-            <!-- DEMAIS VIEWS (Mantidas iguais, apenas omitindo conteúdo repetitivo para poupar espaço, mas a estrutura está aqui) -->
+            <!-- DEMAIS VIEWS -->
             <div id="view-onibus" class="hidden fade-in max-w-4xl mx-auto">
-                 <!-- Conteúdo Onibus (igual ao anterior) -->
                  <div class="bg-white dark:bg-darkcard rounded-xl shadow-sm border border-gray-200 dark:border-darkborder overflow-hidden p-6">
                      <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4 border-b border-gray-100 dark:border-neutral-800 pb-4">
                          <h2 class="text-xl font-bold text-gray-800 dark:text-white">Grade Completa 2025.1</h2>
@@ -402,7 +402,6 @@
             </div>
             
             <div id="view-calc" class="hidden fade-in max-w-3xl mx-auto pb-10">
-                <!-- Conteúdo Calculadora (Igual ao anterior) -->
                 <div class="bg-white dark:bg-darkcard rounded-2xl shadow-xl border border-gray-200 dark:border-darkborder overflow-hidden">
                     <div class="bg-gradient-to-r from-indigo-600 to-purple-600 p-8 text-white text-center relative overflow-hidden">
                         <div class="relative z-10">
@@ -441,7 +440,6 @@
             </div>
 
             <div id="view-pomo" class="hidden fade-in max-w-2xl mx-auto text-center pt-8">
-                <!-- Conteúdo Pomo (Igual) -->
                 <div class="bg-white dark:bg-darkcard rounded-3xl p-10 shadow-2xl border border-gray-100 dark:border-darkborder relative overflow-hidden">
                     <div class="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500"></div>
                     <div class="relative w-72 h-72 mx-auto mb-10 flex items-center justify-center group">
@@ -468,7 +466,6 @@
             </div>
 
             <div id="view-todo" class="hidden fade-in max-w-3xl mx-auto">
-                <!-- Conteúdo Todo (Igual) -->
                 <div class="bg-white dark:bg-darkcard rounded-xl shadow-sm border border-gray-200 dark:border-darkborder min-h-[500px] flex flex-col">
                     <div class="p-6 border-b border-gray-200 dark:border-darkborder">
                         <h2 class="text-xl font-bold mb-4 text-gray-800 dark:text-white">Lista de Tarefas</h2>
@@ -486,7 +483,6 @@
             </div>
 
             <div id="view-email" class="hidden fade-in max-w-5xl mx-auto">
-                <!-- Conteúdo Email (Igual) -->
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[500px]">
                     <div class="space-y-2 overflow-y-auto pr-2">
                         <button onclick="loadTemplate('deadline')" class="w-full text-left p-4 rounded-lg bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder hover:border-indigo-500 transition group"><span class="font-bold text-gray-700 dark:text-gray-200 block group-hover:text-indigo-500">Extensão de Prazo</span><span class="text-xs text-gray-500">Pedir mais tempo.</span></button>
@@ -502,7 +498,6 @@
             </div>
 
             <div id="view-aulas" class="hidden fade-in max-w-6xl mx-auto pb-10">
-                <!-- Conteúdo Aulas (Igual) -->
                 <div class="bg-white dark:bg-darkcard rounded-xl border border-gray-200 dark:border-darkborder shadow-sm overflow-hidden">
                     <div class="p-6 border-b border-gray-200 dark:border-darkborder bg-gray-50 dark:bg-neutral-900/50 flex justify-between items-center">
                         <h2 class="text-xl font-bold text-gray-800 dark:text-white">Minha Grade de Horários</h2>
@@ -528,7 +523,7 @@
         </main>
     </div>
 
-    <!-- MODAIS (Mantidos iguais) -->
+    <!-- MODAIS -->
     <div id="class-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm hidden opacity-0 transition-opacity duration-300">
         <div class="bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl w-full max-w-md p-6 m-4 transform scale-95 transition-transform duration-300 border border-gray-200 dark:border-neutral-800" id="class-modal-content">
             <div class="flex justify-between items-center mb-6">

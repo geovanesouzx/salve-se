@@ -1,4 +1,4 @@
-const CACHE_NAME = 'salvese-v2.0-network-first'; // Mudei a versão para forçar atualização
+const CACHE_NAME = 'salvese-v3.0-mindmap-update'; // Versão atualizada para forçar limpeza de cache
 const URLS_TO_CACHE = [
     './',
     './index.html',
@@ -32,7 +32,7 @@ self.addEventListener('install', event => {
     );
 });
 
-// 2. Ativação: Limpa caches de versões antigas
+// 2. Ativação: Limpa caches antigos (VERSÃO ANTERIOR SERÁ APAGADA AQUI)
 self.addEventListener('activate', event => {
     const cacheWhitelist = [CACHE_NAME];
     event.waitUntil(
@@ -40,6 +40,7 @@ self.addEventListener('activate', event => {
             return Promise.all(
                 cacheNames.map(cacheName => {
                     if (cacheWhitelist.indexOf(cacheName) === -1) {
+                        console.log('Deletando cache antigo:', cacheName);
                         return caches.delete(cacheName);
                     }
                 })
@@ -49,13 +50,12 @@ self.addEventListener('activate', event => {
 });
 
 // 3. Interceptação: ESTRATÉGIA NETWORK FIRST (Rede Primeiro)
-// Tenta pegar da internet. Se der certo, atualiza o cache e mostra.
-// Se der errado (offline), pega do cache.
+// Prioriza a internet para sempre mostrar a versão mais recente.
 self.addEventListener('fetch', event => {
     event.respondWith(
         fetch(event.request)
             .then(networkResponse => {
-                // Se a resposta da rede for válida, a gente clona e salva no cache atualizado
+                // Se a resposta da rede for válida, atualiza o cache
                 if (networkResponse && networkResponse.status === 200) {
                     const responseToCache = networkResponse.clone();
                     caches.open(CACHE_NAME).then(cache => {
@@ -65,12 +65,12 @@ self.addEventListener('fetch', event => {
                 return networkResponse;
             })
             .catch(() => {
-                // Se deu erro na rede (está OFFLINE), tenta pegar do cache
+                // Se falhar (offline), usa o cache
                 return caches.match(event.request).then(cachedResponse => {
                     if (cachedResponse) {
                         return cachedResponse;
                     }
-                    // Se não tem no cache e é navegação (ex: recarregar página), manda pro index
+                    // Fallback para navegação
                     if (event.request.mode === 'navigate') {
                         return caches.match('./index.html');
                     }

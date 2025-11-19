@@ -47,14 +47,14 @@ if (pwaManifestLink) {
     pwaManifestLink.setAttribute('href', manifestURL);
 }
 
-// 2. Registro do Service Worker com FORÇAR ATUALIZAÇÃO
+// 2. Registro do Service Worker com FORÇAR ATUALIZAÇÃO (Network First)
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         navigator.serviceWorker.register('./sw.js')
             .then(reg => {
                 console.log('SW registrado:', reg.scope);
-                // Esta linha força o navegador a checar se o sw.js mudou
-                reg.update(); 
+                // Força a atualização do Service Worker se houver uma nova versão
+                reg.update();
             })
             .catch(err => console.log('SW falhou:', err));
     });
@@ -103,30 +103,58 @@ if ('serviceWorker' in navigator) {
     window.addEventListener('offline', updateNetworkStatus);
 }
 
-// --- MERMAID (FLUXOGRAMA) ---
+// --- MERMAID (FLUXOGRAMA & MAPA MENTAL) ---
 if (typeof mermaid !== 'undefined') {
-    mermaid.initialize({ startOnLoad: false, theme: 'default' });
+    // Inicializa com configurações para suportar zoom e movimento futuramente se necessário
+    mermaid.initialize({ 
+        startOnLoad: false, 
+        theme: document.documentElement.classList.contains('dark') ? 'dark' : 'default',
+        securityLevel: 'loose',
+    });
 }
+
+// Carrega o diagrama salvo ao iniciar
+document.addEventListener('DOMContentLoaded', () => {
+    const savedDiagram = localStorage.getItem('salvese_mermaid_code');
+    const textarea = document.getElementById('mermaid-input');
+    if (savedDiagram && textarea) {
+        textarea.value = savedDiagram;
+        // Tenta renderizar automaticamente se houver algo salvo
+        if(savedDiagram.trim()) renderDiagram();
+    }
+});
 
 async function renderDiagram() {
     const input = document.getElementById('mermaid-input').value;
     const output = document.getElementById('mermaid-output');
     const placeholder = document.getElementById('mermaid-placeholder');
 
+    // Salva automaticamente no LocalStorage
+    localStorage.setItem('salvese_mermaid_code', input);
+
     if (!input.trim()) {
-        placeholder.style.display = 'block';
-        output.innerHTML = '';
+        if(placeholder) placeholder.style.display = 'block';
+        if(output) output.innerHTML = '';
         return;
     }
 
-    placeholder.style.display = 'none';
-    output.innerHTML = '<div class="animate-pulse">Gerando...</div>';
+    if(placeholder) placeholder.style.display = 'none';
+    if(output) output.innerHTML = '<div class="animate-pulse text-indigo-500">Gerando diagrama...</div>';
 
     try {
+        // Atualiza o tema do Mermaid baseado no tema atual do app
+        const currentTheme = document.documentElement.classList.contains('dark') ? 'dark' : 'default';
+        mermaid.initialize({ theme: currentTheme });
+
         const { svg } = await mermaid.render('mermaid-svg-' + Date.now(), input);
         output.innerHTML = svg;
     } catch (error) {
-        output.innerHTML = `<div class="text-red-500 text-sm p-4 border border-red-200 rounded bg-red-50">Erro na sintaxe:<br>${error.message}</div>`;
+        output.innerHTML = `
+            <div class="text-red-500 text-xs p-4 border border-red-200 dark:border-red-900 rounded bg-red-50 dark:bg-red-900/20 text-left">
+                <strong>Erro no código:</strong><br>
+                ${error.message}
+            </div>
+        `;
         console.error(error);
     }
 }
@@ -148,7 +176,6 @@ function saveData() {
     if (window.renderReminders) window.renderReminders();
     updateDashCounts();
 
-    // Atualiza widget de próxima aula ao salvar
     if (window.updateNextClassWidget) window.updateNextClassWidget();
 }
 
@@ -164,13 +191,15 @@ function updateDashCounts() {
 // --- REMINDERS LOGIC ---
 function toggleRemindersModal() {
     const modal = document.getElementById('reminders-modal');
-    const content = modal.firstElementChild;
+    const content = modal ? modal.firstElementChild : null;
+    if (!modal) return;
+
     if (modal.classList.contains('hidden')) {
         renderReminders();
         modal.classList.remove('hidden');
-        setTimeout(() => { modal.classList.remove('opacity-0'); content.classList.remove('scale-95'); content.classList.add('scale-100'); }, 10);
+        setTimeout(() => { modal.classList.remove('opacity-0'); if(content) { content.classList.remove('scale-95'); content.classList.add('scale-100'); } }, 10);
     } else {
-        modal.classList.add('opacity-0'); content.classList.remove('scale-100'); content.classList.add('scale-95');
+        modal.classList.add('opacity-0'); if(content) { content.classList.remove('scale-100'); content.classList.add('scale-95'); }
         setTimeout(() => modal.classList.add('hidden'), 300);
     }
 }

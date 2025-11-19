@@ -1,4 +1,4 @@
-const CACHE_NAME = 'salvese-v6.0-complete';
+const CACHE_NAME = 'salvese-v5.1-final-tasks'; // Versão atualizada para forçar limpeza de cache e carregar novas funcionalidades
 const URLS_TO_CACHE = [
     './',
     './index.html',
@@ -9,10 +9,11 @@ const URLS_TO_CACHE = [
     'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap',
     'https://files.catbox.moe/xvifnp.png',
     'https://media.tenor.com/q9CixI3CcrkAAAAj/dance.gif',
+    'https://media.tenor.com/IVh7YxGaB_4AAAAM/nerd-emoji.gif',
     'https://media.tenor.com/qL2ySe3uUgQAAAAj/gatto.gif'
 ];
 
-// 1. Instalação: Cacheia o básico
+// 1. Instalação: Cacheia o básico imediatamente
 self.addEventListener('install', event => {
     self.skipWaiting();
     event.waitUntil(
@@ -30,7 +31,7 @@ self.addEventListener('install', event => {
     );
 });
 
-// 2. Ativação: Limpa caches antigos
+// 2. Ativação: Limpa caches antigos (VERSÃO ANTERIOR SERÁ APAGADA AQUI)
 self.addEventListener('activate', event => {
     const cacheWhitelist = [CACHE_NAME];
     event.waitUntil(
@@ -38,6 +39,7 @@ self.addEventListener('activate', event => {
             return Promise.all(
                 cacheNames.map(cacheName => {
                     if (cacheWhitelist.indexOf(cacheName) === -1) {
+                        console.log('Deletando cache antigo:', cacheName);
                         return caches.delete(cacheName);
                     }
                 })
@@ -46,12 +48,14 @@ self.addEventListener('activate', event => {
     );
 });
 
-// 3. Interceptação: Network First (Prioriza conteúdo atualizado)
+// 3. Interceptação: ESTRATÉGIA NETWORK FIRST (Rede Primeiro)
+// Prioriza a internet para sempre mostrar a versão mais recente.
 self.addEventListener('fetch', event => {
     event.respondWith(
         fetch(event.request)
             .then(networkResponse => {
-                if (networkResponse && networkResponse.status === 200 && event.request.method === 'GET') {
+                // Se a resposta da rede for válida, atualiza o cache
+                if (networkResponse && networkResponse.status === 200) {
                     const responseToCache = networkResponse.clone();
                     caches.open(CACHE_NAME).then(cache => {
                         cache.put(event.request, responseToCache);
@@ -60,9 +64,15 @@ self.addEventListener('fetch', event => {
                 return networkResponse;
             })
             .catch(() => {
+                // Se falhar (offline), usa o cache
                 return caches.match(event.request).then(cachedResponse => {
-                    if (cachedResponse) return cachedResponse;
-                    if (event.request.mode === 'navigate') return caches.match('./index.html');
+                    if (cachedResponse) {
+                        return cachedResponse;
+                    }
+                    // Fallback para navegação
+                    if (event.request.mode === 'navigate') {
+                        return caches.match('./index.html');
+                    }
                 });
             })
     );

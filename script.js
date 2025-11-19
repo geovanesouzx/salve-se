@@ -130,11 +130,34 @@ function updateDashCounts() {
 }
 
 // ------------------------------------------------
-// --- SISTEMA DE GRADE REPAGINADO ---
+// --- CONFIGURAÇÃO DE HORÁRIOS CORRIGIDA ---
 // ------------------------------------------------
+
+// Definição exata dos blocos de horário
+const timeSlots = [
+    { start: "07:00", end: "08:00" },
+    { start: "08:00", end: "09:00" },
+    { start: "09:00", end: "10:00" },
+    { start: "10:00", end: "11:00" },
+    { start: "11:00", end: "12:00" },
+    { start: "12:00", end: "13:00" },
+    { start: "13:00", end: "14:00" },
+    { start: "14:00", end: "15:00" },
+    { start: "15:00", end: "16:00" },
+    { start: "16:00", end: "17:00" },
+    { start: "17:00", end: "18:00" }, // Adicionado o slot até 18h
+    { start: "18:30", end: "19:30" }, // Pula intervalo 18h-18h30
+    { start: "19:30", end: "20:30" },
+    { start: "20:30", end: "21:30" },
+    { start: "21:30", end: "22:30" }
+];
 
 const daysList = ['seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
 const daysDisplay = {'seg': 'Seg', 'ter': 'Ter', 'qua': 'Qua', 'qui': 'Qui', 'sex': 'Sex', 'sab': 'Sab'};
+
+// ------------------------------------------------
+// --- SISTEMA DE GRADE ---
+// ------------------------------------------------
 
 window.renderSchedule = function () {
     const viewContainer = document.getElementById('view-aulas');
@@ -146,7 +169,7 @@ window.renderSchedule = function () {
     const wrapper = document.createElement('div');
     wrapper.className = "max-w-6xl mx-auto pb-20 md:pb-10";
 
-    // Cabeçalho Desktop (escondido no mobile pois o layout do print já tem header próprio ou usa o da app)
+    // Cabeçalho Desktop
     const header = document.createElement('div');
     header.className = "hidden md:flex justify-between items-center mb-6 px-2";
     header.innerHTML = `
@@ -166,7 +189,7 @@ window.renderSchedule = function () {
     mobileHeader.innerText = "Minha Grade de Horários";
     wrapper.appendChild(mobileHeader);
 
-    // 1. VERSÃO MOBILE (Lista Vertical Estilo Print)
+    // 1. VERSÃO MOBILE (Lista Vertical por Dia)
     const mobileContainer = document.createElement('div');
     mobileContainer.className = "md:hidden space-y-6";
 
@@ -174,7 +197,7 @@ window.renderSchedule = function () {
         const daySection = document.createElement('div');
         daySection.className = "flex flex-col gap-3";
 
-        // Header do Dia: "Seg    +"
+        // Header do Dia
         const headerRow = document.createElement('div');
         headerRow.className = "flex justify-between items-center px-1";
         headerRow.innerHTML = `
@@ -203,20 +226,12 @@ window.renderSchedule = function () {
                 const colorKey = aula.color || 'indigo';
                 const palette = colorPalettes[colorKey] || colorPalettes['indigo'];
                 
-                // Usando cores dinâmicas para background e texto baseado na paleta escolhida
-                // Se o tema for dark, usamos uma opacidade no background para não ficar muito brilhante
-                
                 const card = document.createElement('div');
                 card.className = "relative rounded-xl p-4 cursor-pointer active:scale-[0.98] transition-transform overflow-hidden group";
-                
-                // Estilo inline para garantir as cores exatas da paleta selecionada
-                // Background suave, Borda lateral grossa
-                card.style.backgroundColor = `rgba(${palette[500]}, 0.12)`; // Fundo levemente colorido
+                card.style.backgroundColor = `rgba(${palette[500]}, 0.12)`;
                 
                 card.innerHTML = `
-                    <!-- Barra lateral colorida arredondada -->
                     <div class="absolute left-0 top-2 bottom-2 w-1.5 rounded-r-full" style="background-color: rgb(${palette[500]})"></div>
-                    
                     <div class="pl-3 flex justify-between items-start">
                         <div class="flex-1 pr-2">
                             <h4 class="font-bold text-base leading-tight mb-1" style="color: rgb(${palette[700]}); filter: brightness(0.8) contrast(1.5);">${aula.name}</h4>
@@ -232,9 +247,6 @@ window.renderSchedule = function () {
                     </div>
                 `;
                 
-                // Ajuste para modo escuro nas cores do texto via style inline condicional seria complexo aqui, 
-                // então confiamos nas classes tailwind e no background com transparência que funciona bem em ambos.
-                
                 card.onclick = () => openEditClassModal(aula.id);
                 cardsContainer.appendChild(card);
             });
@@ -245,36 +257,28 @@ window.renderSchedule = function () {
 
     wrapper.appendChild(mobileContainer);
 
-    // 2. VERSÃO DESKTOP (Tabela - Mantida para telas grandes)
+    // 2. VERSÃO DESKTOP (Tabela)
     const desktopContainer = document.createElement('div');
     desktopContainer.className = "hidden md:block bg-white dark:bg-darkcard rounded-xl border border-gray-200 dark:border-darkborder shadow-sm overflow-hidden";
     
-    // Header da Tabela Desktop
     let tableHTML = `
         <div class="overflow-x-auto">
             <table class="w-full text-sm border-collapse">
                 <thead class="bg-gray-50 dark:bg-neutral-900 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider">
                     <tr>
-                        <th class="p-4 text-left w-32 border-b dark:border-darkborder sticky left-0 bg-gray-50 dark:bg-neutral-900 z-10">Horário</th>
+                        <th class="p-4 text-left w-40 border-b dark:border-darkborder sticky left-0 bg-gray-50 dark:bg-neutral-900 z-10">Horário</th>
                         ${daysList.map(d => `<th class="p-4 text-center border-b dark:border-darkborder border-l dark:border-neutral-800 min-w-[120px]">${daysDisplay[d]}</th>`).join('')}
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100 dark:divide-darkborder">
     `;
 
-    // Corpo da Tabela Desktop
-    const timeSlots = [
-        { label: "07:00", start: "07:00" }, { label: "08:00", start: "08:00" }, { label: "09:00", start: "09:00" },
-        { label: "10:00", start: "10:00" }, { label: "11:00", start: "11:00" }, { label: "12:00", start: "12:00" },
-        { label: "13:00", start: "13:00" }, { label: "14:00", start: "14:00" }, { label: "15:00", start: "15:00" },
-        { label: "16:00", start: "16:00" }, { label: "17:00", start: "17:00" }, { label: "18:30", start: "18:30" },
-        { label: "19:30", start: "19:30" }, { label: "20:30", start: "20:30" }, { label: "21:30", start: "21:30" }
-    ];
     const occupied = {};
 
     timeSlots.forEach((slot, index) => {
         tableHTML += `<tr>`;
-        tableHTML += `<td class="p-3 font-mono text-xs font-bold text-gray-500 dark:text-gray-400 bg-gray-50/50 dark:bg-neutral-900/50 sticky left-0 z-10 border-r dark:border-darkborder">${slot.label}</td>`;
+        // Mostra o intervalo completo no Desktop (ex: 07:00 - 08:00)
+        tableHTML += `<td class="p-3 font-mono text-xs font-bold text-gray-500 dark:text-gray-400 bg-gray-50/50 dark:bg-neutral-900/50 sticky left-0 z-10 border-r dark:border-darkborder whitespace-nowrap">${slot.start} - ${slot.end}</td>`;
 
         daysList.forEach(day => {
             const cellKey = `${day}-${index}`;
@@ -283,13 +287,16 @@ window.renderSchedule = function () {
             const foundClass = scheduleData.find(c => c.day === day && c.start === slot.start);
             
             if (foundClass) {
-                let endIndex = timeSlots.findIndex(s => s.start === foundClass.end);
-                if (endIndex === -1) {
-                     if (foundClass.end === "22:30") endIndex = timeSlots.length;
-                     else endIndex = index + 1; 
-                }
+                // Encontra o índice do horário de fim para calcular o rowspan
+                let endIndex = timeSlots.findIndex(s => s.end === foundClass.end);
+                // Se não achar pelo fim (caso raro), tenta achar pelo inicio do proximo
+                if(endIndex === -1) endIndex = timeSlots.findIndex(s => s.start === foundClass.end) - 1;
                 
-                const span = Math.max(1, endIndex - index);
+                // Se ainda assim não achar, assume duração de 1 slot ou até o fim
+                if (endIndex === -1) endIndex = index; 
+                
+                const span = Math.max(1, (endIndex - index) + 1);
+                
                 for (let k = 1; k < span; k++) occupied[`${day}-${index + k}`] = true;
 
                 const colorKey = foundClass.color || 'indigo';
@@ -332,9 +339,17 @@ window.openAddClassModal = function (day, startHourStr) {
     resetModalFields();
     document.getElementById('modal-title').innerText = "Adicionar Aula";
     document.getElementById('btn-delete-class').classList.add('hidden');
+    
     if (day) document.getElementById('class-day').value = day;
+    else {
+         const todayIndex = new Date().getDay();
+         const map = ['dom','seg','ter','qua','qui','sex','sab'];
+         if(todayIndex > 0 && todayIndex < 7) document.getElementById('class-day').value = map[todayIndex];
+    }
+
     if (startHourStr) {
         document.getElementById('class-start').value = startHourStr;
+        // Tenta definir fim padrão como +2 slots (2 horas)
         updateEndTime(2);
     }
     toggleModal(true);
@@ -411,33 +426,49 @@ window.performDeleteClass = function () {
     closeDeleteConfirmation();
 };
 
-const timeSlots = [
-    { label: "07:00", start: "07:00" }, { label: "08:00", start: "08:00" }, { label: "09:00", start: "09:00" },
-    { label: "10:00", start: "10:00" }, { label: "11:00", start: "11:00" }, { label: "12:00", start: "12:00" },
-    { label: "13:00", start: "13:00" }, { label: "14:00", start: "14:00" }, { label: "15:00", start: "15:00" },
-    { label: "16:00", start: "16:00" }, { label: "17:00", start: "17:00" }, { label: "18:30", start: "18:30" },
-    { label: "19:30", start: "19:30" }, { label: "20:30", start: "20:30" }, { label: "21:30", start: "21:30" }
-];
-
 function resetModalFields() {
     document.getElementById('class-id').value = ''; document.getElementById('class-name').value = ''; document.getElementById('class-prof').value = '';
     document.getElementById('class-room').value = ''; document.getElementById('class-day').value = 'seg'; window.selectedColor = 'cyan';
-    const startSel = document.getElementById('class-start'); const endSel = document.getElementById('class-end');
-    startSel.innerHTML = ''; endSel.innerHTML = '';
-    const allTimes = timeSlots.map(s => s.start); allTimes.push("22:30");
-    allTimes.forEach(t => { const opt = `<option value="${t}">${t}</option>`; startSel.innerHTML += opt; endSel.innerHTML += opt; });
-    startSel.value = "07:00"; endSel.value = "09:00"; renderColorPicker();
+    
+    const startSel = document.getElementById('class-start'); 
+    const endSel = document.getElementById('class-end');
+    
+    startSel.innerHTML = ''; 
+    endSel.innerHTML = '';
+    
+    // Popula opções de Início (todos os slots disponíveis)
+    timeSlots.forEach(t => { 
+        const opt = `<option value="${t.start}">${t.start}</option>`; 
+        startSel.innerHTML += opt; 
+    });
+    
+    // Popula opções de Fim (todos os finais de slots disponíveis)
+    timeSlots.forEach(t => { 
+        const opt = `<option value="${t.end}">${t.end}</option>`; 
+        endSel.innerHTML += opt; 
+    });
+    
+    startSel.value = "07:00"; 
+    updateEndTime(2); // Define fim padrão como 2 slots depois
+    renderColorPicker();
 }
 
-function updateEndTime(defaultOffset = 2) {
+function updateEndTime(slotsToAdd = 2) {
     const startSel = document.getElementById('class-start');
     const endSel = document.getElementById('class-end');
     const startHourStr = startSel.value;
+    
+    // Encontra o índice do horário de início
     const idx = timeSlots.findIndex(s => s.start === startHourStr);
+    
     if (idx !== -1) {
-        let targetIdx = idx + defaultOffset;
-        if (targetIdx > timeSlots.length) targetIdx = timeSlots.length;
-        if (targetIdx < timeSlots.length) { endSel.value = timeSlots[targetIdx].start; } else { endSel.value = "22:30"; }
+        // Tenta definir o fim X slots depois (ex: 2 horas de aula)
+        let targetIdx = idx + (slotsToAdd - 1); 
+        
+        // Se passar do limite, pega o último horário
+        if (targetIdx >= timeSlots.length) targetIdx = timeSlots.length - 1;
+        
+        endSel.value = timeSlots[targetIdx].end;
     }
 }
 

@@ -21,6 +21,15 @@ body { font-family: 'Inter', sans-serif; transition: background-color 0.3s, colo
 .dark ::-webkit-scrollbar-thumb { background: #333; }
 .dark ::-webkit-scrollbar-thumb:hover { background: #555; }
 
+/* Utility to hide scrollbar for horizontal tabs */
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+.no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
 /* Nav Active State */
 .nav-item.active { background-color: rgb(var(--theme-100)); color: rgb(var(--theme-700)); border-right: 3px solid rgb(var(--theme-600)); }
 .dark .nav-item.active { background-color: #27272a; color: rgb(var(--theme-400)); border-right: 3px solid rgb(var(--theme-500)); }

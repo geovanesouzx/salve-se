@@ -230,19 +230,20 @@ window.renderSchedule = function () {
                 card.className = "relative rounded-xl p-4 cursor-pointer active:scale-[0.98] transition-transform overflow-hidden group";
                 card.style.backgroundColor = `rgba(${palette[500]}, 0.12)`;
                 
+                // Fonte AUMENTADA AQUI
                 card.innerHTML = `
                     <div class="absolute left-0 top-2 bottom-2 w-1.5 rounded-r-full" style="background-color: rgb(${palette[500]})"></div>
                     <div class="pl-3 flex justify-between items-start">
                         <div class="flex-1 pr-2">
-                            <h4 class="font-bold text-base leading-tight mb-1" style="color: rgb(${palette[700]}); filter: brightness(0.8) contrast(1.5);">${aula.name}</h4>
+                            <h4 class="font-bold text-xl leading-tight mb-1" style="color: rgb(${palette[700]}); filter: brightness(0.8) contrast(1.5);">${aula.name}</h4>
                             <div class="dark:text-gray-200 text-gray-900 font-medium">
-                                <p class="text-sm font-medium opacity-90" style="color: rgb(${palette[600]})">${aula.prof}</p>
-                                <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">${aula.room}</p>
+                                <p class="text-base font-medium opacity-90" style="color: rgb(${palette[600]})">${aula.prof}</p>
+                                <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">${aula.room}</p>
                             </div>
                         </div>
                         <div class="text-right flex flex-col items-end">
-                             <div class="text-xs font-bold opacity-80 mb-0.5" style="color: rgb(${palette[700]})">${aula.start}</div>
-                             <div class="text-xs opacity-60 dark:text-gray-400">${aula.end}</div>
+                             <div class="text-sm font-bold opacity-80 mb-0.5" style="color: rgb(${palette[700]})">${aula.start}</div>
+                             <div class="text-sm opacity-60 dark:text-gray-400">${aula.end}</div>
                         </div>
                     </div>
                 `;
@@ -305,12 +306,13 @@ window.renderSchedule = function () {
                 const borderStyle = `border-left: 4px solid rgb(${palette[500]})`;
                 const textStyle = `color: rgb(${palette[700]})`;
 
+                // Fonte AUMENTADA na tabela também
                 tableHTML += `
                     <td rowspan="${span}" class="p-1 align-top h-full border-l border-gray-100 dark:border-neutral-800 relative group cursor-pointer hover:brightness-95 dark:hover:brightness-110 transition" onclick="openEditClassModal('${foundClass.id}')">
                         <div class="h-full w-full rounded p-2 flex flex-col justify-center text-left shadow-sm" style="${bgStyle}; ${borderStyle}">
-                            <p class="text-xs font-bold truncate" style="${textStyle}">${foundClass.name}</p>
-                            <p class="text-[10px] text-gray-600 dark:text-gray-300 truncate opacity-80">${foundClass.prof}</p>
-                            <p class="text-[9px] text-gray-500 dark:text-gray-400 truncate mt-1 bg-white/50 dark:bg-black/20 rounded w-fit px-1">${foundClass.room}</p>
+                            <p class="text-sm font-bold truncate" style="${textStyle}">${foundClass.name}</p>
+                            <p class="text-xs text-gray-600 dark:text-gray-300 truncate opacity-80">${foundClass.prof}</p>
+                            <p class="text-[10px] text-gray-500 dark:text-gray-400 truncate mt-1 bg-white/50 dark:bg-black/20 rounded w-fit px-1">${foundClass.room}</p>
                         </div>
                     </td>
                 `;

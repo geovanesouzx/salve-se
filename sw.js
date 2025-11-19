@@ -7,7 +7,7 @@ const URLS_TO_CACHE = [
     'https://cdn.tailwindcss.com',
     'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css',
     'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap',
-    'https://files.catbox.moe/xvifnp.png',
+    'https://files.catbox.moe/pmdtq6.png',
     'https://media.tenor.com/q9CixI3CcrkAAAAj/dance.gif',
     'https://media.tenor.com/IVh7YxGaB_4AAAAM/nerd-emoji.gif',
     'https://media.tenor.com/qL2ySe3uUgQAAAAj/gatto.gif'

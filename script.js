@@ -34,8 +34,8 @@ const manifest = {
     "background_color": "#09090b",
     "theme_color": "#4f46e5",
     "icons": [
-        { "src": "https://files.catbox.moe/xvifnp.png", "sizes": "192x192", "type": "image/png" },
-        { "src": "https://files.catbox.moe/xvifnp.png", "sizes": "512x512", "type": "image/png" }
+        { "src": "https://files.catbox.moe/pmdtq6.png", "sizes": "192x192", "type": "image/png" },
+        { "src": "https://files.catbox.moe/pmdtq6.png", "sizes": "512x512", "type": "image/png" }
     ]
 };
 const stringManifest = JSON.stringify(manifest);

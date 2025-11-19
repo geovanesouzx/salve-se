@@ -37,12 +37,16 @@ document.querySelector('#pwa-manifest').setAttribute('href', manifestURL);
 // 2. Service Worker embutido (Blob)
 if ('serviceWorker' in navigator) {
     const swCode = `
-        const CACHE_NAME = 'salvese-v1-offline';
+        const CACHE_NAME = 'salvese-v1.1-offline'; // Versão atualizada para novos recursos
         const URLS_TO_CACHE = [
             'https://cdn.tailwindcss.com',
             'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css',
             'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap',
-            'https://files.catbox.moe/xvifnp.png'
+            'https://files.catbox.moe/xvifnp.png',
+            'https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js',
+            'https://media.tenor.com/q9CixI3CcrkAAAAj/dance.gif',
+            'https://media.tenor.com/IVh7YxGaB_4AAAAM/nerd-emoji.gif',
+            'https://media.tenor.com/qL2ySe3uUgQAAAAj/gatto.gif'
         ];
 
         self.addEventListener('install', event => {
@@ -133,6 +137,33 @@ if ('serviceWorker' in navigator) {
     window.addEventListener('online', updateNetworkStatus);
     window.addEventListener('offline', updateNetworkStatus);
 }
+
+// --- MERMAID (FLUXOGRAMA) ---
+mermaid.initialize({ startOnLoad: false, theme: 'default' });
+
+async function renderDiagram() {
+    const input = document.getElementById('mermaid-input').value;
+    const output = document.getElementById('mermaid-output');
+    const placeholder = document.getElementById('mermaid-placeholder');
+    
+    if(!input.trim()) {
+        placeholder.style.display = 'block';
+        output.innerHTML = '';
+        return;
+    }
+
+    placeholder.style.display = 'none';
+    output.innerHTML = '<div class="animate-pulse">Gerando...</div>';
+    
+    try {
+        const { svg } = await mermaid.render('mermaid-svg-' + Date.now(), input);
+        output.innerHTML = svg;
+    } catch (error) {
+        output.innerHTML = `<div class="text-red-500 text-sm p-4 border border-red-200 rounded bg-red-50">Erro na sintaxe:<br>${error.message}</div>`;
+        console.error(error);
+    }
+}
+
 
 // --- LOCAL STORAGE DATA HANDLING ---
 let scheduleData = JSON.parse(localStorage.getItem('salvese_schedule')) || [];
@@ -562,7 +593,7 @@ function switchPage(pageId) {
     document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
     const activeLink = document.getElementById(`nav-${pageId}`);
     if(activeLink) activeLink.classList.add('active');
-    const titles = { home: 'Página Principal', onibus: 'Transporte', calc: 'Calculadora', pomo: 'Modo Foco', todo: 'Tarefas', email: 'Templates', aulas: 'Grade Horária' };
+    const titles = { home: 'Página Principal', onibus: 'Transporte', calc: 'Calculadora', pomo: 'Modo Foco', todo: 'Tarefas', email: 'Templates', aulas: 'Grade Horária', fluxo: 'Fluxograma' };
     document.getElementById('page-title').innerText = titles[pageId] || 'Salve-se';
 }
 
@@ -842,7 +873,7 @@ function calculateAverage() {
         display.className = "text-6xl font-black text-green-500 dark:text-green-400 mb-6 transition-all duration-500 scale-110";
         feedback.innerHTML = `
             <div class="flex flex-col items-center animate-scale-in">
-                <img src="https://media.tenor.com/IVh7YxGaB_4AAAAM/nerd-emoji.gif" class="w-32 h-32 object-contain mb-4 drop-shadow-lg rounded-full">
+                <img src="https://media.tenor.com/q9CixI3CcrkAAAAj/dance.gif" class="w-32 h-32 object-contain mb-4 drop-shadow-lg rounded-full">
                 <p class="text-green-600 dark:text-green-400 font-bold text-lg">Parabéns! Aprovado!</p>
             </div>
         `;

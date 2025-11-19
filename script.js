@@ -103,63 +103,6 @@ if ('serviceWorker' in navigator) {
     window.addEventListener('offline', updateNetworkStatus);
 }
 
-// --- MERMAID (FLUXOGRAMA & MAPA MENTAL) ---
-if (typeof mermaid !== 'undefined') {
-    // Inicializa com configurações para suportar zoom e movimento futuramente se necessário
-    mermaid.initialize({ 
-        startOnLoad: false, 
-        theme: document.documentElement.classList.contains('dark') ? 'dark' : 'default',
-        securityLevel: 'loose',
-    });
-}
-
-// Carrega o diagrama salvo ao iniciar
-document.addEventListener('DOMContentLoaded', () => {
-    const savedDiagram = localStorage.getItem('salvese_mermaid_code');
-    const textarea = document.getElementById('mermaid-input');
-    if (savedDiagram && textarea) {
-        textarea.value = savedDiagram;
-        // Tenta renderizar automaticamente se houver algo salvo
-        if(savedDiagram.trim()) renderDiagram();
-    }
-});
-
-async function renderDiagram() {
-    const input = document.getElementById('mermaid-input').value;
-    const output = document.getElementById('mermaid-output');
-    const placeholder = document.getElementById('mermaid-placeholder');
-
-    // Salva automaticamente no LocalStorage
-    localStorage.setItem('salvese_mermaid_code', input);
-
-    if (!input.trim()) {
-        if(placeholder) placeholder.style.display = 'block';
-        if(output) output.innerHTML = '';
-        return;
-    }
-
-    if(placeholder) placeholder.style.display = 'none';
-    if(output) output.innerHTML = '<div class="animate-pulse text-indigo-500">Gerando diagrama...</div>';
-
-    try {
-        // Atualiza o tema do Mermaid baseado no tema atual do app
-        const currentTheme = document.documentElement.classList.contains('dark') ? 'dark' : 'default';
-        mermaid.initialize({ theme: currentTheme });
-
-        const { svg } = await mermaid.render('mermaid-svg-' + Date.now(), input);
-        output.innerHTML = svg;
-    } catch (error) {
-        output.innerHTML = `
-            <div class="text-red-500 text-xs p-4 border border-red-200 dark:border-red-900 rounded bg-red-50 dark:bg-red-900/20 text-left">
-                <strong>Erro no código:</strong><br>
-                ${error.message}
-            </div>
-        `;
-        console.error(error);
-    }
-}
-
-
 // --- LOCAL STORAGE DATA HANDLING ---
 let scheduleData = JSON.parse(localStorage.getItem('salvese_schedule')) || [];
 let tasksData = JSON.parse(localStorage.getItem('salvese_tasks')) || [];

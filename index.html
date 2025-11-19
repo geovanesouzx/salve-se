@@ -149,7 +149,8 @@
                 <button onclick="document.getElementById('mobile-menu').classList.remove('-translate-x-full')" class="text-gray-500 dark:text-gray-300 md:hidden p-1">
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
                 </button>
-                <span class="font-bold text-lg md:hidden">Salve-se</span>
+                <!-- Escondi o título "Salve-se" no mobile quando o relógio estiver ativo para não encavalar -->
+                <span class="font-bold text-lg md:hidden hidden sm:block">Salve-se</span>
                 <button onclick="toggleColorMenu('mobile')" class="md:hidden w-8 h-8 rounded-full bg-gray-100 dark:bg-neutral-800 hover:bg-gray-200 text-gray-500 flex items-center justify-center transition relative">
                       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-indigo-600" id="mobile-palette-icon"><circle cx="13.5" cy="6.5" r=".5"/><circle cx="17.5" cy="10.5" r=".5"/><circle cx="8.5" cy="7.5" r=".5"/><circle cx="6.5" cy="12.5" r=".5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>
                       <div id="color-menu-mobile" class="color-menu hidden absolute top-10 left-0 bg-white dark:bg-neutral-900 border border-gray-200 dark:border-darkborder shadow-xl rounded-xl p-3 z-50 w-48 grid grid-cols-5 gap-2"></div>
@@ -157,8 +158,9 @@
                 <h2 id="page-title" class="hidden md:block text-lg font-semibold text-gray-700 dark:text-gray-200">Página Principal</h2>
             </div>
 
-            <div class="absolute left-1/2 transform -translate-x-1/2 cursor-pointer select-none group hidden xs:block" onclick="cycleClockMode()" title="Clique para mudar o estilo">
-                <span id="clock" class="font-mono text-xl font-bold text-indigo-600 dark:text-indigo-400 tracking-widest group-hover:text-indigo-500 transition-colors">--:--:--</span>
+            <!-- CORREÇÃO AQUI: Removi 'hidden xs:block' e ajustei tamanhos de fonte para mobile/desktop -->
+            <div class="absolute left-1/2 transform -translate-x-1/2 cursor-pointer select-none group z-20" onclick="cycleClockMode()" title="Clique para mudar o estilo">
+                <span id="clock" class="font-mono text-sm md:text-xl font-bold text-indigo-600 dark:text-indigo-400 tracking-widest group-hover:text-indigo-500 transition-colors whitespace-nowrap">--:--:--</span>
             </div>
 
             <div class="flex items-center gap-2 md:gap-3">

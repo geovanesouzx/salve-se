@@ -26,7 +26,6 @@ function toggleTheme() {
 // --- LÓGICA PWA E OFFLINE ---
 // ------------------------------------------------
 
-// 1. Criar Manifesto Dinamicamente
 const manifest = {
     "name": "Salve-se Painel",
     "short_name": "Salve-se",
@@ -47,19 +46,16 @@ if (pwaManifestLink) {
     pwaManifestLink.setAttribute('href', manifestURL);
 }
 
-// 2. Registro do Service Worker com FORÇAR ATUALIZAÇÃO (Network First)
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         navigator.serviceWorker.register('./sw.js')
             .then(reg => {
                 console.log('SW registrado:', reg.scope);
-                // Força a atualização do Service Worker se houver uma nova versão
                 reg.update();
             })
             .catch(err => console.log('SW falhou:', err));
     });
 
-    // Lógica do botão instalar e Status de Rede
     let deferredPrompt;
     window.addEventListener('beforeinstallprompt', (e) => {
         e.preventDefault();
@@ -103,7 +99,9 @@ if ('serviceWorker' in navigator) {
     window.addEventListener('offline', updateNetworkStatus);
 }
 
-// --- LOCAL STORAGE DATA HANDLING ---
+// ------------------------------------------------
+// --- GESTÃO DE DADOS ---
+// ------------------------------------------------
 let scheduleData = JSON.parse(localStorage.getItem('salvese_schedule')) || [];
 let tasksData = JSON.parse(localStorage.getItem('salvese_tasks')) || [];
 let remindersData = JSON.parse(localStorage.getItem('salvese_reminders')) || [];
@@ -131,7 +129,443 @@ function updateDashCounts() {
     if(dashTaskCountEl) dashTaskCountEl.innerText = pending;
 }
 
-// --- REMINDERS LOGIC ---
+// ------------------------------------------------
+// --- SISTEMA DE GRADE REPAGINADO ---
+// ------------------------------------------------
+
+const daysList = ['seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
+const daysDisplay = {'seg': 'Seg', 'ter': 'Ter', 'qua': 'Qua', 'qui': 'Qui', 'sex': 'Sex', 'sab': 'Sab'};
+
+window.renderSchedule = function () {
+    const viewContainer = document.getElementById('view-aulas');
+    if (!viewContainer) return;
+
+    viewContainer.innerHTML = '';
+
+    // Container Principal
+    const wrapper = document.createElement('div');
+    wrapper.className = "max-w-6xl mx-auto pb-20 md:pb-10";
+
+    // Cabeçalho Desktop (escondido no mobile pois o layout do print já tem header próprio ou usa o da app)
+    const header = document.createElement('div');
+    header.className = "hidden md:flex justify-between items-center mb-6 px-2";
+    header.innerHTML = `
+        <div>
+            <h2 class="text-2xl font-bold text-gray-800 dark:text-white">Grade Horária</h2>
+            <p class="text-sm text-gray-500 dark:text-gray-400">Gerencie suas aulas da semana.</p>
+        </div>
+        <button onclick="openAddClassModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg shadow-md transition flex items-center gap-2 text-sm font-bold">
+            <i class="fas fa-plus"></i> <span>Nova Aula</span>
+        </button>
+    `;
+    wrapper.appendChild(header);
+
+    // Cabeçalho Mobile (Só título)
+    const mobileHeader = document.createElement('h2');
+    mobileHeader.className = "md:hidden text-xl font-bold text-gray-900 dark:text-white mb-6 px-1";
+    mobileHeader.innerText = "Minha Grade de Horários";
+    wrapper.appendChild(mobileHeader);
+
+    // 1. VERSÃO MOBILE (Lista Vertical Estilo Print)
+    const mobileContainer = document.createElement('div');
+    mobileContainer.className = "md:hidden space-y-6";
+
+    daysList.forEach(dayKey => {
+        const daySection = document.createElement('div');
+        daySection.className = "flex flex-col gap-3";
+
+        // Header do Dia: "Seg    +"
+        const headerRow = document.createElement('div');
+        headerRow.className = "flex justify-between items-center px-1";
+        headerRow.innerHTML = `
+            <h3 class="text-lg font-bold text-gray-800 dark:text-gray-100">${daysDisplay[dayKey]}</h3>
+            <button onclick="openAddClassModal('${dayKey}', '07:00')" class="text-gray-400 hover:text-indigo-600 transition p-1">
+                <i class="fas fa-plus"></i>
+            </button>
+        `;
+        daySection.appendChild(headerRow);
+
+        // Filtra aulas do dia
+        const classesToday = scheduleData
+            .filter(c => c.day === dayKey)
+            .sort((a, b) => parseInt(a.start.replace(':','')) - parseInt(b.start.replace(':','')));
+
+        const cardsContainer = document.createElement('div');
+        cardsContainer.className = "space-y-3";
+
+        if (classesToday.length === 0) {
+            cardsContainer.innerHTML = `
+                <p class="text-sm text-gray-400 italic pl-1">Nenhuma aula neste dia.</p>
+                <div class="border-b border-gray-100 dark:border-neutral-800 border-dashed my-1"></div>
+            `;
+        } else {
+            classesToday.forEach(aula => {
+                const colorKey = aula.color || 'indigo';
+                const palette = colorPalettes[colorKey] || colorPalettes['indigo'];
+                
+                // Usando cores dinâmicas para background e texto baseado na paleta escolhida
+                // Se o tema for dark, usamos uma opacidade no background para não ficar muito brilhante
+                
+                const card = document.createElement('div');
+                card.className = "relative rounded-xl p-4 cursor-pointer active:scale-[0.98] transition-transform overflow-hidden group";
+                
+                // Estilo inline para garantir as cores exatas da paleta selecionada
+                // Background suave, Borda lateral grossa
+                card.style.backgroundColor = `rgba(${palette[500]}, 0.12)`; // Fundo levemente colorido
+                
+                card.innerHTML = `
+                    <!-- Barra lateral colorida arredondada -->
+                    <div class="absolute left-0 top-2 bottom-2 w-1.5 rounded-r-full" style="background-color: rgb(${palette[500]})"></div>
+                    
+                    <div class="pl-3 flex justify-between items-start">
+                        <div class="flex-1 pr-2">
+                            <h4 class="font-bold text-base leading-tight mb-1" style="color: rgb(${palette[700]}); filter: brightness(0.8) contrast(1.5);">${aula.name}</h4>
+                            <div class="dark:text-gray-200 text-gray-900 font-medium">
+                                <p class="text-sm font-medium opacity-90" style="color: rgb(${palette[600]})">${aula.prof}</p>
+                                <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">${aula.room}</p>
+                            </div>
+                        </div>
+                        <div class="text-right flex flex-col items-end">
+                             <div class="text-xs font-bold opacity-80 mb-0.5" style="color: rgb(${palette[700]})">${aula.start}</div>
+                             <div class="text-xs opacity-60 dark:text-gray-400">${aula.end}</div>
+                        </div>
+                    </div>
+                `;
+                
+                // Ajuste para modo escuro nas cores do texto via style inline condicional seria complexo aqui, 
+                // então confiamos nas classes tailwind e no background com transparência que funciona bem em ambos.
+                
+                card.onclick = () => openEditClassModal(aula.id);
+                cardsContainer.appendChild(card);
+            });
+        }
+        daySection.appendChild(cardsContainer);
+        mobileContainer.appendChild(daySection);
+    });
+
+    wrapper.appendChild(mobileContainer);
+
+    // 2. VERSÃO DESKTOP (Tabela - Mantida para telas grandes)
+    const desktopContainer = document.createElement('div');
+    desktopContainer.className = "hidden md:block bg-white dark:bg-darkcard rounded-xl border border-gray-200 dark:border-darkborder shadow-sm overflow-hidden";
+    
+    // Header da Tabela Desktop
+    let tableHTML = `
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm border-collapse">
+                <thead class="bg-gray-50 dark:bg-neutral-900 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider">
+                    <tr>
+                        <th class="p-4 text-left w-32 border-b dark:border-darkborder sticky left-0 bg-gray-50 dark:bg-neutral-900 z-10">Horário</th>
+                        ${daysList.map(d => `<th class="p-4 text-center border-b dark:border-darkborder border-l dark:border-neutral-800 min-w-[120px]">${daysDisplay[d]}</th>`).join('')}
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100 dark:divide-darkborder">
+    `;
+
+    // Corpo da Tabela Desktop
+    const timeSlots = [
+        { label: "07:00", start: "07:00" }, { label: "08:00", start: "08:00" }, { label: "09:00", start: "09:00" },
+        { label: "10:00", start: "10:00" }, { label: "11:00", start: "11:00" }, { label: "12:00", start: "12:00" },
+        { label: "13:00", start: "13:00" }, { label: "14:00", start: "14:00" }, { label: "15:00", start: "15:00" },
+        { label: "16:00", start: "16:00" }, { label: "17:00", start: "17:00" }, { label: "18:30", start: "18:30" },
+        { label: "19:30", start: "19:30" }, { label: "20:30", start: "20:30" }, { label: "21:30", start: "21:30" }
+    ];
+    const occupied = {};
+
+    timeSlots.forEach((slot, index) => {
+        tableHTML += `<tr>`;
+        tableHTML += `<td class="p-3 font-mono text-xs font-bold text-gray-500 dark:text-gray-400 bg-gray-50/50 dark:bg-neutral-900/50 sticky left-0 z-10 border-r dark:border-darkborder">${slot.label}</td>`;
+
+        daysList.forEach(day => {
+            const cellKey = `${day}-${index}`;
+            if (occupied[cellKey]) return;
+
+            const foundClass = scheduleData.find(c => c.day === day && c.start === slot.start);
+            
+            if (foundClass) {
+                let endIndex = timeSlots.findIndex(s => s.start === foundClass.end);
+                if (endIndex === -1) {
+                     if (foundClass.end === "22:30") endIndex = timeSlots.length;
+                     else endIndex = index + 1; 
+                }
+                
+                const span = Math.max(1, endIndex - index);
+                for (let k = 1; k < span; k++) occupied[`${day}-${index + k}`] = true;
+
+                const colorKey = foundClass.color || 'indigo';
+                const palette = colorPalettes[colorKey] || colorPalettes['indigo'];
+                const bgStyle = `background-color: rgba(${palette[500]}, 0.15)`;
+                const borderStyle = `border-left: 4px solid rgb(${palette[500]})`;
+                const textStyle = `color: rgb(${palette[700]})`;
+
+                tableHTML += `
+                    <td rowspan="${span}" class="p-1 align-top h-full border-l border-gray-100 dark:border-neutral-800 relative group cursor-pointer hover:brightness-95 dark:hover:brightness-110 transition" onclick="openEditClassModal('${foundClass.id}')">
+                        <div class="h-full w-full rounded p-2 flex flex-col justify-center text-left shadow-sm" style="${bgStyle}; ${borderStyle}">
+                            <p class="text-xs font-bold truncate" style="${textStyle}">${foundClass.name}</p>
+                            <p class="text-[10px] text-gray-600 dark:text-gray-300 truncate opacity-80">${foundClass.prof}</p>
+                            <p class="text-[9px] text-gray-500 dark:text-gray-400 truncate mt-1 bg-white/50 dark:bg-black/20 rounded w-fit px-1">${foundClass.room}</p>
+                        </div>
+                    </td>
+                `;
+            } else {
+                tableHTML += `
+                    <td class="p-1 border-l border-gray-100 dark:border-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-800 transition cursor-pointer group" onclick="openAddClassModal('${day}', '${slot.start}')">
+                        <div class="w-full h-full flex items-center justify-center opacity-0 group-hover:opacity-100 text-gray-300 dark:text-neutral-600">
+                            <i class="fas fa-plus text-xs"></i>
+                        </div>
+                    </td>
+                `;
+            }
+        });
+        tableHTML += `</tr>`;
+    });
+
+    tableHTML += `</tbody></table></div>`;
+    desktopContainer.innerHTML = tableHTML;
+    wrapper.appendChild(desktopContainer);
+
+    viewContainer.appendChild(wrapper);
+};
+
+// --- FUNÇÕES DE MODAL E CORES ---
+window.openAddClassModal = function (day, startHourStr) {
+    resetModalFields();
+    document.getElementById('modal-title').innerText = "Adicionar Aula";
+    document.getElementById('btn-delete-class').classList.add('hidden');
+    if (day) document.getElementById('class-day').value = day;
+    if (startHourStr) {
+        document.getElementById('class-start').value = startHourStr;
+        updateEndTime(2);
+    }
+    toggleModal(true);
+}
+
+window.openEditClassModal = function (id) {
+    resetModalFields();
+    const classItem = scheduleData.find(c => c.id === id);
+    if (!classItem) return;
+    document.getElementById('modal-title').innerText = "Editar Aula";
+    document.getElementById('btn-delete-class').classList.remove('hidden');
+    document.getElementById('class-id').value = classItem.id;
+    document.getElementById('class-name').value = classItem.name;
+    document.getElementById('class-prof').value = classItem.prof;
+    document.getElementById('class-room').value = classItem.room;
+    document.getElementById('class-day').value = classItem.day;
+    document.getElementById('class-start').value = classItem.start;
+    document.getElementById('class-end').value = classItem.end;
+    window.selectedColor = classItem.color || 'cyan';
+    renderColorPicker();
+    toggleModal(true);
+}
+
+window.saveClass = function () {
+    const id = document.getElementById('class-id').value;
+    const name = document.getElementById('class-name').value;
+    const prof = document.getElementById('class-prof').value;
+    const room = document.getElementById('class-room').value;
+    const day = document.getElementById('class-day').value;
+    const start = document.getElementById('class-start').value;
+    const end = document.getElementById('class-end').value;
+
+    if (!name) return showModal('Erro', 'O nome da matéria é obrigatório!');
+
+    const classData = {
+        id: id || Date.now().toString(),
+        name, prof, room, day, start, end,
+        color: window.selectedColor
+    };
+
+    if (id) {
+        const index = scheduleData.findIndex(c => c.id === id);
+        if (index !== -1) scheduleData[index] = classData;
+    } else {
+        scheduleData.push(classData);
+    }
+
+    saveData();
+    toggleModal(false);
+};
+
+window.confirmDeleteClass = function () {
+    const id = document.getElementById('class-id').value;
+    if (!id) return;
+    selectedClassIdToDelete = id;
+    document.getElementById('class-modal').classList.add('opacity-0');
+    setTimeout(() => document.getElementById('class-modal').classList.add('hidden'), 300);
+    const confirmModal = document.getElementById('delete-confirmation-modal');
+    confirmModal.classList.remove('hidden');
+    setTimeout(() => { confirmModal.classList.remove('opacity-0'); confirmModal.firstElementChild.classList.remove('scale-95'); confirmModal.firstElementChild.classList.add('scale-100'); }, 10);
+};
+
+window.closeDeleteConfirmation = function () {
+    selectedClassIdToDelete = null;
+    const confirmModal = document.getElementById('delete-confirmation-modal');
+    confirmModal.classList.add('opacity-0'); confirmModal.firstElementChild.classList.remove('scale-100'); confirmModal.firstElementChild.classList.add('scale-95');
+    setTimeout(() => confirmModal.classList.add('hidden'), 300);
+};
+
+window.performDeleteClass = function () {
+    if (!selectedClassIdToDelete) return;
+    scheduleData = scheduleData.filter(c => c.id !== selectedClassIdToDelete);
+    saveData();
+    closeDeleteConfirmation();
+};
+
+const timeSlots = [
+    { label: "07:00", start: "07:00" }, { label: "08:00", start: "08:00" }, { label: "09:00", start: "09:00" },
+    { label: "10:00", start: "10:00" }, { label: "11:00", start: "11:00" }, { label: "12:00", start: "12:00" },
+    { label: "13:00", start: "13:00" }, { label: "14:00", start: "14:00" }, { label: "15:00", start: "15:00" },
+    { label: "16:00", start: "16:00" }, { label: "17:00", start: "17:00" }, { label: "18:30", start: "18:30" },
+    { label: "19:30", start: "19:30" }, { label: "20:30", start: "20:30" }, { label: "21:30", start: "21:30" }
+];
+
+function resetModalFields() {
+    document.getElementById('class-id').value = ''; document.getElementById('class-name').value = ''; document.getElementById('class-prof').value = '';
+    document.getElementById('class-room').value = ''; document.getElementById('class-day').value = 'seg'; window.selectedColor = 'cyan';
+    const startSel = document.getElementById('class-start'); const endSel = document.getElementById('class-end');
+    startSel.innerHTML = ''; endSel.innerHTML = '';
+    const allTimes = timeSlots.map(s => s.start); allTimes.push("22:30");
+    allTimes.forEach(t => { const opt = `<option value="${t}">${t}</option>`; startSel.innerHTML += opt; endSel.innerHTML += opt; });
+    startSel.value = "07:00"; endSel.value = "09:00"; renderColorPicker();
+}
+
+function updateEndTime(defaultOffset = 2) {
+    const startSel = document.getElementById('class-start');
+    const endSel = document.getElementById('class-end');
+    const startHourStr = startSel.value;
+    const idx = timeSlots.findIndex(s => s.start === startHourStr);
+    if (idx !== -1) {
+        let targetIdx = idx + defaultOffset;
+        if (targetIdx > timeSlots.length) targetIdx = timeSlots.length;
+        if (targetIdx < timeSlots.length) { endSel.value = timeSlots[targetIdx].start; } else { endSel.value = "22:30"; }
+    }
+}
+
+function toggleModal(show) {
+    const modal = document.getElementById('class-modal'); const content = document.getElementById('class-modal-content');
+    if (show) { modal.classList.remove('hidden'); setTimeout(() => { modal.classList.remove('opacity-0'); content.classList.remove('scale-95'); content.classList.add('scale-100'); }, 10); }
+    else { modal.classList.add('opacity-0'); content.classList.remove('scale-100'); content.classList.add('scale-95'); setTimeout(() => modal.classList.add('hidden'), 300); }
+}
+
+function renderColorPicker() {
+    const container = document.getElementById('color-picker-container');
+    if (!container) return;
+    container.innerHTML = '';
+    Object.keys(colorPalettes).forEach(color => {
+        const rgb = colorPalettes[color][500]; const isSelected = color === window.selectedColor;
+        const btn = document.createElement('button');
+        btn.className = `w-8 h-8 rounded-full flex items-center justify-center transition transform hover:scale-110 ${isSelected ? 'ring-2 ring-offset-2 ring-gray-400 dark:ring-gray-500 ring-offset-white dark:ring-offset-neutral-900' : ''}`;
+        btn.style.backgroundColor = `rgb(${rgb})`;
+        if (isSelected) { btn.innerHTML = '<i class="fas fa-check text-white text-xs"></i>'; }
+        btn.onclick = () => { window.selectedColor = color; renderColorPicker(); };
+        container.appendChild(btn);
+    });
+}
+
+// --- OUTRAS FUNCIONALIDADES (TASKS, REMINDERS, BUS, WIDGETS) ---
+
+function updateNextClassWidget() {
+    const container = document.getElementById('next-class-content');
+    if (!container) return;
+
+    const now = new Date();
+    const daysArr = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
+    const currentDay = daysArr[now.getDay()];
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+    const todayClasses = scheduleData.filter(c => c.day === currentDay);
+    todayClasses.sort((a, b) => {
+        const [hA, mA] = a.start.split(':').map(Number);
+        const [hB, mB] = b.start.split(':').map(Number);
+        return (hA * 60 + mA) - (hB * 60 + mB);
+    });
+
+    let nextClass = null;
+    let status = "";
+
+    for (let c of todayClasses) {
+        const [hStart, mStart] = c.start.split(':').map(Number);
+        const [hEnd, mEnd] = c.end.split(':').map(Number);
+        const startMins = hStart * 60 + mStart;
+        const endMins = hEnd * 60 + mEnd;
+
+        if (currentMinutes < startMins) {
+            nextClass = c;
+            status = 'future';
+            break;
+        } else if (currentMinutes >= startMins && currentMinutes < endMins) {
+            nextClass = c;
+            status = 'now';
+            break;
+        }
+    }
+
+    if (nextClass) {
+        const [hStart, mStart] = nextClass.start.split(':').map(Number);
+        const [hEnd, mEnd] = nextClass.end.split(':').map(Number);
+        const startMins = hStart * 60 + mStart;
+        const endMins = hEnd * 60 + mEnd;
+
+        let badgeHTML = '';
+        let progressHTML = '';
+
+        if (status === 'future') {
+            let diffMins = startMins - currentMinutes;
+            if (diffMins > 60) {
+                const h = Math.floor(diffMins / 60);
+                const m = diffMins % 60;
+                badgeHTML = `<div class="inline-flex items-center gap-1 bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-3 py-1 rounded-full text-xs font-bold mt-3 shadow-sm"><i class="far fa-clock"></i> Faltam ${h}h ${m}min</div>`;
+            } else {
+                badgeHTML = `<div class="inline-flex items-center gap-1 bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-3 py-1 rounded-full text-xs font-bold mt-3 shadow-sm"><i class="far fa-clock"></i> Faltam ${diffMins} min</div>`;
+            }
+        } else {
+            const totalDuration = endMins - startMins;
+            const elapsed = currentMinutes - startMins;
+            const percentage = Math.min(100, Math.max(0, (elapsed / totalDuration) * 100));
+            const remaining = endMins - currentMinutes;
+
+            badgeHTML = `<div class="inline-flex items-center gap-1 bg-green-600 text-white px-3 py-1 rounded-full text-xs font-bold mt-3 shadow-sm animate-pulse"><i class="fas fa-circle text-[8px]"></i> Acontecendo Agora</div>`;
+
+            progressHTML = `
+                <div class="w-full bg-gray-200 dark:bg-neutral-700 rounded-full h-1.5 mt-3">
+                    <div class="bg-green-500 h-1.5 rounded-full transition-all duration-1000" style="width: ${percentage}%"></div>
+                </div>
+                <p class="text-[10px] text-gray-400 dark:text-gray-500 text-right mt-1">Termina em ${remaining} min</p>
+            `;
+        }
+
+        container.innerHTML = `
+            <div class="animate-fade-in-up">
+                <h2 class="text-2xl font-bold text-gray-900 dark:text-white leading-tight mb-1 truncate" title="${nextClass.name}">${nextClass.name}</h2>
+                <p class="text-gray-500 dark:text-gray-400 font-medium mb-1 truncate">${nextClass.prof}</p>
+                <div class="text-sm text-gray-600 dark:text-gray-300 flex gap-3 mt-2 items-center">
+                    <span class="font-semibold flex items-center"><i class="fas fa-map-marker-alt mr-1.5 text-indigo-500"></i> ${nextClass.room}</span>
+                    <span class="flex items-center text-gray-400 dark:text-gray-500 text-xs bg-gray-100 dark:bg-neutral-800 px-2 py-0.5 rounded">${nextClass.start} - ${nextClass.end}</span>
+                </div>
+                ${badgeHTML}
+                ${progressHTML}
+            </div>
+        `;
+    } else {
+        const msg = scheduleData.length === 0
+            ? "Adicione aulas na Grade Horária."
+            : "Você está livre pelo resto do dia!";
+        const icon = scheduleData.length === 0 ? "fas fa-plus-circle" : "fas fa-couch";
+        const action = scheduleData.length === 0 ? "onclick=\"switchPage('aulas'); openAddClassModal()\" class='cursor-pointer hover:opacity-80 transition'" : "";
+
+        container.innerHTML = `
+            <div class="py-4 text-center" ${action}>
+                <div class="w-12 h-12 bg-gray-100 dark:bg-neutral-800 rounded-full flex items-center justify-center mx-auto mb-3 text-gray-400 dark:text-gray-500">
+                        <i class="${icon} text-xl"></i>
+                </div>
+                <h2 class="text-lg font-bold text-gray-400 dark:text-gray-500 mb-1 leading-tight">Sem mais aulas</h2>
+                <p class="text-xs text-gray-400 dark:text-gray-600 font-medium">${msg}</p>
+            </div>
+        `;
+    }
+}
+
+// Reminders Logic
 function toggleRemindersModal() {
     const modal = document.getElementById('reminders-modal');
     const content = modal ? modal.firstElementChild : null;
@@ -242,7 +676,7 @@ function renderReminders() {
     }
 }
 
-// --- TASK FUNCTIONS ---
+// Task Functions
 window.addTask = function () {
     const input = document.getElementById('todo-input');
     const text = input.value.trim();
@@ -300,166 +734,7 @@ window.renderTasks = function () {
     updateDashCounts();
 }
 
-// --- SCHEDULE FUNCTIONS ---
-window.saveClass = function () {
-    const id = document.getElementById('class-id').value;
-    const name = document.getElementById('class-name').value;
-    const prof = document.getElementById('class-prof').value;
-    const room = document.getElementById('class-room').value;
-    const day = document.getElementById('class-day').value;
-    const start = document.getElementById('class-start').value;
-    const end = document.getElementById('class-end').value;
-
-    if (!name) return showModal('Erro', 'O nome da matéria é obrigatório!');
-
-    const classData = {
-        id: id || Date.now().toString(),
-        name, prof, room, day, start, end,
-        color: window.selectedColor
-    };
-
-    if (id) {
-        const index = scheduleData.findIndex(c => c.id === id);
-        if (index !== -1) {
-            scheduleData[index] = classData;
-        }
-    } else {
-        scheduleData.push(classData);
-    }
-
-    saveData();
-    toggleModal(false);
-};
-
-window.confirmDeleteClass = function () {
-    const id = document.getElementById('class-id').value;
-    if (!id) return;
-    selectedClassIdToDelete = id;
-    document.getElementById('class-modal').classList.add('opacity-0');
-    setTimeout(() => document.getElementById('class-modal').classList.add('hidden'), 300);
-    const confirmModal = document.getElementById('delete-confirmation-modal');
-    confirmModal.classList.remove('hidden');
-    setTimeout(() => { confirmModal.classList.remove('opacity-0'); confirmModal.firstElementChild.classList.remove('scale-95'); confirmModal.firstElementChild.classList.add('scale-100'); }, 10);
-};
-
-window.closeDeleteConfirmation = function () {
-    selectedClassIdToDelete = null;
-    const confirmModal = document.getElementById('delete-confirmation-modal');
-    confirmModal.classList.add('opacity-0'); confirmModal.firstElementChild.classList.remove('scale-100'); confirmModal.firstElementChild.classList.add('scale-95');
-    setTimeout(() => confirmModal.classList.add('hidden'), 300);
-};
-
-window.performDeleteClass = function () {
-    if (!selectedClassIdToDelete) return;
-    scheduleData = scheduleData.filter(c => c.id !== selectedClassIdToDelete);
-    saveData();
-    closeDeleteConfirmation();
-};
-
-window.getScheduleData = () => scheduleData;
-
-function updateNextClassWidget() {
-    const container = document.getElementById('next-class-content');
-    if (!container) return;
-
-    const now = new Date();
-    const daysMap = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
-    const currentDay = daysMap[now.getDay()];
-    const currentMinutes = now.getHours() * 60 + now.getMinutes();
-
-    const todayClasses = scheduleData.filter(c => c.day === currentDay);
-
-    todayClasses.sort((a, b) => {
-        const [hA, mA] = a.start.split(':').map(Number);
-        const [hB, mB] = b.start.split(':').map(Number);
-        return (hA * 60 + mA) - (hB * 60 + mB);
-    });
-
-    let nextClass = null;
-    let status = "";
-
-    for (let c of todayClasses) {
-        const [hStart, mStart] = c.start.split(':').map(Number);
-        const [hEnd, mEnd] = c.end.split(':').map(Number);
-        const startMins = hStart * 60 + mStart;
-        const endMins = hEnd * 60 + mEnd;
-
-        if (currentMinutes < startMins) {
-            nextClass = c;
-            status = 'future';
-            break;
-        } else if (currentMinutes >= startMins && currentMinutes < endMins) {
-            nextClass = c;
-            status = 'now';
-            break;
-        }
-    }
-
-    if (nextClass) {
-        const [hStart, mStart] = nextClass.start.split(':').map(Number);
-        const [hEnd, mEnd] = nextClass.end.split(':').map(Number);
-        const startMins = hStart * 60 + mStart;
-        const endMins = hEnd * 60 + mEnd;
-
-        let badgeHTML = '';
-        let progressHTML = '';
-
-        if (status === 'future') {
-            let diffMins = startMins - currentMinutes;
-            if (diffMins > 60) {
-                const h = Math.floor(diffMins / 60);
-                const m = diffMins % 60;
-                badgeHTML = `<div class="inline-flex items-center gap-1 bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-3 py-1 rounded-full text-xs font-bold mt-3 shadow-sm"><i class="far fa-clock"></i> Faltam ${h}h ${m}min</div>`;
-            } else {
-                badgeHTML = `<div class="inline-flex items-center gap-1 bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-3 py-1 rounded-full text-xs font-bold mt-3 shadow-sm"><i class="far fa-clock"></i> Faltam ${diffMins} min</div>`;
-            }
-        } else {
-            const totalDuration = endMins - startMins;
-            const elapsed = currentMinutes - startMins;
-            const percentage = Math.min(100, Math.max(0, (elapsed / totalDuration) * 100));
-            const remaining = endMins - currentMinutes;
-
-            badgeHTML = `<div class="inline-flex items-center gap-1 bg-green-600 text-white px-3 py-1 rounded-full text-xs font-bold mt-3 shadow-sm animate-pulse"><i class="fas fa-circle text-[8px]"></i> Acontecendo Agora</div>`;
-
-            progressHTML = `
-                <div class="w-full bg-gray-200 dark:bg-neutral-700 rounded-full h-1.5 mt-3">
-                    <div class="bg-green-500 h-1.5 rounded-full transition-all duration-1000" style="width: ${percentage}%"></div>
-                </div>
-                <p class="text-[10px] text-gray-400 dark:text-gray-500 text-right mt-1">Termina em ${remaining} min</p>
-            `;
-        }
-
-        container.innerHTML = `
-            <div class="animate-fade-in-up">
-                <h2 class="text-2xl font-bold text-gray-900 dark:text-white leading-tight mb-1 truncate" title="${nextClass.name}">${nextClass.name}</h2>
-                <p class="text-gray-500 dark:text-gray-400 font-medium mb-1 truncate">${nextClass.prof}</p>
-                <div class="text-sm text-gray-600 dark:text-gray-300 flex gap-3 mt-2 items-center">
-                    <span class="font-semibold flex items-center"><i class="fas fa-map-marker-alt mr-1.5 text-indigo-500"></i> ${nextClass.room}</span>
-                    <span class="flex items-center text-gray-400 dark:text-gray-500 text-xs bg-gray-100 dark:bg-neutral-800 px-2 py-0.5 rounded">${nextClass.start} - ${nextClass.end}</span>
-                </div>
-                ${badgeHTML}
-                ${progressHTML}
-            </div>
-        `;
-    } else {
-        const msg = scheduleData.length === 0
-            ? "Adicione aulas na Grade Horária."
-            : "Você está livre pelo resto do dia!";
-        const icon = scheduleData.length === 0 ? "fas fa-plus-circle" : "fas fa-couch";
-        const action = scheduleData.length === 0 ? "onclick=\"switchPage('aulas'); openAddClassModal()\" class='cursor-pointer hover:opacity-80 transition'" : "";
-
-        container.innerHTML = `
-            <div class="py-4 text-center" ${action}>
-                <div class="w-12 h-12 bg-gray-100 dark:bg-neutral-800 rounded-full flex items-center justify-center mx-auto mb-3 text-gray-400 dark:text-gray-500">
-                        <i class="${icon} text-xl"></i>
-                </div>
-                <h2 class="text-lg font-bold text-gray-400 dark:text-gray-500 mb-1 leading-tight">Sem mais aulas</h2>
-                <p class="text-xs text-gray-400 dark:text-gray-600 font-medium">${msg}</p>
-            </div>
-        `;
-    }
-}
-
+// Inicialização
 document.addEventListener('DOMContentLoaded', () => {
     renderTasks();
     renderReminders();
@@ -485,7 +760,6 @@ function closeGenericModal() {
     }
 }
 
-// ... Cores e outras funções auxiliares ...
 const colorPalettes = {
     cyan: { 50: '236 254 255', 100: '207 250 254', 200: '165 243 252', 300: '103 232 249', 400: '34 211 238', 500: '6 182 212', 600: '8 145 178', 700: '14 116 144', 800: '21 94 117', 900: '22 78 99' },
     red: { 50: '254 242 242', 100: '254 226 226', 200: '254 202 202', 300: '252 165 165', 400: '248 113 113', 500: '239 68 68', 600: '220 38 38', 700: '185 28 28', 800: '153 27 27', 900: '127 29 29' },
@@ -556,6 +830,9 @@ function switchPage(pageId) {
     const titles = { home: 'Página Principal', onibus: 'Transporte', calc: 'Calculadora', pomo: 'Modo Foco', todo: 'Tarefas', email: 'Templates', aulas: 'Grade Horária', fluxo: 'Fluxograma' };
     const pageTitleEl = document.getElementById('page-title');
     if (pageTitleEl) pageTitleEl.innerText = titles[pageId] || 'Salve-se';
+    
+    // Trigger render if switching to schedule
+    if(pageId === 'aulas' && window.renderSchedule) window.renderSchedule();
 }
 
 let clockMode = 0;
@@ -575,151 +852,6 @@ function updateClock() {
     if (clockEl) clockEl.innerText = timeString;
 }
 setInterval(updateClock, 1000); updateClock();
-
-const days = ['seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
-const timeSlots = [
-    { label: "07:00-08:00", start: "07:00" }, { label: "08:00-09:00", start: "08:00" }, { label: "09:00-10:00", start: "09:00" },
-    { label: "10:00-11:00", start: "10:00" }, { label: "11:00-12:00", start: "11:00" }, { label: "12:00-13:00", start: "12:00" },
-    { label: "13:00-14:00", start: "13:00" }, { label: "14:00-15:00", start: "14:00" }, { label: "15:00-16:00", start: "15:00" },
-    { label: "16:00-17:00", start: "16:00" }, { label: "17:00-18:00", start: "17:00" }, { label: "18:30-19:30", start: "18:30" },
-    { label: "19:30-20:30", start: "19:30" }, { label: "20:30-21:30", start: "20:30" }, { label: "21:30-22:30", start: "21:30" }
-];
-
-window.selectedColor = 'cyan';
-window.renderSchedule = function () {
-    const tbody = document.getElementById('schedule-body');
-    if (!tbody) return;
-
-    const data = window.getScheduleData ? window.getScheduleData() : [];
-    tbody.innerHTML = '';
-
-    const occupied = {};
-
-    timeSlots.forEach((slot, index) => {
-        const row = document.createElement('tr');
-        row.innerHTML = `<td class="w-32 py-3 px-4 font-medium bg-gray-50 dark:bg-darkcard text-gray-500 dark:text-gray-400 text-left sticky left-0 z-10 text-xs">${slot.label}</td>`;
-
-        days.forEach(day => {
-            const cellKey = `${day}-${index}`;
-            if (occupied[cellKey]) return;
-
-            const foundClass = data.find(c => c.day === day && c.start === slot.start);
-            const cell = document.createElement('td');
-            cell.className = "schedule-cell cursor-pointer relative group";
-
-            if (foundClass) {
-                const startIndex = index;
-                let endIndex = timeSlots.findIndex(s => s.start === foundClass.end);
-                if (endIndex === -1) {
-                    if (foundClass.end === "22:30") endIndex = timeSlots.length;
-                    else endIndex = startIndex + 1;
-                }
-                const span = Math.max(1, endIndex - startIndex);
-                for (let i = 1; i < span; i++) occupied[`${day}-${startIndex + i}`] = true;
-
-                cell.rowSpan = span;
-                const rgb = colorPalettes[foundClass.color] ? colorPalettes[foundClass.color][500] : '99, 102, 241';
-                const lighterBg = colorPalettes[foundClass.color] ? `rgb(${colorPalettes[foundClass.color][100]})` : '#EEF2FF';
-                const darkBg = colorPalettes[foundClass.color] ? `rgba(${colorPalettes[foundClass.color][500]}, 0.15)` : 'rgba(99, 102, 241, 0.2)';
-                const borderColor = `rgb(${rgb})`;
-
-                cell.innerHTML = `
-                    <div onclick="openEditClassModal('${foundClass.id}')" 
-                         class="w-full h-full rounded-r-md p-2 text-left border-l-4 shadow-sm animate-scale-in relative hover:shadow-md transition-shadow overflow-hidden flex flex-col justify-center" 
-                         style="background-color: var(--cell-bg); border-left-color: ${borderColor};">
-                        <style>
-                            .light .schedule-cell div { --cell-bg: ${lighterBg}; }
-                            .dark .schedule-cell div { --cell-bg: ${darkBg}; }
-                        </style>
-                        <p class="text-[11px] font-bold truncate leading-tight mb-1" style="color: ${borderColor}">${foundClass.name}</p>
-                        <p class="text-[10px] text-gray-600 dark:text-gray-300 truncate opacity-90 leading-tight">${foundClass.prof}</p>
-                        <p class="text-[9px] text-gray-500 dark:text-gray-400 truncate opacity-70 leading-tight mt-0.5">${foundClass.room}</p>
-                    </div>`;
-            } else {
-                cell.innerHTML = `<div onclick="openAddClassModal('${day}', '${slot.start}')" class="add-btn-minimal"><i class="fas fa-plus"></i></div>`;
-            }
-            row.appendChild(cell);
-        });
-        tbody.appendChild(row);
-    });
-}
-
-window.openAddClassModal = function (day, startHourStr) {
-    resetModalFields();
-    document.getElementById('modal-title').innerText = "Adicionar Aula";
-    document.getElementById('btn-delete-class').classList.add('hidden');
-    if (day) document.getElementById('class-day').value = day;
-    if (startHourStr) {
-        document.getElementById('class-start').value = startHourStr;
-        updateEndTime(2);
-    }
-    toggleModal(true);
-}
-
-window.openEditClassModal = function (id) {
-    resetModalFields();
-    const data = window.getScheduleData();
-    const classItem = data.find(c => c.id === id);
-    if (!classItem) return;
-    document.getElementById('modal-title').innerText = "Editar Aula";
-    document.getElementById('btn-delete-class').classList.remove('hidden');
-    document.getElementById('class-id').value = classItem.id;
-    document.getElementById('class-name').value = classItem.name;
-    document.getElementById('class-prof').value = classItem.prof;
-    document.getElementById('class-room').value = classItem.room;
-    document.getElementById('class-day').value = classItem.day;
-    document.getElementById('class-start').value = classItem.start;
-    document.getElementById('class-end').value = classItem.end;
-    window.selectedColor = classItem.color || 'cyan';
-    renderColorPicker();
-    toggleModal(true);
-}
-
-function resetModalFields() {
-    document.getElementById('class-id').value = ''; document.getElementById('class-name').value = ''; document.getElementById('class-prof').value = '';
-    document.getElementById('class-room').value = ''; document.getElementById('class-day').value = 'seg'; window.selectedColor = 'cyan';
-    const startSel = document.getElementById('class-start'); const endSel = document.getElementById('class-end');
-    startSel.innerHTML = ''; endSel.innerHTML = '';
-    const allTimes = timeSlots.map(s => s.start); allTimes.push("22:30");
-    allTimes.forEach(t => { const opt = `<option value="${t}">${t}</option>`; startSel.innerHTML += opt; endSel.innerHTML += opt; });
-    startSel.value = "07:00"; endSel.value = "09:00"; renderColorPicker();
-}
-
-function updateEndTime(defaultOffset = 2) {
-    const startSel = document.getElementById('class-start');
-    const endSel = document.getElementById('class-end');
-    const startHourStr = startSel.value;
-    const idx = timeSlots.findIndex(s => s.start === startHourStr);
-
-    if (idx !== -1) {
-        let targetIdx = idx + defaultOffset;
-        if (targetIdx > timeSlots.length) targetIdx = timeSlots.length;
-        if (targetIdx < timeSlots.length) { endSel.value = timeSlots[targetIdx].start; } else { endSel.value = "22:30"; }
-    }
-}
-
-function setEndTimeBasedOnStart(startHourStr) { updateEndTime(2); }
-
-function renderColorPicker() {
-    const container = document.getElementById('color-picker-container');
-    if (!container) return;
-    container.innerHTML = '';
-    Object.keys(colorPalettes).forEach(color => {
-        const rgb = colorPalettes[color][500]; const isSelected = color === window.selectedColor;
-        const btn = document.createElement('button');
-        btn.className = `w-8 h-8 rounded-full flex items-center justify-center transition transform hover:scale-110 ${isSelected ? 'ring-2 ring-offset-2 ring-gray-400 dark:ring-gray-500 ring-offset-white dark:ring-offset-neutral-900' : ''}`;
-        btn.style.backgroundColor = `rgb(${rgb})`;
-        if (isSelected) { btn.innerHTML = '<i class="fas fa-check text-white text-xs"></i>'; }
-        btn.onclick = () => { window.selectedColor = color; renderColorPicker(); };
-        container.appendChild(btn);
-    });
-}
-
-function toggleModal(show) {
-    const modal = document.getElementById('class-modal'); const content = document.getElementById('class-modal-content');
-    if (show) { modal.classList.remove('hidden'); setTimeout(() => { modal.classList.remove('opacity-0'); content.classList.remove('scale-95'); content.classList.add('scale-100'); }, 10); }
-    else { modal.classList.add('opacity-0'); content.classList.remove('scale-100'); content.classList.add('scale-95'); setTimeout(() => modal.classList.add('hidden'), 300); }
-}
 
 function addTime(baseTime, minutesToAdd) { const [h, m] = baseTime.split(':').map(Number); const date = new Date(); date.setHours(h); date.setMinutes(m + minutesToAdd); return date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }); }
 function createTrip(startTime, endTime, routeType, speed = 'normal') {

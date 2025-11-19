@@ -12,8 +12,8 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="apple-touch-icon" href="https://files.catbox.moe/xvifnp.png">
 
-    <!-- CSS Externo (Adicionado ?v=2 para forçar atualização) -->
-    <link rel="stylesheet" href="style.css?v=2">
+    <!-- CSS Externo -->
+    <link rel="stylesheet" href="style.css?v=3">
 
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -87,20 +87,20 @@
             <p class="px-3 text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Principal</p>
             
             <a onclick="switchPage('home')" id="nav-home" class="nav-item active flex items-center px-3 py-2.5 text-sm font-medium rounded-md cursor-pointer text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-darkhover transition-colors">
-                <!-- Icone Home (Linha) -->
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                <!-- Icone Página Principal (Inbox) -->
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
                 Página Principal
             </a>
             
             <a onclick="switchPage('aulas')" id="nav-aulas" class="nav-item flex items-center px-3 py-2.5 text-sm font-medium rounded-md cursor-pointer text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-darkhover transition-colors">
-                <!-- Icone Calendar (Linha) -->
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
+                <!-- Icone Aulas (Calendar) -->
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg>
                 Aulas
             </a>
             
             <a onclick="switchPage('onibus')" id="nav-onibus" class="nav-item flex items-center px-3 py-2.5 text-sm font-medium rounded-md cursor-pointer text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-darkhover transition-colors">
-                <!-- Icone Bus (Linha) -->
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3"><path d="M8 6v6"/><path d="M15 6v6"/><path d="M2 12h19.6"/><path d="M18 18h3s.5-1.7.8-2.8c.1-.4.2-.8.2-1.2 0-.4-.1-.8-.2-1.2l-1.4-5C20.1 6.8 19.1 6 18 6H4a2 2 0 0 0-2 2v10h3"/><circle cx="7" cy="18" r="2"/><path d="M9 18h5"/><circle cx="16" cy="18" r="2"/></svg>
+                <!-- Icone Circular (Bus Front) -->
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3"><path d="M4 6 2 7"/><path d="M10 6h4"/><path d="m22 7-2-1"/><rect width="16" height="16" x="4" y="3" rx="2"/><path d="M4 11h16"/><path d="M8 15h.01"/><path d="M16 15h.01"/><path d="M6 19v2"/><path d="M18 21v-2"/></svg>
                 Circular
             </a>
             
@@ -108,31 +108,31 @@
             <p class="px-3 text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Ferramentas</p>
             
             <a onclick="switchPage('calc')" id="nav-calc" class="nav-item flex items-center px-3 py-2.5 text-sm font-medium rounded-md cursor-pointer text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-darkhover transition-colors">
-                <!-- Icone Calculadora (Linha) -->
+                <!-- Icone Calculadora (Calculator) -->
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3"><rect width="16" height="20" x="4" y="2" rx="2"/><line x1="8" x2="16" y1="6" y2="6"/><line x1="16" x2="16" y1="14" y2="18"/><path d="M16 10h.01"/><path d="M12 10h.01"/><path d="M8 10h.01"/><path d="M12 14h.01"/><path d="M8 14h.01"/><path d="M12 18h.01"/><path d="M8 18h.01"/></svg>
                 Calculadora
             </a>
             
             <a onclick="switchPage('fluxo')" id="nav-fluxo" class="nav-item flex items-center px-3 py-2.5 text-sm font-medium rounded-md cursor-pointer text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-darkhover transition-colors">
-                <!-- Icone Fluxo (Linha) -->
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3"><rect width="8" height="8" x="3" y="3" rx="2"/><path d="M7 11v4a2 2 0 0 0 2 2h4"/><rect width="8" height="8" x="13" y="13" rx="2"/></svg>
+                <!-- Icone Fluxograma (Workflow) -->
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3"><rect x="3" y="3" width="6" height="6" rx="1"/><rect x="15" y="3" width="6" height="6" rx="1"/><rect x="9" y="15" width="6" height="6" rx="1"/><path d="M6 9v3a3 3 0 0 0 3 3h6a3 3 0 0 0 3-3V9"/><path d="M12 12v3"/></svg>
                 Fluxograma
             </a>
 
             <a onclick="switchPage('pomo')" id="nav-pomo" class="nav-item flex items-center px-3 py-2.5 text-sm font-medium rounded-md cursor-pointer text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-darkhover transition-colors">
-                <!-- Icone Relogio (Linha) -->
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                <!-- Icone Modo Foco (Timer) -->
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3"><line x1="10" x2="14" y1="2" y2="2"/><line x1="12" x2="15" y1="14" y2="11"/><circle cx="12" cy="14" r="8"/></svg>
                 Modo Foco
             </a>
             
             <a onclick="switchPage('todo')" id="nav-todo" class="nav-item flex items-center px-3 py-2.5 text-sm font-medium rounded-md cursor-pointer text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-darkhover transition-colors">
-                <!-- Icone Check (Linha) -->
+                <!-- Icone Tarefas (Check Square) -->
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
                 Tarefas
             </a>
             
             <a onclick="switchPage('email')" id="nav-email" class="nav-item flex items-center px-3 py-2.5 text-sm font-medium rounded-md cursor-pointer text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-darkhover transition-colors">
-                <!-- Icone Email (Linha) -->
+                <!-- Icone Templates (Mail) -->
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
                 Templates
             </a>
@@ -198,43 +198,43 @@
             </div>
             <nav class="flex-1 overflow-y-auto p-4 space-y-2">
                  <a onclick="switchPage('home'); document.getElementById('mobile-menu').classList.add('-translate-x-full')" class="block px-4 py-3 rounded-lg bg-gray-50 dark:bg-neutral-800 text-gray-800 dark:text-gray-200 font-medium">
-                    <!-- Icone Home (Linha) -->
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3 inline-block"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                    <!-- Icone Página Principal (Inbox) -->
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3 inline-block"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
                     Principal
                 </a>
                 <a onclick="switchPage('aulas'); document.getElementById('mobile-menu').classList.add('-translate-x-full')" class="block px-4 py-3 rounded-lg hover:bg-gray-50 dark:hover:bg-neutral-800 text-gray-600 dark:text-gray-400 font-medium transition">
-                    <!-- Icone Calendar (Linha) -->
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3 inline-block"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
+                    <!-- Icone Aulas (Calendar) -->
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3 inline-block"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg>
                     Aulas
                 </a>
                 <a onclick="switchPage('onibus'); document.getElementById('mobile-menu').classList.add('-translate-x-full')" class="block px-4 py-3 rounded-lg hover:bg-gray-50 dark:hover:bg-neutral-800 text-gray-600 dark:text-gray-400 font-medium transition">
-                    <!-- Icone Bus (Linha) -->
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3 inline-block"><path d="M8 6v6"/><path d="M15 6v6"/><path d="M2 12h19.6"/><path d="M18 18h3s.5-1.7.8-2.8c.1-.4.2-.8.2-1.2 0-.4-.1-.8-.2-1.2l-1.4-5C20.1 6.8 19.1 6 18 6H4a2 2 0 0 0-2 2v10h3"/><circle cx="7" cy="18" r="2"/><path d="M9 18h5"/><circle cx="16" cy="18" r="2"/></svg>
+                    <!-- Icone Circular (Bus Front) -->
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3 inline-block"><path d="M4 6 2 7"/><path d="M10 6h4"/><path d="m22 7-2-1"/><rect width="16" height="16" x="4" y="3" rx="2"/><path d="M4 11h16"/><path d="M8 15h.01"/><path d="M16 15h.01"/><path d="M6 19v2"/><path d="M18 21v-2"/></svg>
                     Circular
                 </a>
                 <hr class="border-gray-200 dark:border-neutral-800 my-2">
                  <a onclick="switchPage('calc'); document.getElementById('mobile-menu').classList.add('-translate-x-full')" class="block px-4 py-3 rounded-lg hover:bg-gray-50 dark:hover:bg-neutral-800 text-gray-600 dark:text-gray-400 font-medium transition">
-                    <!-- Icone Calculadora (Linha) -->
+                    <!-- Icone Calculadora (Calculator) -->
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3 inline-block"><rect width="16" height="20" x="4" y="2" rx="2"/><line x1="8" x2="16" y1="6" y2="6"/><line x1="16" x2="16" y1="14" y2="18"/><path d="M16 10h.01"/><path d="M12 10h.01"/><path d="M8 10h.01"/><path d="M12 14h.01"/><path d="M8 14h.01"/><path d="M12 18h.01"/><path d="M8 18h.01"/></svg>
                     Calculadora
                 </a>
                  <a onclick="switchPage('fluxo'); document.getElementById('mobile-menu').classList.add('-translate-x-full')" class="block px-4 py-3 rounded-lg hover:bg-gray-50 dark:hover:bg-neutral-800 text-gray-600 dark:text-gray-400 font-medium transition">
-                    <!-- Icone Fluxo (Linha) -->
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3 inline-block"><rect width="8" height="8" x="3" y="3" rx="2"/><path d="M7 11v4a2 2 0 0 0 2 2h4"/><rect width="8" height="8" x="13" y="13" rx="2"/></svg>
+                    <!-- Icone Fluxograma (Workflow) -->
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3 inline-block"><rect x="3" y="3" width="6" height="6" rx="1"/><rect x="15" y="3" width="6" height="6" rx="1"/><rect x="9" y="15" width="6" height="6" rx="1"/><path d="M6 9v3a3 3 0 0 0 3 3h6a3 3 0 0 0 3-3V9"/><path d="M12 12v3"/></svg>
                     Fluxograma
                 </a>
                 <a onclick="switchPage('pomo'); document.getElementById('mobile-menu').classList.add('-translate-x-full')" class="block px-4 py-3 rounded-lg hover:bg-gray-50 dark:hover:bg-neutral-800 text-gray-600 dark:text-gray-400 font-medium transition">
-                    <!-- Icone Relogio (Linha) -->
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3 inline-block"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    <!-- Icone Modo Foco (Timer) -->
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3 inline-block"><line x1="10" x2="14" y1="2" y2="2"/><line x1="12" x2="15" y1="14" y2="11"/><circle cx="12" cy="14" r="8"/></svg>
                     Modo Foco
                 </a>
                 <a onclick="switchPage('todo'); document.getElementById('mobile-menu').classList.add('-translate-x-full')" class="block px-4 py-3 rounded-lg hover:bg-gray-50 dark:hover:bg-neutral-800 text-gray-600 dark:text-gray-400 font-medium transition">
-                    <!-- Icone Check (Linha) -->
+                    <!-- Icone Tarefas (Check Square) -->
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3 inline-block"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
                     Tarefas
                 </a>
                 <a onclick="switchPage('email'); document.getElementById('mobile-menu').classList.add('-translate-x-full')" class="block px-4 py-3 rounded-lg hover:bg-gray-50 dark:hover:bg-neutral-800 text-gray-600 dark:text-gray-400 font-medium transition">
-                    <!-- Icone Email (Linha) -->
+                    <!-- Icone Templates (Mail) -->
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3 inline-block"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
                     Templates
                 </a>

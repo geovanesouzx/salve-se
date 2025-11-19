@@ -37,8 +37,12 @@ document.querySelector('#pwa-manifest').setAttribute('href', manifestURL);
 // 2. Service Worker embutido (Blob)
 if ('serviceWorker' in navigator) {
     const swCode = `
-        const CACHE_NAME = 'salvese-v1.1-offline'; // Versão atualizada para novos recursos
+        const CACHE_NAME = 'salvese-v1.2-offline'; // Versão incrementada
         const URLS_TO_CACHE = [
+            './',                // Importante: Raiz
+            'index.html',        // Importante: Arquivo principal
+            'style.css',         // Importante: Estilos
+            'script.js',         // Importante: Lógica
             'https://cdn.tailwindcss.com',
             'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css',
             'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap',
@@ -69,19 +73,15 @@ if ('serviceWorker' in navigator) {
         });
 
         self.addEventListener('fetch', event => {
-            if (event.request.mode === 'navigate') {
-                event.respondWith(
-                    fetch(event.request).catch(() => {
-                        return caches.match(event.request);
-                    })
-                );
-                return;
-            }
+            // Estratégia: Cache First, falling back to Network
             event.respondWith(
                 caches.match(event.request).then(response => {
                     if (response) return response;
-                    return fetch(event.request).then(networkResponse => {
-                        return networkResponse;
+                    return fetch(event.request).catch(() => {
+                        // Se falhar (offline) e não estiver no cache, tenta retornar index.html para navegação
+                        if (event.request.mode === 'navigate') {
+                            return caches.match('./index.html');
+                        }
                     });
                 })
             );
@@ -103,18 +103,19 @@ if ('serviceWorker' in navigator) {
         e.preventDefault();
         deferredPrompt = e;
         const installBtn = document.getElementById('btn-install-pwa');
-        installBtn.classList.remove('hidden');
-        
-        installBtn.addEventListener('click', () => {
-            deferredPrompt.prompt();
-            deferredPrompt.userChoice.then((choiceResult) => {
-                if (choiceResult.outcome === 'accepted') {
-                    console.log('Usuário aceitou instalar');
-                }
-                deferredPrompt = null;
-                installBtn.classList.add('hidden');
+        if(installBtn) {
+            installBtn.classList.remove('hidden');
+            installBtn.addEventListener('click', () => {
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.then((choiceResult) => {
+                    if (choiceResult.outcome === 'accepted') {
+                        console.log('Usuário aceitou instalar');
+                    }
+                    deferredPrompt = null;
+                    installBtn.classList.add('hidden');
+                });
             });
-        });
+        }
     });
 
     function updateNetworkStatus() {

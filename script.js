@@ -675,10 +675,22 @@ function updateEndTime(slotsToAdd = 2) {
     }
 }
 
+// MODAL COM SUPORTE A HISTÓRICO (VOLTAR DO CELULAR)
 function toggleModal(show) {
-    const modal = document.getElementById('class-modal'); const content = document.getElementById('class-modal-content');
-    if (show) { modal.classList.remove('hidden'); setTimeout(() => { modal.classList.remove('opacity-0'); content.classList.remove('scale-95'); content.classList.add('scale-100'); }, 10); }
-    else { modal.classList.add('opacity-0'); content.classList.remove('scale-100'); content.classList.add('scale-95'); setTimeout(() => modal.classList.add('hidden'), 300); }
+    const modal = document.getElementById('class-modal'); 
+    const content = document.getElementById('class-modal-content');
+    if (show) { 
+        // Adiciona ao histórico para o botão voltar funcionar
+        history.pushState({modal: 'class'}, null, '#class-modal');
+        
+        modal.classList.remove('hidden'); 
+        setTimeout(() => { modal.classList.remove('opacity-0'); content.classList.remove('scale-95'); content.classList.add('scale-100'); }, 10); 
+    } else { 
+        modal.classList.add('opacity-0'); 
+        content.classList.remove('scale-100'); 
+        content.classList.add('scale-95'); 
+        setTimeout(() => modal.classList.add('hidden'), 300); 
+    }
 }
 
 function renderColorPicker() {
@@ -799,13 +811,15 @@ function updateNextClassWidget() {
     }
 }
 
-// Reminders Logic
+// Reminders Logic (Com suporte a voltar)
 function toggleRemindersModal() {
     const modal = document.getElementById('reminders-modal');
     const content = modal ? modal.firstElementChild : null;
     if (!modal) return;
 
     if (modal.classList.contains('hidden')) {
+        // Push History
+        history.pushState({modal: 'reminders'}, null, '#reminders-modal');
         renderReminders();
         modal.classList.remove('hidden');
         setTimeout(() => { modal.classList.remove('opacity-0'); if(content) { content.classList.remove('scale-95'); content.classList.add('scale-100'); } }, 10);
@@ -910,13 +924,56 @@ function renderReminders() {
     }
 }
 
-// Inicialização
+// Inicialização e Listeners do Botão Voltar
 document.addEventListener('DOMContentLoaded', () => {
     renderTasks();
     renderReminders();
     if (window.renderSchedule) window.renderSchedule();
     updateNextClassWidget();
+    
+    // Inicializa o highlight da aba mobile
+    const activeMobileLink = document.querySelector(`#mobile-menu nav a[onclick*="'home'"]`);
+    if(activeMobileLink) {
+         activeMobileLink.classList.add('bg-indigo-50', 'text-indigo-600', 'dark:bg-indigo-900/50', 'dark:text-indigo-300');
+         activeMobileLink.classList.remove('text-gray-600', 'dark:text-gray-400');
+    }
+
     setInterval(updateNextClassWidget, 60000);
+});
+
+// --- LÓGICA DO BOTÃO VOLTAR (POPSTATE) ---
+window.addEventListener('popstate', (event) => {
+    // 1. Se tiver modal aberto, fecha
+    const classModal = document.getElementById('class-modal');
+    const remindersModal = document.getElementById('reminders-modal');
+    const genericModal = document.getElementById('generic-modal');
+
+    if (classModal && !classModal.classList.contains('hidden')) {
+        // Fecha o modal diretamente sem mexer no histórico de novo
+        classModal.classList.add('opacity-0'); 
+        setTimeout(() => classModal.classList.add('hidden'), 300);
+        return;
+    }
+    
+    if (remindersModal && !remindersModal.classList.contains('hidden')) {
+        remindersModal.classList.add('opacity-0');
+        setTimeout(() => remindersModal.classList.add('hidden'), 300);
+        return;
+    }
+
+    if (genericModal && !genericModal.classList.contains('hidden')) {
+        closeGenericModal();
+        return;
+    }
+
+    // 2. Se não tiver modal, verifica navegação
+    if (event.state && event.state.view) {
+        // Navega visualmente sem adicionar ao histórico (addToHistory = false)
+        switchPage(event.state.view, false);
+    } else {
+        // Estado inicial
+        switchPage('home', false);
+    }
 });
 
 function showModal(title, message) {
@@ -924,6 +981,7 @@ function showModal(title, message) {
     document.getElementById('generic-modal-title').innerText = title;
     document.getElementById('generic-modal-message').innerText = message;
     if (m) {
+        history.pushState({modal: 'generic'}, null, '#alert');
         m.classList.remove('hidden');
         setTimeout(() => { m.classList.remove('opacity-0'); m.firstElementChild.classList.remove('scale-95'); m.firstElementChild.classList.add('scale-100'); }, 10);
     }
@@ -994,14 +1052,30 @@ document.addEventListener('click', (e) => {
     }
 });
 
-function switchPage(pageId) {
+function switchPage(pageId, addToHistory = true) {
+    // Esconde todas as views
     document.querySelectorAll('[id^="view-"]').forEach(el => el.classList.add('hidden'));
     const target = document.getElementById(`view-${pageId}`);
     if (target) target.classList.remove('hidden');
 
+    // Atualiza navegação DESKTOP
     document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
     const activeLink = document.getElementById(`nav-${pageId}`);
     if (activeLink) activeLink.classList.add('active');
+
+    // Atualiza navegação MOBILE (Correção solicitada)
+    const mobileNavLinks = document.querySelectorAll('#mobile-menu nav a');
+    mobileNavLinks.forEach(link => {
+        // Remove estilo ativo de todos
+        link.classList.remove('bg-indigo-50', 'text-indigo-600', 'dark:bg-indigo-900/50', 'dark:text-indigo-300');
+        link.classList.add('text-gray-600', 'dark:text-gray-400');
+
+        // Verifica se o link é da página atual
+        if(link.getAttribute('onclick').includes(`'${pageId}'`)) {
+             link.classList.add('bg-indigo-50', 'text-indigo-600', 'dark:bg-indigo-900/50', 'dark:text-indigo-300');
+             link.classList.remove('text-gray-600', 'dark:text-gray-400');
+        }
+    });
 
     const titles = { home: 'Página Principal', onibus: 'Transporte', calc: 'Calculadora', pomo: 'Modo Foco', todo: 'Tarefas', email: 'Templates', aulas: 'Grade Horária', fluxo: 'Fluxograma' };
     const pageTitleEl = document.getElementById('page-title');
@@ -1009,6 +1083,11 @@ function switchPage(pageId) {
     
     // Trigger render if switching to schedule
     if(pageId === 'aulas' && window.renderSchedule) window.renderSchedule();
+
+    // Adiciona ao histórico para o botão voltar
+    if(addToHistory) {
+        history.pushState({view: pageId}, null, `#${pageId}`);
+    }
 }
 
 let clockMode = 0;
@@ -1016,16 +1095,18 @@ function cycleClockMode() { clockMode = (clockMode + 1) % 4; updateClock(); }
 function updateClock() {
     const now = new Date();
     let timeString = "";
-    if (clockMode === 0) timeString = now.toLocaleTimeString('pt-BR');
-    else if (clockMode === 1) timeString = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
-    else if (clockMode === 2) timeString = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    if (clockMode === 0) timeString = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    else if (clockMode === 1) timeString = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    else if (clockMode === 2) timeString = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', hour12: true });
     else {
         const date = now.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
         const time = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
         timeString = `${date} • ${time}`;
     }
-    const clockEl = document.getElementById('clock');
-    if (clockEl) clockEl.innerText = timeString;
+    
+    // Atualiza o relógio em ambos os locais (Desktop e o novo do cabeçalho se existir)
+    const clockEls = document.querySelectorAll('#clock');
+    clockEls.forEach(el => el.innerText = timeString);
 }
 setInterval(updateClock, 1000); updateClock();
 

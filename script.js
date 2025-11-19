@@ -107,6 +107,9 @@ let tasksData = JSON.parse(localStorage.getItem('salvese_tasks')) || [];
 let remindersData = JSON.parse(localStorage.getItem('salvese_reminders')) || [];
 let selectedClassIdToDelete = null;
 
+// Variável global para filtro de tarefas
+let currentTaskFilter = 'all'; // 'all', 'active', 'completed'
+
 function saveData() {
     localStorage.setItem('salvese_schedule', JSON.stringify(scheduleData));
     localStorage.setItem('salvese_tasks', JSON.stringify(tasksData));
@@ -115,19 +118,217 @@ function saveData() {
     if (window.renderSchedule) window.renderSchedule();
     if (window.renderTasks) window.renderTasks();
     if (window.renderReminders) window.renderReminders();
-    updateDashCounts();
-
+    
+    updateDashboardTasksWidget(); // Nova função do dashboard
+    
     if (window.updateNextClassWidget) window.updateNextClassWidget();
 }
 
-function updateDashCounts() {
-    const pending = tasksData.filter(t => !t.done).length;
-    const taskCountEl = document.getElementById('task-count');
-    const dashTaskCountEl = document.getElementById('dash-task-count');
+// ------------------------------------------------
+// --- NOVA LÓGICA DE TAREFAS (TODO) ---
+// ------------------------------------------------
+
+window.addTask = function () {
+    const input = document.getElementById('todo-input');
+    const priorityInput = document.getElementById('todo-priority'); // Novo input (esperado no HTML)
+    const categoryInput = document.getElementById('todo-category'); // Novo input (esperado no HTML)
     
-    if(taskCountEl) taskCountEl.innerText = `${pending} pendentes`;
-    if(dashTaskCountEl) dashTaskCountEl.innerText = pending;
+    const text = input.value.trim();
+    if (!text) return;
+
+    // Valores padrão caso os inputs novos ainda não existam no DOM
+    const priority = priorityInput ? priorityInput.value : 'normal';
+    const category = categoryInput ? categoryInput.value : 'geral';
+
+    tasksData.push({
+        id: Date.now().toString(),
+        text: text,
+        done: false,
+        priority: priority,
+        category: category,
+        createdAt: Date.now()
+    });
+
+    input.value = '';
+    saveData();
+};
+
+window.toggleTask = function (taskId) {
+    const task = tasksData.find(t => t.id === taskId);
+    if (task) {
+        task.done = !task.done;
+        saveData();
+    }
+};
+
+window.deleteTask = function (taskId) {
+    tasksData = tasksData.filter(t => t.id !== taskId);
+    saveData();
+};
+
+window.clearCompleted = function () {
+    tasksData = tasksData.filter(t => !t.done);
+    saveData();
+};
+
+window.setTaskFilter = function(filter) {
+    currentTaskFilter = filter;
+    // Atualiza botões visuais (esperado no HTML)
+    ['filter-all', 'filter-active', 'filter-completed'].forEach(id => {
+        const btn = document.getElementById(id);
+        if(btn) {
+            if(id === `filter-${filter}`) btn.classList.add('bg-indigo-100', 'text-indigo-700', 'dark:bg-indigo-900/50', 'dark:text-indigo-300');
+            else btn.classList.remove('bg-indigo-100', 'text-indigo-700', 'dark:bg-indigo-900/50', 'dark:text-indigo-300');
+        }
+    });
+    renderTasks();
+};
+
+// Função auxiliar para cores de prioridade
+function getPriorityInfo(prio) {
+    switch(prio) {
+        case 'high': return { label: 'Alta', color: 'text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400 border-red-100 dark:border-red-900' };
+        case 'medium': return { label: 'Média', color: 'text-orange-600 bg-orange-50 dark:bg-orange-900/20 dark:text-orange-400 border-orange-100 dark:border-orange-900' };
+        default: return { label: 'Normal', color: 'text-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400 border-blue-100 dark:border-blue-900' };
+    }
 }
+
+// Função auxiliar para ícones de categoria
+function getCategoryIcon(cat) {
+    switch(cat) {
+        case 'estudo': return '<i class="fas fa-book"></i>';
+        case 'trabalho': return '<i class="fas fa-briefcase"></i>';
+        case 'pessoal': return '<i class="fas fa-user"></i>';
+        default: return '<i class="fas fa-circle text-[8px]"></i>';
+    }
+}
+
+window.renderTasks = function () {
+    const list = document.getElementById('todo-list');
+    if (!list) return;
+    
+    list.innerHTML = '';
+    
+    // Filtra
+    let filteredTasks = tasksData;
+    if (currentTaskFilter === 'active') filteredTasks = tasksData.filter(t => !t.done);
+    if (currentTaskFilter === 'completed') filteredTasks = tasksData.filter(t => t.done);
+
+    // Ordena: Pendentes primeiro, depois por prioridade (High > Medium > Normal), depois por data
+    const priorityWeight = { 'high': 3, 'medium': 2, 'normal': 1 };
+    
+    const sortedTasks = [...filteredTasks].sort((a, b) => {
+        if (a.done !== b.done) return a.done ? 1 : -1; // Feitas vão pro final
+        if (priorityWeight[b.priority || 'normal'] !== priorityWeight[a.priority || 'normal']) {
+            return priorityWeight[b.priority || 'normal'] - priorityWeight[a.priority || 'normal'];
+        }
+        return b.createdAt - a.createdAt;
+    });
+
+    if (sortedTasks.length === 0) {
+        list.innerHTML = `
+            <div class="flex flex-col items-center justify-center py-12 text-gray-400 dark:text-gray-600">
+                <i class="fas fa-clipboard-check text-4xl mb-3 opacity-30"></i>
+                <p class="text-sm">Nenhuma tarefa encontrada.</p>
+            </div>
+        `;
+        return;
+    }
+
+    sortedTasks.forEach(t => {
+        const div = document.createElement('div');
+        const prioInfo = getPriorityInfo(t.priority || 'normal');
+        const catIcon = getCategoryIcon(t.category || 'geral');
+        
+        div.className = `group flex items-center gap-3 p-3 rounded-xl border transition-all duration-200 ${t.done ? 'bg-gray-50/50 dark:bg-neutral-900/30 border-transparent opacity-60' : 'bg-white dark:bg-darkcard border-gray-200 dark:border-darkborder hover:border-indigo-300 dark:hover:border-indigo-800 shadow-sm hover:shadow-md'}`;
+        
+        div.innerHTML = `
+            <button onclick="toggleTask('${t.id}')" class="w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all duration-300 ${t.done ? 'bg-emerald-500 border-emerald-500 text-white scale-90' : 'border-gray-300 dark:border-gray-600 hover:border-indigo-500 text-transparent'}">
+                <i class="fas fa-check text-[10px]"></i>
+            </button>
+            
+            <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 mb-0.5">
+                    <span class="text-sm font-medium truncate ${t.done ? 'text-gray-500 line-through decoration-gray-400' : 'text-gray-800 dark:text-gray-200'}">${t.text}</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded border ${prioInfo.color}">${prioInfo.label}</span>
+                    <span class="text-[10px] text-gray-400 dark:text-gray-500 flex items-center gap-1 capitalize">${catIcon} ${t.category || 'Geral'}</span>
+                </div>
+            </div>
+            
+            <button onclick="deleteTask('${t.id}')" class="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition opacity-0 group-hover:opacity-100">
+                <i class="fas fa-trash-alt text-xs"></i>
+            </button>
+        `;
+        list.appendChild(div);
+    });
+    
+    updateDashboardTasksWidget(); // Atualiza o widget da home sempre que renderizar a lista
+}
+
+// --- NOVO: Widget de Tarefas na Home ---
+window.updateDashboardTasksWidget = function() {
+    const container = document.getElementById('dashboard-tasks-list');
+    const taskCountEl = document.getElementById('task-count-badge'); // Novo badge
+    
+    // Filtra apenas as pendentes
+    const pendingTasks = tasksData.filter(t => !t.done);
+    
+    // Atualiza contadores em todo lugar
+    const dashCountOld = document.getElementById('dash-task-count'); // Retrocompatibilidade
+    if(dashCountOld) dashCountOld.innerText = pendingTasks.length;
+    
+    if(taskCountEl) {
+        taskCountEl.innerText = pendingTasks.length;
+        taskCountEl.className = pendingTasks.length > 0 ? 'bg-indigo-600 text-white px-2 py-0.5 rounded-full text-xs font-bold' : 'hidden';
+    }
+    
+    if (!container) return;
+
+    container.innerHTML = '';
+
+    if (pendingTasks.length === 0) {
+        container.innerHTML = `
+            <div class="flex flex-col items-center justify-center py-6 text-center h-full">
+                <div class="w-10 h-10 bg-emerald-100 dark:bg-emerald-900/30 rounded-full flex items-center justify-center text-emerald-600 dark:text-emerald-400 mb-2">
+                    <i class="fas fa-check"></i>
+                </div>
+                <p class="text-sm text-gray-500 dark:text-gray-400 font-medium">Tudo feito!</p>
+            </div>
+        `;
+        return;
+    }
+
+    // Ordena por prioridade para mostrar as mais importantes
+    const priorityWeight = { 'high': 3, 'medium': 2, 'normal': 1 };
+    const topTasks = [...pendingTasks].sort((a, b) => {
+        return priorityWeight[b.priority || 'normal'] - priorityWeight[a.priority || 'normal'];
+    }).slice(0, 3); // Pega só as top 3
+
+    topTasks.forEach(t => {
+        const prioInfo = getPriorityInfo(t.priority || 'normal');
+        const item = document.createElement('div');
+        item.className = "flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-neutral-800 transition cursor-pointer border border-transparent hover:border-gray-100 dark:hover:border-neutral-700";
+        item.onclick = () => switchPage('todo'); // Leva para a página de tarefas
+        
+        item.innerHTML = `
+            <div class="w-1.5 h-1.5 rounded-full ${t.priority === 'high' ? 'bg-red-500' : (t.priority === 'medium' ? 'bg-orange-500' : 'bg-blue-500')}"></div>
+            <span class="flex-1 text-sm text-gray-700 dark:text-gray-300 truncate">${t.text}</span>
+            <span class="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded border ${prioInfo.color}">${prioInfo.label}</span>
+        `;
+        container.appendChild(item);
+    });
+
+    // Se tiver mais que 3, mostra "+X mais"
+    if (pendingTasks.length > 3) {
+        const more = document.createElement('div');
+        more.className = "text-center mt-2";
+        more.innerHTML = `<span class="text-xs text-indigo-600 dark:text-indigo-400 font-bold cursor-pointer hover:underline" onclick="switchPage('todo')">+ mais ${pendingTasks.length - 3} tarefas</span>`;
+        container.appendChild(more);
+    }
+};
+
 
 // ------------------------------------------------
 // --- CONFIGURAÇÃO DE HORÁRIOS CORRIGIDA ---
@@ -707,64 +908,6 @@ function renderReminders() {
             listHome.innerHTML = sorted.slice(0, 3).map(r => generateHTML(r, true)).join('');
         }
     }
-}
-
-// Task Functions
-window.addTask = function () {
-    const input = document.getElementById('todo-input');
-    const text = input.value.trim();
-    if (!text) return;
-
-    tasksData.push({
-        id: Date.now().toString(),
-        text: text,
-        done: false,
-        createdAt: Date.now()
-    });
-    input.value = '';
-    saveData();
-};
-
-window.toggleTask = function (taskId) {
-    const task = tasksData.find(t => t.id === taskId);
-    if (task) {
-        task.done = !task.done;
-        saveData();
-    }
-};
-
-window.deleteTask = function (taskId) {
-    tasksData = tasksData.filter(t => t.id !== taskId);
-    saveData();
-};
-
-window.clearCompleted = function () {
-    tasksData = tasksData.filter(t => !t.done);
-    saveData();
-};
-
-window.renderTasks = function () {
-    const list = document.getElementById('todo-list');
-    if (!list) return;
-    
-    list.innerHTML = '';
-    const sortedTasks = [...tasksData].sort((a, b) => b.createdAt - a.createdAt);
-
-    sortedTasks.forEach(t => {
-        const div = document.createElement('div');
-        div.className = `flex items-center gap-3 p-3 rounded-lg border transition ${t.done ? 'bg-gray-50 dark:bg-neutral-900/50 border-gray-200 dark:border-darkborder' : 'bg-white dark:bg-darkcard border-gray-200 dark:border-darkborder'}`;
-        div.innerHTML = `
-            <button onclick="toggleTask('${t.id}')" class="w-5 h-5 rounded border flex items-center justify-center transition ${t.done ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-gray-400 hover:border-emerald-500'}">
-                ${t.done ? '<i class="fas fa-check text-xs"></i>' : ''}
-            </button>
-            <span class="flex-1 text-sm ${t.done ? 'text-gray-400 line-through' : 'text-gray-700 dark:text-gray-200'}">${t.text}</span>
-            <button onclick="deleteTask('${t.id}')" class="text-gray-400 hover:text-red-500 transition">
-                <i class="fas fa-times"></i>
-            </button>
-        `;
-        list.appendChild(div);
-    });
-    updateDashCounts();
 }
 
 // Inicialização

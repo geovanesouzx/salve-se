@@ -1,4 +1,4 @@
-const CACHE_NAME = 'salvese-v5.0-final-grade'; // Versão atualizada para forçar limpeza de cache
+const CACHE_NAME = 'salvese-v5.1-final-tasks'; // Versão atualizada para forçar limpeza de cache e carregar novas funcionalidades
 const URLS_TO_CACHE = [
     './',
     './index.html',

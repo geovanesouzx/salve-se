@@ -2,7 +2,7 @@
 <html lang="pt-BR" class="light">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Salve-se | Painel Híbrido</title>
     
     <!-- PWA Settings -->
@@ -13,7 +13,7 @@
     <link rel="apple-touch-icon" href="https://files.catbox.moe/xvifnp.png">
 
     <!-- CSS Externo -->
-    <link rel="stylesheet" href="style.css?v=9">
+    <link rel="stylesheet" href="style.css?v=10">
 
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -59,7 +59,7 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
-<body class="bg-gray-50 text-gray-900 dark:bg-darkbg dark:text-gray-100 h-screen flex overflow-hidden theme-transition">
+<body class="bg-gray-50 text-gray-900 dark:bg-darkbg dark:text-gray-100 h-screen flex overflow-hidden theme-transition selection:bg-indigo-500 selection:text-white">
 
     <!-- Network Status Toast -->
     <div id="network-toast" class="network-status">
@@ -69,13 +69,14 @@
     <!-- SIDEBAR (Desktop) -->
     <aside class="w-64 bg-white dark:bg-darkcard border-r border-gray-200 dark:border-darkborder flex-col hidden md:flex z-20 shadow-sm theme-transition relative">
         <div class="h-20 flex items-center px-6 border-b border-gray-200 dark:border-darkborder group relative">
-            <div class="w-14 h-14 mr-3 flex-shrink-0">
-                <img src="https://files.catbox.moe/xvifnp.png" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'" alt="Logo" class="w-full h-full object-contain">
-                <div class="w-full h-full hidden items-center justify-center bg-indigo-100 rounded-lg text-indigo-600 font-bold text-xl">S</div>
+            <div class="w-10 h-10 mr-3 flex-shrink-0 bg-indigo-100 dark:bg-indigo-900/30 rounded-xl flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold text-xl shadow-sm">
+                S
             </div>
             <span class="text-lg font-bold tracking-tight text-gray-800 dark:text-white mr-2">Salve-se</span>
-            <button onclick="toggleColorMenu('desktop')" class="w-6 h-6 rounded-full bg-gray-100 dark:bg-neutral-800 hover:bg-gray-200 text-gray-500 flex items-center justify-center transition" title="Mudar Tema">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-indigo-600" id="desktop-palette-icon"><circle cx="13.5" cy="6.5" r=".5"/><circle cx="17.5" cy="10.5" r=".5"/><circle cx="8.5" cy="7.5" r=".5"/><circle cx="6.5" cy="12.5" r=".5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>
+            
+            <!-- Color Picker Desktop -->
+            <button onclick="toggleColorMenu('desktop')" class="w-6 h-6 rounded-full bg-gray-100 dark:bg-neutral-800 hover:bg-gray-200 text-gray-500 flex items-center justify-center transition ml-auto" title="Mudar Tema">
+                <i class="fas fa-palette text-xs" id="desktop-palette-icon"></i>
             </button>
             <div id="color-menu-desktop" class="color-menu hidden absolute top-16 left-20 bg-white dark:bg-neutral-900 border border-gray-200 dark:border-darkborder shadow-xl rounded-xl p-3 z-50 w-48 grid grid-cols-5 gap-2"></div>
         </div>
@@ -83,46 +84,46 @@
         <nav class="flex-1 overflow-y-auto py-6 px-3 space-y-1">
             <p class="px-3 text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Principal</p>
             
-            <a onclick="switchPage('home')" id="nav-home" class="nav-item active flex items-center px-3 py-2.5 text-sm font-medium rounded-md cursor-pointer text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-darkhover transition-colors">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
+            <a onclick="switchPage('home')" id="nav-home" class="nav-item active flex items-center px-3 py-2.5 text-sm font-medium rounded-md cursor-pointer text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-darkhover transition-colors group">
+                <i class="fas fa-home w-5 text-center mr-3 group-hover:text-indigo-500 transition-colors"></i>
                 Página Principal
             </a>
             
-            <a onclick="switchPage('aulas')" id="nav-aulas" class="nav-item flex items-center px-3 py-2.5 text-sm font-medium rounded-md cursor-pointer text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-darkhover transition-colors">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg>
-                Aulas
+            <a onclick="switchPage('aulas')" id="nav-aulas" class="nav-item flex items-center px-3 py-2.5 text-sm font-medium rounded-md cursor-pointer text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-darkhover transition-colors group">
+                <i class="fas fa-calendar-alt w-5 text-center mr-3 group-hover:text-indigo-500 transition-colors"></i>
+                Grade Horária
             </a>
             
-            <a onclick="switchPage('onibus')" id="nav-onibus" class="nav-item flex items-center px-3 py-2.5 text-sm font-medium rounded-md cursor-pointer text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-darkhover transition-colors">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3"><path d="M4 6 2 7"/><path d="M10 6h4"/><path d="m22 7-2-1"/><rect width="16" height="16" x="4" y="3" rx="2"/><path d="M4 11h16"/><path d="M8 15h.01"/><path d="M16 15h.01"/><path d="M6 19v2"/><path d="M18 21v-2"/></svg>
+            <a onclick="switchPage('onibus')" id="nav-onibus" class="nav-item flex items-center px-3 py-2.5 text-sm font-medium rounded-md cursor-pointer text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-darkhover transition-colors group">
+                <i class="fas fa-bus w-5 text-center mr-3 group-hover:text-indigo-500 transition-colors"></i>
                 Circular
             </a>
 
-            <a onclick="openPortal()" id="nav-portal" class="nav-item flex items-center px-3 py-2.5 text-sm font-medium rounded-md cursor-pointer text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-darkhover transition-colors">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3"><path d="M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z"></path><path d="M22 10v6"></path><path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5"></path></svg>
+            <a onclick="openPortal()" id="nav-portal" class="nav-item flex items-center px-3 py-2.5 text-sm font-medium rounded-md cursor-pointer text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-darkhover transition-colors group">
+                <i class="fas fa-university w-5 text-center mr-3 group-hover:text-indigo-500 transition-colors"></i>
                 Portal Acadêmico
             </a>
             
             <div class="pt-6"></div>
             <p class="px-3 text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Ferramentas</p>
             
-            <a onclick="switchPage('calc')" id="nav-calc" class="nav-item flex items-center px-3 py-2.5 text-sm font-medium rounded-md cursor-pointer text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-darkhover transition-colors">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3"><rect width="16" height="20" x="4" y="2" rx="2"/><line x1="8" x2="16" y1="6" y2="6"/><line x1="16" x2="16" y1="14" y2="18"/><path d="M16 10h.01"/><path d="M12 10h.01"/><path d="M8 10h.01"/><path d="M12 14h.01"/><path d="M8 14h.01"/><path d="M12 18h.01"/><path d="M8 18h.01"/></svg>
+            <a onclick="switchPage('calc')" id="nav-calc" class="nav-item flex items-center px-3 py-2.5 text-sm font-medium rounded-md cursor-pointer text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-darkhover transition-colors group">
+                <i class="fas fa-calculator w-5 text-center mr-3 group-hover:text-indigo-500 transition-colors"></i>
                 Calculadora
             </a>
             
-            <a onclick="switchPage('pomo')" id="nav-pomo" class="nav-item flex items-center px-3 py-2.5 text-sm font-medium rounded-md cursor-pointer text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-darkhover transition-colors">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <a onclick="switchPage('pomo')" id="nav-pomo" class="nav-item flex items-center px-3 py-2.5 text-sm font-medium rounded-md cursor-pointer text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-darkhover transition-colors group">
+                <i class="fas fa-hourglass-half w-5 text-center mr-3 group-hover:text-indigo-500 transition-colors"></i>
                 Modo Foco
             </a>
             
-            <a onclick="switchPage('todo')" id="nav-todo" class="nav-item flex items-center px-3 py-2.5 text-sm font-medium rounded-md cursor-pointer text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-darkhover transition-colors">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+            <a onclick="switchPage('todo')" id="nav-todo" class="nav-item flex items-center px-3 py-2.5 text-sm font-medium rounded-md cursor-pointer text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-darkhover transition-colors group">
+                <i class="fas fa-check-square w-5 text-center mr-3 group-hover:text-indigo-500 transition-colors"></i>
                 Tarefas
             </a>
             
-            <a onclick="switchPage('email')" id="nav-email" class="nav-item flex items-center px-3 py-2.5 text-sm font-medium rounded-md cursor-pointer text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-darkhover transition-colors">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+            <a onclick="switchPage('email')" id="nav-email" class="nav-item flex items-center px-3 py-2.5 text-sm font-medium rounded-md cursor-pointer text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-darkhover transition-colors group">
+                <i class="fas fa-envelope w-5 text-center mr-3 group-hover:text-indigo-500 transition-colors"></i>
                 Templates
             </a>
         </nav>
@@ -130,11 +131,11 @@
         <div class="p-4 border-t border-gray-200 dark:border-darkborder bg-gray-50 dark:bg-darkcard">
             <div class="flex items-center gap-3">
                 <div class="w-9 h-9 rounded-full bg-indigo-100 dark:bg-neutral-800 flex items-center justify-center text-indigo-600 dark:text-indigo-400 transition-colors duration-300">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    <i class="fas fa-user"></i>
                 </div>
                 <div class="overflow-hidden">
-                    <p class="text-sm font-bold truncate" id="user-display-id">Local</p>
-                    <p class="text-xs text-gray-500 dark:text-gray-500 truncate">App Híbrido</p>
+                    <p class="text-sm font-bold truncate" id="user-display-id">Estudante</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-500 truncate">UFRB</p>
                 </div>
             </div>
         </div>
@@ -144,112 +145,101 @@
     <div class="flex-1 flex flex-col h-full relative overflow-hidden">
         
         <!-- HEADER -->
-        <header class="h-16 bg-white dark:bg-darkcard border-b border-gray-200 dark:border-darkborder flex justify-between items-center px-4 md:px-6 z-10 shadow-sm theme-transition relative">
+        <header class="h-16 bg-white dark:bg-darkcard border-b border-gray-200 dark:border-darkborder flex justify-between items-center px-4 md:px-6 z-10 shadow-sm theme-transition relative shrink-0">
+            
+            <!-- Left: Hamburger & Logo -->
             <div class="flex items-center gap-3 md:gap-4">
-                <button onclick="document.getElementById('mobile-menu').classList.remove('-translate-x-full')" class="text-gray-500 dark:text-gray-300 md:hidden p-1">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
+                <button onclick="document.getElementById('mobile-menu').classList.remove('-translate-x-full'); document.getElementById('menu-overlay').classList.remove('hidden')" class="text-gray-500 dark:text-gray-300 md:hidden p-2 hover:bg-gray-100 dark:hover:bg-neutral-800 rounded-lg transition">
+                    <i class="fas fa-bars text-xl"></i>
                 </button>
-                <span class="font-bold text-lg md:hidden">Salve-se</span>
+                <span class="font-bold text-lg md:hidden bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-violet-600">Salve-se</span>
+                
+                <!-- Mobile Color Picker -->
                 <button onclick="toggleColorMenu('mobile')" class="md:hidden w-8 h-8 rounded-full bg-gray-100 dark:bg-neutral-800 hover:bg-gray-200 text-gray-500 flex items-center justify-center transition relative">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-indigo-600" id="mobile-palette-icon"><circle cx="13.5" cy="6.5" r=".5"/><circle cx="17.5" cy="10.5" r=".5"/><circle cx="8.5" cy="7.5" r=".5"/><circle cx="6.5" cy="12.5" r=".5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>
-                      <div id="color-menu-mobile" class="color-menu hidden absolute top-10 left-0 bg-white dark:bg-neutral-900 border border-gray-200 dark:border-darkborder shadow-xl rounded-xl p-3 z-50 w-48 grid grid-cols-5 gap-2"></div>
+                      <i class="fas fa-palette text-xs" id="mobile-palette-icon"></i>
+                      <div id="color-menu-mobile" class="color-menu hidden absolute top-10 left-0 bg-white dark:bg-neutral-900 border border-gray-200 dark:border-darkborder shadow-xl rounded-xl p-3 z-50 w-56 grid grid-cols-5 gap-2"></div>
                 </button>
+
                 <h2 id="page-title" class="hidden md:block text-lg font-semibold text-gray-700 dark:text-gray-200">Página Principal</h2>
             </div>
 
-            <div class="absolute left-1/2 transform -translate-x-1/2 cursor-pointer select-none group hidden xs:block" onclick="cycleClockMode()" title="Clique para mudar o estilo">
-                <span id="clock" class="font-mono text-xl font-bold text-indigo-600 dark:text-indigo-400 tracking-widest group-hover:text-indigo-500 transition-colors">--:--:--</span>
+            <!-- Center: RELÓGIO INTERATIVO -->
+            <div class="absolute left-1/2 transform -translate-x-1/2 cursor-pointer select-none group" onclick="cycleClockMode()" title="Toque para mudar o estilo">
+                <span id="clock" class="font-mono text-lg md:text-xl font-bold text-indigo-600 dark:text-indigo-400 tracking-widest group-hover:opacity-70 transition-opacity">--:--</span>
             </div>
 
+            <!-- Right: Actions -->
             <div class="flex items-center gap-2 md:gap-3">
                 <button id="btn-install-pwa" class="hidden px-3 py-1.5 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-full transition shadow-sm flex items-center gap-1">
-                    <i class="fas fa-download"></i> <span class="hidden sm:inline">Instalar</span>
+                    <i class="fas fa-download"></i> <span class="hidden sm:inline">App</span>
                 </button>
 
                 <button class="w-9 h-9 md:w-10 md:h-10 rounded-full flex items-center justify-center hover:bg-gray-100 dark:hover:bg-neutral-800 text-gray-600 dark:text-gray-300 transition relative" onclick="toggleRemindersModal()">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.268 21a2 2 0 0 0 3.464 0"></path><path d="M22 8c0-2.3-.8-4.3-2-6"></path><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"></path><path d="M4 2C2.8 3.7 2 5.7 2 8"></path></svg>
+                    <i class="far fa-bell text-lg"></i>
                     <span id="notification-badge" class="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-darkcard hidden"></span>
                 </button>
+                
                 <button onclick="toggleTheme()" class="w-9 h-9 md:w-10 md:h-10 rounded-full flex items-center justify-center bg-gray-100 hover:bg-gray-200 text-gray-600 dark:bg-neutral-800 dark:hover:bg-neutral-700 dark:text-yellow-400 transition-all">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="hidden dark:block"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="block dark:hidden"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+                    <i class="fas fa-moon hidden dark:block"></i>
+                    <i class="fas fa-sun block dark:hidden text-yellow-500"></i>
                 </button>
             </div>
         </header>
 
         <!-- MENU MOBILE (OFF-CANVAS) -->
-        <div id="mobile-menu" class="fixed inset-y-0 left-0 w-64 bg-white dark:bg-neutral-900 shadow-2xl transform -translate-x-full transition-transform duration-300 z-50 md:hidden flex flex-col">
-            <div class="p-4 border-b border-gray-200 dark:border-darkborder flex justify-between items-center">
-                <span class="font-bold text-lg dark:text-white">Menu</span>
-                <button onclick="document.getElementById('mobile-menu').classList.add('-translate-x-full')" class="p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-neutral-800 rounded-lg">
+        <div id="mobile-menu" class="fixed inset-y-0 left-0 w-72 bg-white dark:bg-neutral-900 shadow-2xl transform -translate-x-full transition-transform duration-300 z-50 md:hidden flex flex-col h-full">
+            <div class="p-4 border-b border-gray-200 dark:border-darkborder flex justify-between items-center bg-gray-50 dark:bg-black/20">
+                <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold">S</div>
+                    <span class="font-bold text-lg dark:text-white">Menu</span>
+                </div>
+                <button onclick="document.getElementById('mobile-menu').classList.add('-translate-x-full'); document.getElementById('menu-overlay').classList.add('hidden')" class="w-8 h-8 flex items-center justify-center text-gray-500 hover:bg-gray-200 dark:hover:bg-neutral-800 rounded-full transition">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
+            
             <nav class="flex-1 overflow-y-auto p-4 space-y-2">
-                 <a onclick="switchPage('home'); document.getElementById('mobile-menu').classList.add('-translate-x-full')" class="block px-4 py-3 rounded-lg bg-gray-50 dark:bg-neutral-800 text-gray-800 dark:text-gray-200 font-medium">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3 inline-block"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
-                    Principal
+                 <a onclick="switchPage('home')" class="flex items-center px-4 py-3 rounded-xl text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-neutral-800 transition-all cursor-pointer">
+                    <i class="fas fa-home w-6 text-lg"></i> <span class="font-medium">Principal</span>
                 </a>
-                <a onclick="switchPage('aulas'); document.getElementById('mobile-menu').classList.add('-translate-x-full')" class="block px-4 py-3 rounded-lg hover:bg-gray-50 dark:hover:bg-neutral-800 text-gray-600 dark:text-gray-400 font-medium transition">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3 inline-block"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg>
-                    Aulas
+                <a onclick="switchPage('aulas')" class="flex items-center px-4 py-3 rounded-xl text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-neutral-800 transition-all cursor-pointer">
+                    <i class="fas fa-calendar-alt w-6 text-lg"></i> <span class="font-medium">Grade Horária</span>
                 </a>
-                <a onclick="switchPage('onibus'); document.getElementById('mobile-menu').classList.add('-translate-x-full')" class="block px-4 py-3 rounded-lg hover:bg-gray-50 dark:hover:bg-neutral-800 text-gray-600 dark:text-gray-400 font-medium transition">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3 inline-block"><path d="M4 6 2 7"/><path d="M10 6h4"/><path d="m22 7-2-1"/><rect width="16" height="16" x="4" y="3" rx="2"/><path d="M4 11h16"/><path d="M8 15h.01"/><path d="M16 15h.01"/><path d="M6 19v2"/><path d="M18 21v-2"/></svg>
-                    Circular
+                <a onclick="switchPage('onibus')" class="flex items-center px-4 py-3 rounded-xl text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-neutral-800 transition-all cursor-pointer">
+                    <i class="fas fa-bus w-6 text-lg"></i> <span class="font-medium">Circular</span>
                 </a>
-
-                <a onclick="openPortal(); document.getElementById('mobile-menu').classList.add('-translate-x-full')" class="block px-4 py-3 rounded-lg hover:bg-gray-50 dark:hover:bg-neutral-800 text-gray-600 dark:text-gray-400 font-medium transition">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3 inline-block"><path d="M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z"></path><path d="M22 10v6"></path><path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5"></path></svg>
-                    Portal Acadêmico
+                <a onclick="openPortal()" class="flex items-center px-4 py-3 rounded-xl text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-neutral-800 transition-all cursor-pointer">
+                    <i class="fas fa-university w-6 text-lg"></i> <span class="font-medium">Portal</span>
                 </a>
-
-                <hr class="border-gray-200 dark:border-neutral-800 my-2">
-                 <a onclick="switchPage('calc'); document.getElementById('mobile-menu').classList.add('-translate-x-full')" class="block px-4 py-3 rounded-lg hover:bg-gray-50 dark:hover:bg-neutral-800 text-gray-600 dark:text-gray-400 font-medium transition">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3 inline-block"><rect width="16" height="20" x="4" y="2" rx="2"/><line x1="8" x2="16" y1="6" y2="6"/><line x1="16" x2="16" y1="14" y2="18"/><path d="M16 10h.01"/><path d="M12 10h.01"/><path d="M8 10h.01"/><path d="M12 14h.01"/><path d="M8 14h.01"/><path d="M12 18h.01"/><path d="M8 18h.01"/></svg>
-                    Calculadora
+                
+                <hr class="border-gray-100 dark:border-neutral-800 my-2">
+                
+                 <a onclick="switchPage('calc')" class="flex items-center px-4 py-3 rounded-xl text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-neutral-800 transition-all cursor-pointer">
+                    <i class="fas fa-calculator w-6 text-lg"></i> <span class="font-medium">Calculadora</span>
                 </a>
-                <a onclick="switchPage('pomo'); document.getElementById('mobile-menu').classList.add('-translate-x-full')" class="block px-4 py-3 rounded-lg hover:bg-gray-50 dark:hover:bg-neutral-800 text-gray-600 dark:text-gray-400 font-medium transition">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3 inline-block"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                    Modo Foco
+                <a onclick="switchPage('pomo')" class="flex items-center px-4 py-3 rounded-xl text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-neutral-800 transition-all cursor-pointer">
+                    <i class="fas fa-hourglass-half w-6 text-lg"></i> <span class="font-medium">Modo Foco</span>
                 </a>
-                <a onclick="switchPage('todo'); document.getElementById('mobile-menu').classList.add('-translate-x-full')" class="block px-4 py-3 rounded-lg hover:bg-gray-50 dark:hover:bg-neutral-800 text-gray-600 dark:text-gray-400 font-medium transition">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3 inline-block"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-                    Tarefas
+                <a onclick="switchPage('todo')" class="flex items-center px-4 py-3 rounded-xl text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-neutral-800 transition-all cursor-pointer">
+                    <i class="fas fa-check-square w-6 text-lg"></i> <span class="font-medium">Tarefas</span>
                 </a>
-                <a onclick="switchPage('email'); document.getElementById('mobile-menu').classList.add('-translate-x-full')" class="block px-4 py-3 rounded-lg hover:bg-gray-50 dark:hover:bg-neutral-800 text-gray-600 dark:text-gray-400 font-medium transition">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3 inline-block"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
-                    Templates
+                <a onclick="switchPage('email')" class="flex items-center px-4 py-3 rounded-xl text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-neutral-800 transition-all cursor-pointer">
+                    <i class="fas fa-envelope w-6 text-lg"></i> <span class="font-medium">Templates</span>
                 </a>
             </nav>
         </div>
         
         <!-- OVERLAY PARA O MENU MOBILE -->
-        <div onclick="document.getElementById('mobile-menu').classList.add('-translate-x-full')" id="menu-overlay" class="fixed inset-0 bg-black/50 z-40 hidden md:hidden transition-opacity"></div>
-        <script>
-            // Pequeno script inline para controlar visibilidade do overlay
-            const menu = document.getElementById('mobile-menu');
-            const overlay = document.getElementById('menu-overlay');
-            const observer = new MutationObserver((mutations) => {
-                mutations.forEach((mutation) => {
-                    if(menu.classList.contains('-translate-x-full')) {
-                        overlay.classList.add('hidden');
-                    } else {
-                        overlay.classList.remove('hidden');
-                    }
-                });
-            });
-            observer.observe(menu, { attributes: true, attributeFilter: ['class'] });
-        </script>
+        <div onclick="document.getElementById('mobile-menu').classList.add('-translate-x-full'); document.getElementById('menu-overlay').classList.add('hidden')" id="menu-overlay" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 hidden transition-opacity duration-300"></div>
 
-        <main class="flex-1 overflow-y-auto p-4 md:p-8 pb-24 md:pb-8">
+        <main class="flex-1 overflow-y-auto p-4 md:p-8 pb-24 md:pb-8 relative scroll-smooth">
 
-            <!-- DASHBOARD -->
+            <!-- DASHBOARD (HOME) -->
             <div id="view-home" class="fade-in max-w-6xl mx-auto space-y-6">
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                     
                     <!-- CARD ONIBUS -->
-                    <div class="bg-white dark:bg-darkcard rounded-xl border border-gray-200 dark:border-darkborder shadow-sm relative overflow-hidden flex flex-col">
+                    <div class="bg-white dark:bg-darkcard rounded-2xl border border-gray-200 dark:border-darkborder shadow-sm relative overflow-hidden flex flex-col group hover:border-indigo-300 dark:hover:border-indigo-800 transition-colors">
                         <div class="p-5 pb-2 flex justify-between items-start">
                             <div>
                                 <div class="flex items-center gap-2 mb-1">
@@ -259,15 +249,15 @@
                                 <h3 class="text-2xl font-bold text-gray-800 dark:text-white" id="dash-bus-title">--:--</h3>
                                 <p class="text-sm text-gray-500 dark:text-gray-400" id="dash-bus-subtitle">...</p>
                             </div>
-                            <div class="w-24 h-16 flex items-center justify-center rounded-lg bg-indigo-50 dark:bg-neutral-900 border border-indigo-100 dark:border-neutral-800 overflow-hidden">
-                                <img src="https://www.imagensanimadas.com/data/media/425/onibus-imagem-animada-0001.gif" onerror="this.style.display='none'; this.parentElement.innerHTML='<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'40\' height=\'40\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'currentColor\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\' class=\'text-indigo-300\'><path d=\'M4 6 2 7\'/><path d=\'M10 6h4\'/><path d=\'m22 7-2-1\'/><rect width=\'16\' height=\'16\' x=\'4\' y=\'3\' rx=\'2\'/><path d=\'M4 11h16\'/><path d=\'M8 15h.01\'/><path d=\'M16 15h.01\'/><path d=\'M6 19v2\'/><path d=\'M18 21v-2\'/></svg>'" class="w-full h-full object-contain p-1">
+                            <div class="w-12 h-12 flex items-center justify-center rounded-xl bg-indigo-50 dark:bg-neutral-800 text-indigo-600 dark:text-indigo-400">
+                                <i class="fas fa-bus text-xl"></i>
                             </div>
                         </div>
                         <div id="bus-dynamic-area" class="p-5 pt-2 flex-1 flex flex-col justify-end min-h-[120px]"></div>
                     </div>
 
-                    <!-- NOVO: CARD TAREFAS INTELIGENTE -->
-                    <div class="bg-white dark:bg-darkcard rounded-xl border border-gray-200 dark:border-darkborder shadow-sm p-6 flex flex-col h-full">
+                    <!-- CARD TAREFAS INTELIGENTE -->
+                    <div class="bg-white dark:bg-darkcard rounded-2xl border border-gray-200 dark:border-darkborder shadow-sm p-6 flex flex-col h-full hover:border-indigo-300 dark:hover:border-indigo-800 transition-colors">
                         <div class="flex justify-between items-center mb-4">
                             <div class="flex items-center gap-2">
                                 <div class="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
@@ -285,26 +275,27 @@
                         </button>
                     </div>
 
-                    <!-- Quick Actions -->
-                    <div class="bg-gradient-to-br from-indigo-600 to-violet-700 rounded-xl p-6 text-white shadow-lg relative overflow-hidden flex flex-col justify-between">
-                         <div class="absolute bottom-0 right-0 opacity-10 text-8xl transform translate-x-4 translate-y-4">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                    <!-- Quick Actions (Foco) -->
+                    <div class="bg-gradient-to-br from-indigo-600 to-violet-700 rounded-2xl p-6 text-white shadow-lg shadow-indigo-500/20 relative overflow-hidden flex flex-col justify-between group cursor-pointer" onclick="switchPage('pomo')">
+                         <div class="absolute -right-6 -bottom-6 text-9xl opacity-10 transform group-hover:scale-110 transition-transform duration-500">
+                            <i class="fas fa-stopwatch"></i>
                         </div>
                         <div>
                             <p class="text-indigo-100 text-xs font-bold uppercase tracking-wider mb-2">Acesso Rápido</p>
                             <h3 class="text-xl font-bold">Hora de focar?</h3>
+                            <p class="text-indigo-100 text-sm mt-1 opacity-80">Ative o timer Pomodoro.</p>
                         </div>
-                        <button onclick="switchPage('pomo')" class="bg-white text-indigo-700 px-4 py-3 rounded-lg text-sm font-bold hover:bg-indigo-50 transition shadow-sm w-full text-center mt-4">
+                        <button class="bg-white text-indigo-700 px-4 py-3 rounded-xl text-sm font-bold hover:bg-indigo-50 transition shadow-sm w-full text-center mt-4 z-10">
                             Abrir Modo Foco
                         </button>
                     </div>
                 </div>
 
-                <!-- NOVOS CARDS -->
+                <!-- NOVOS CARDS: Próxima Aula & Lembretes -->
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div class="bg-white dark:bg-darkcard rounded-xl border border-gray-200 dark:border-darkborder shadow-sm p-6 flex flex-col min-h-[200px]">
+                    <div class="bg-white dark:bg-darkcard rounded-2xl border border-gray-200 dark:border-darkborder shadow-sm p-6 flex flex-col min-h-[180px]">
                         <div class="flex items-center gap-2 mb-3">
-                            <i class="fas fa-graduation-cap text-gray-800 dark:text-white text-lg"></i>
+                            <i class="fas fa-graduation-cap text-indigo-500 text-lg"></i>
                             <h3 class="font-bold text-lg text-gray-800 dark:text-white">Próxima Aula</h3>
                         </div>
                         <div id="next-class-content" class="flex-1 flex flex-col justify-center">
@@ -312,61 +303,59 @@
                         </div>
                     </div>
 
-                    <div class="bg-white dark:bg-darkcard rounded-xl border border-gray-200 dark:border-darkborder shadow-sm p-6 flex flex-col min-h-[200px]">
+                    <div class="bg-white dark:bg-darkcard rounded-2xl border border-gray-200 dark:border-darkborder shadow-sm p-6 flex flex-col min-h-[180px]">
                         <div class="flex justify-between items-center mb-4">
                             <div class="flex items-center gap-2">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-800 dark:text-white"><path d="M10.268 21a2 2 0 0 0 3.464 0"></path><path d="M22 8c0-2.3-.8-4.3-2-6"></path><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"></path><path d="M4 2C2.8 3.7 2 5.7 2 8"></path></svg>
-                                <h3 class="font-bold text-lg text-gray-800 dark:text-white">Lembretes Importantes</h3>
+                                <i class="far fa-bell text-orange-500 text-lg"></i>
+                                <h3 class="font-bold text-lg text-gray-800 dark:text-white">Lembretes</h3>
                             </div>
                              <button onclick="toggleRemindersModal()" class="text-xs bg-gray-100 dark:bg-neutral-800 hover:bg-gray-200 dark:hover:bg-neutral-700 text-gray-600 dark:text-gray-300 px-3 py-1.5 rounded-lg transition font-medium">
-                                Gerenciar
+                                + Novo
                             </button>
                         </div>
                         <div id="home-reminders-list" class="flex-1 flex flex-col justify-center space-y-2">
-                            <div class="flex flex-col items-center justify-center text-center p-4 border-2 border-dashed border-gray-100 dark:border-neutral-800 rounded-lg h-full">
-                                <p class="text-gray-400 dark:text-gray-500 font-medium">Nenhum lembrete de alta prioridade.</p>
-                            </div>
+                            <!-- JS Injects -->
                         </div>
                     </div>
                 </div>
 
-                <!-- Quick Links -->
-                <h3 class="text-lg font-bold text-gray-800 dark:text-white mt-8 mb-4">Ferramentas</h3>
+                <!-- Quick Links Grid -->
+                <h3 class="text-lg font-bold text-gray-800 dark:text-white mt-8 mb-4 px-1">Apps</h3>
                 <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                    <button onclick="switchPage('calc')" class="p-4 bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder rounded-xl hover:border-indigo-500 dark:hover:border-indigo-500 transition text-left group shadow-sm">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-400 group-hover:text-indigo-500 mb-3 transition-colors"><rect width="16" height="20" x="4" y="2" rx="2"/><line x1="8" x2="16" y1="6" y2="6"/><line x1="16" x2="16" y1="14" y2="18"/><path d="M16 10h.01"/><path d="M12 10h.01"/><path d="M8 10h.01"/><path d="M12 14h.01"/><path d="M8 14h.01"/><path d="M12 18h.01"/><path d="M8 18h.01"/></svg>
+                    <button onclick="switchPage('calc')" class="p-4 bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder rounded-2xl hover:border-indigo-500 dark:hover:border-indigo-500 transition text-left group shadow-sm hover:shadow-md">
+                        <i class="fas fa-calculator text-2xl text-gray-400 group-hover:text-indigo-500 mb-3 transition-colors block"></i>
                         <p class="font-bold text-gray-700 dark:text-gray-200">Calculadora</p>
                     </button>
-                    <button onclick="switchPage('email')" class="p-4 bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder rounded-xl hover:border-blue-500 dark:hover:border-blue-500 transition text-left group shadow-sm">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-400 group-hover:text-blue-500 mb-3 transition-colors"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+                    <button onclick="switchPage('email')" class="p-4 bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder rounded-2xl hover:border-blue-500 dark:hover:border-blue-500 transition text-left group shadow-sm hover:shadow-md">
+                        <i class="fas fa-envelope text-2xl text-gray-400 group-hover:text-blue-500 mb-3 transition-colors block"></i>
                         <p class="font-bold text-gray-700 dark:text-gray-200">Emails</p>
                     </button>
-                     <button onclick="switchPage('aulas')" class="p-4 bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder rounded-xl hover:border-purple-500 dark:hover:border-purple-500 transition text-left group shadow-sm">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-400 group-hover:text-purple-500 mb-3 transition-colors"><path d="M8 2v4"></path><path d="M16 2v4"></path><rect width="18" height="18" x="3" y="4" rx="2"></path><path d="M3 10h18"></path></svg>
-                        <p class="font-bold text-gray-700 dark:text-gray-200">Aulas</p>
+                     <button onclick="switchPage('aulas')" class="p-4 bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder rounded-2xl hover:border-purple-500 dark:hover:border-purple-500 transition text-left group shadow-sm hover:shadow-md">
+                        <i class="fas fa-book text-2xl text-gray-400 group-hover:text-purple-500 mb-3 transition-colors block"></i>
+                        <p class="font-bold text-gray-700 dark:text-gray-200">Grade</p>
                     </button>
-                    <button onclick="switchPage('onibus')" class="p-4 bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder rounded-xl hover:border-orange-500 dark:hover:border-orange-500 transition text-left group shadow-sm">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-400 group-hover:text-orange-500 mb-3 transition-colors"><path d="M4 6 2 7"></path><path d="M10 6h4"></path><path d="m22 7-2-1"></path><rect width="16" height="16" x="4" y="3" rx="2"></path><path d="M4 11h16"></path><path d="M8 15h.01"></path><path d="M16 15h.01"></path><path d="M6 19v2"></path><path d="M18 21v-2"></path></svg>
+                    <button onclick="switchPage('onibus')" class="p-4 bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder rounded-2xl hover:border-orange-500 dark:hover:border-orange-500 transition text-left group shadow-sm hover:shadow-md">
+                        <i class="fas fa-bus text-2xl text-gray-400 group-hover:text-orange-500 mb-3 transition-colors block"></i>
                         <p class="font-bold text-gray-700 dark:text-gray-200">Circular</p>
                     </button>
                 </div>
             </div>
 
             <!-- DEMAIS VIEWS -->
-            <div id="view-onibus" class="hidden fade-in max-w-4xl mx-auto">
-                 <div class="bg-white dark:bg-darkcard rounded-xl shadow-sm border border-gray-200 dark:border-darkborder overflow-hidden p-6">
+            <div id="view-onibus" class="hidden fade-in max-w-4xl mx-auto pb-20">
+                 <div class="bg-white dark:bg-darkcard rounded-2xl shadow-sm border border-gray-200 dark:border-darkborder overflow-hidden p-6">
                      <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4 border-b border-gray-100 dark:border-neutral-800 pb-4">
-                         <h2 class="text-xl font-bold text-gray-800 dark:text-white">Grade Completa 2025.1</h2>
-                         <a href="https://www.ufrb.edu.br/cso/images/Hor%C3%A1rio_do_%C3%94nibus_Circular_2025.2.pdf" target="_blank" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-bold transition flex items-center gap-2 shadow-md hover:shadow-lg">
-                            <i class="fas fa-file-pdf"></i> Baixar Horários
+                         <h2 class="text-xl font-bold text-gray-800 dark:text-white">Horários 2025.1</h2>
+                         <a href="https://www.ufrb.edu.br/cso/images/Hor%C3%A1rio_do_%C3%94nibus_Circular_2025.2.pdf" target="_blank" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-bold transition flex items-center gap-2 shadow-md">
+                            <i class="fas fa-file-pdf"></i> PDF Oficial
                         </a>
                      </div>
                      <div class="overflow-x-auto">
                         <table class="w-full text-sm text-left">
                             <thead class="bg-gray-50 dark:bg-neutral-900 text-gray-500 dark:text-gray-300 uppercase text-xs font-bold tracking-wider">
                                 <tr>
-                                    <th class="px-6 py-4">Horário</th>
-                                    <th class="px-6 py-4">Itinerário (Paradas Estimadas)</th>
+                                    <th class="px-6 py-4 rounded-tl-lg">Partida - Chegada</th>
+                                    <th class="px-6 py-4 rounded-tr-lg">Itinerário</th>
                                 </tr>
                             </thead>
                             <tbody id="bus-table-body" class="divide-y divide-gray-200 dark:divide-darkborder text-gray-700 dark:text-gray-300"></tbody>
@@ -375,52 +364,48 @@
                  </div>
             </div>
             
-            <div id="view-calc" class="hidden fade-in max-w-3xl mx-auto pb-10">
-                <div class="bg-white dark:bg-darkcard rounded-2xl shadow-xl border border-gray-200 dark:border-darkborder overflow-hidden">
+            <div id="view-calc" class="hidden fade-in max-w-3xl mx-auto pb-20">
+                <div class="bg-white dark:bg-darkcard rounded-3xl shadow-xl border border-gray-200 dark:border-darkborder overflow-hidden">
                     <div class="bg-gradient-to-r from-indigo-600 to-purple-600 p-8 text-white text-center relative overflow-hidden">
                         <div class="relative z-10">
-                            <h2 class="text-3xl font-bold mb-2">Calculadora de Média</h2>
-                            <p class="text-indigo-100 text-sm">Preencha suas notas e pesos para calcular.</p>
+                            <h2 class="text-3xl font-bold mb-2">Média Ponderada</h2>
+                            <p class="text-indigo-100 text-sm">Simule suas notas.</p>
                         </div>
-                        <div class="absolute top-0 left-0 w-full h-full opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
+                        <i class="fas fa-calculator absolute -right-6 -bottom-6 text-9xl opacity-10 transform rotate-12"></i>
                     </div>
                     
                     <div class="p-6 md:p-8">
-                        <div class="flex justify-center items-center gap-4 mb-8 p-4 bg-gray-50 dark:bg-neutral-900/50 rounded-xl border border-gray-200 dark:border-neutral-800">
-                            <label class="text-sm font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wide">Média para Aprovação:</label>
-                            <input type="number" id="passing-grade" value="6.0" step="0.1" class="w-20 bg-white dark:bg-neutral-800 border border-gray-300 dark:border-neutral-700 rounded-lg px-3 py-2 text-center font-bold text-lg focus:ring-2 focus:ring-indigo-500 outline-none dark:text-white transition shadow-sm">
+                        <div class="flex justify-center items-center gap-4 mb-8 p-4 bg-gray-50 dark:bg-neutral-900/50 rounded-2xl border border-gray-200 dark:border-neutral-800">
+                            <label class="text-sm font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wide">Média:</label>
+                            <input type="number" id="passing-grade" value="6.0" step="0.1" class="w-20 bg-white dark:bg-neutral-800 border border-gray-300 dark:border-neutral-700 rounded-xl px-3 py-2 text-center font-bold text-lg focus:ring-2 focus:ring-indigo-500 outline-none dark:text-white transition shadow-sm">
                         </div>
                         <div id="grades-container" class="space-y-4 mb-8"></div>
                         <div class="flex gap-4 mb-10">
-                            <button onclick="addGradeRow()" class="flex-1 py-3 border-2 border-dashed border-gray-300 dark:border-neutral-700 rounded-xl text-gray-500 hover:border-indigo-500 hover:text-indigo-500 dark:text-gray-400 dark:hover:text-indigo-400 transition font-medium flex items-center justify-center gap-2 group">
-                                <div class="w-6 h-6 rounded-full bg-gray-200 dark:bg-neutral-800 group-hover:bg-indigo-100 dark:group-hover:bg-indigo-900/30 flex items-center justify-center transition-colors">
-                                    <i class="fas fa-plus text-xs"></i>
-                                </div>
-                                Adicionar Nota
+                            <button onclick="addGradeRow()" class="flex-1 py-3 border-2 border-dashed border-gray-300 dark:border-neutral-700 rounded-xl text-gray-500 hover:border-indigo-500 hover:text-indigo-500 dark:text-gray-400 dark:hover:text-indigo-400 transition font-bold flex items-center justify-center gap-2 active:scale-95">
+                                <i class="fas fa-plus"></i> Adicionar Nota
                             </button>
-                            <button onclick="resetCalc()" class="px-6 py-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-xl hover:bg-red-100 hover:scale-105 transition shadow-sm font-bold" title="Limpar tudo">
+                            <button onclick="resetCalc()" class="px-6 py-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-xl hover:bg-red-100 transition shadow-sm font-bold active:scale-95">
                                 <i class="fas fa-trash-alt"></i>
                             </button>
                         </div>
                         <div class="bg-gray-50 dark:bg-neutral-900 rounded-2xl p-8 text-center border border-gray-200 dark:border-neutral-800 relative overflow-hidden">
-                            <p class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Sua Média Final</p>
+                            <p class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Resultado</p>
                             <h3 id="result-display" class="text-6xl font-black text-gray-300 dark:text-gray-600 mb-6 transition-all duration-500">--</h3>
-                            <div id="result-feedback" class="min-h-[200px] flex flex-col items-center justify-center transition-all duration-500">
-                                <p class="text-gray-400 text-sm italic">Adicione notas para ver o resultado...</p>
+                            <div id="result-feedback" class="min-h-[150px] flex flex-col items-center justify-center transition-all duration-500">
+                                <p class="text-gray-400 text-sm italic">Preencha acima...</p>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <div id="view-pomo" class="hidden fade-in max-w-2xl mx-auto text-center pt-8">
-                <div class="bg-white dark:bg-darkcard rounded-3xl p-10 shadow-2xl border border-gray-100 dark:border-darkborder relative overflow-hidden">
-                    <div class="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500"></div>
-                    <div class="relative w-72 h-72 mx-auto mb-10 flex items-center justify-center group">
-                         <svg class="transform -rotate-90 w-72 h-72 drop-shadow-lg"><circle cx="144" cy="144" r="130" stroke="currentColor" stroke-width="8" fill="transparent" class="text-gray-100 dark:text-neutral-800 transition-colors duration-500" /><circle id="timer-circle" cx="144" cy="144" r="130" stroke="currentColor" stroke-width="8" fill="transparent" stroke-dasharray="816" stroke-dashoffset="0" stroke-linecap="round" class="text-indigo-500 transition-all duration-1000 group-hover:text-indigo-400" /></svg>
+            <div id="view-pomo" class="hidden fade-in max-w-2xl mx-auto text-center pt-4 pb-20">
+                <div class="bg-white dark:bg-darkcard rounded-[40px] p-8 md:p-12 shadow-2xl border border-gray-100 dark:border-darkborder relative overflow-hidden">
+                    <div class="relative w-64 h-64 mx-auto mb-10 flex items-center justify-center group">
+                         <svg class="transform -rotate-90 w-64 h-64 drop-shadow-lg"><circle cx="128" cy="128" r="120" stroke="currentColor" stroke-width="8" fill="transparent" class="text-gray-100 dark:text-neutral-800" /><circle id="timer-circle" cx="128" cy="128" r="120" stroke="currentColor" stroke-width="8" fill="transparent" stroke-dasharray="816" stroke-dashoffset="0" stroke-linecap="round" class="text-indigo-500 transition-all duration-1000 group-hover:text-indigo-400" /></svg>
                         <div class="absolute inset-0 flex flex-col items-center justify-center">
-                            <span id="timer-display" class="text-6xl font-bold tracking-tighter font-mono text-gray-800 dark:text-white transition-colors">25:00</span>
-                            <span id="timer-label" class="text-sm uppercase font-extrabold tracking-widest text-indigo-500 mt-4 bg-indigo-50 dark:bg-indigo-900/30 px-3 py-1 rounded-full">Foco</span>
+                            <span id="timer-display" class="text-5xl font-bold tracking-tighter font-mono text-gray-800 dark:text-white transition-colors">25:00</span>
+                            <span id="timer-label" class="text-xs uppercase font-extrabold tracking-widest text-indigo-500 mt-4 bg-indigo-50 dark:bg-indigo-900/30 px-3 py-1 rounded-full">Foco</span>
                         </div>
                     </div>
                     <div class="flex justify-center gap-6 mb-10">
@@ -439,16 +424,14 @@
                 </div>
             </div>
 
-            <div id="view-todo" class="hidden fade-in max-w-3xl mx-auto">
-                <div class="bg-white dark:bg-darkcard rounded-xl shadow-sm border border-gray-200 dark:border-darkborder min-h-[500px] flex flex-col">
-                    <div class="p-6 border-b border-gray-200 dark:border-darkborder bg-gray-50/50 dark:bg-neutral-900/30">
+            <div id="view-todo" class="hidden fade-in max-w-3xl mx-auto pb-20">
+                <div class="bg-white dark:bg-darkcard rounded-2xl shadow-sm border border-gray-200 dark:border-darkborder min-h-[500px] flex flex-col">
+                    <div class="p-6 border-b border-gray-200 dark:border-darkborder bg-gray-50/50 dark:bg-neutral-900/30 rounded-t-2xl">
                         <h2 class="text-xl font-bold mb-6 text-gray-800 dark:text-white">Lista de Tarefas</h2>
-                        
-                        <!-- New Input Area -->
                         <div class="space-y-4">
                             <div class="flex gap-2">
-                                <input type="text" id="todo-input" class="flex-1 bg-white dark:bg-neutral-800 border border-gray-300 dark:border-neutral-700 rounded-lg px-4 py-3 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition dark:text-white shadow-sm" placeholder="O que precisa ser feito?" onkeypress="if(event.key === 'Enter') addTask()">
-                                <button onclick="addTask()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 rounded-lg transition font-bold shadow-md flex items-center justify-center"><i class="fas fa-plus"></i></button>
+                                <input type="text" id="todo-input" class="flex-1 bg-white dark:bg-neutral-800 border border-gray-300 dark:border-neutral-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition dark:text-white shadow-sm" placeholder="O que precisa ser feito?" onkeypress="if(event.key === 'Enter') addTask()">
+                                <button onclick="addTask()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 rounded-xl transition font-bold shadow-md flex items-center justify-center"><i class="fas fa-plus"></i></button>
                             </div>
                             
                             <div class="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
@@ -466,8 +449,6 @@
                                 </select>
                             </div>
                         </div>
-
-                        <!-- Filters -->
                         <div class="flex gap-2 mt-6 text-xs font-medium">
                             <button id="filter-all" onclick="setTaskFilter('all')" class="px-3 py-1.5 rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300 transition">Todas</button>
                             <button id="filter-active" onclick="setTaskFilter('active')" class="px-3 py-1.5 rounded-full hover:bg-gray-200 dark:hover:bg-neutral-800 text-gray-600 dark:text-gray-400 transition">Pendentes</button>
@@ -477,35 +458,36 @@
 
                     <div class="flex-1 overflow-y-auto p-4 space-y-2 bg-gray-50 dark:bg-darkbg" id="todo-list"></div>
                     
-                    <div class="p-3 bg-white dark:bg-darkcard border-t border-gray-200 dark:border-darkborder flex justify-between items-center text-xs text-gray-500">
-                         <span id="task-count">0 tarefas</span>
+                    <div class="p-3 bg-white dark:bg-darkcard border-t border-gray-200 dark:border-darkborder flex justify-end items-center text-xs text-gray-500 rounded-b-2xl">
                          <button onclick="clearCompleted()" class="hover:text-red-500 transition font-medium">Limpar Concluídas</button>
                     </div>
                 </div>
             </div>
 
-            <div id="view-email" class="hidden fade-in max-w-5xl mx-auto">
+            <div id="view-email" class="hidden fade-in max-w-5xl mx-auto pb-20">
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[500px]">
                     <div class="space-y-2 overflow-y-auto pr-2">
-                        <button onclick="loadTemplate('deadline')" class="w-full text-left p-4 rounded-lg bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder hover:border-indigo-500 transition group"><span class="font-bold text-gray-700 dark:text-gray-200 block group-hover:text-indigo-500">Extensão de Prazo</span><span class="text-xs text-gray-500">Pedir mais tempo.</span></button>
-                         <button onclick="loadTemplate('review')" class="w-full text-left p-4 rounded-lg bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder hover:border-indigo-500 transition group"><span class="font-bold text-gray-700 dark:text-gray-200 block group-hover:text-indigo-500">Revisão de Nota</span><span class="text-xs text-gray-500">Dúvidas na correção.</span></button>
-                        <button onclick="loadTemplate('absence')" class="w-full text-left p-4 rounded-lg bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder hover:border-indigo-500 transition group"><span class="font-bold text-gray-700 dark:text-gray-200 block group-hover:text-indigo-500">Justificar Falta</span><span class="text-xs text-gray-500">Motivo de saúde.</span></button>
-                         <button onclick="loadTemplate('tcc')" class="w-full text-left p-4 rounded-lg bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder hover:border-indigo-500 transition group"><span class="font-bold text-gray-700 dark:text-gray-200 block group-hover:text-indigo-500">Orientador TCC</span><span class="text-xs text-gray-500">Convite formal.</span></button>
+                        <button onclick="loadTemplate('deadline')" class="w-full text-left p-4 rounded-xl bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder hover:border-indigo-500 transition group shadow-sm"><span class="font-bold text-gray-700 dark:text-gray-200 block group-hover:text-indigo-500">Extensão de Prazo</span><span class="text-xs text-gray-500">Pedir mais tempo.</span></button>
+                         <button onclick="loadTemplate('review')" class="w-full text-left p-4 rounded-xl bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder hover:border-indigo-500 transition group shadow-sm"><span class="font-bold text-gray-700 dark:text-gray-200 block group-hover:text-indigo-500">Revisão de Nota</span><span class="text-xs text-gray-500">Dúvidas na correção.</span></button>
+                        <button onclick="loadTemplate('absence')" class="w-full text-left p-4 rounded-xl bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder hover:border-indigo-500 transition group shadow-sm"><span class="font-bold text-gray-700 dark:text-gray-200 block group-hover:text-indigo-500">Justificar Falta</span><span class="text-xs text-gray-500">Motivo de saúde.</span></button>
+                         <button onclick="loadTemplate('tcc')" class="w-full text-left p-4 rounded-xl bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder hover:border-indigo-500 transition group shadow-sm"><span class="font-bold text-gray-700 dark:text-gray-200 block group-hover:text-indigo-500">Orientador TCC</span><span class="text-xs text-gray-500">Convite formal.</span></button>
                     </div>
-                    <div class="lg:col-span-2 flex flex-col bg-white dark:bg-darkcard rounded-xl border border-gray-200 dark:border-darkborder overflow-hidden">
-                        <div class="p-3 bg-gray-50 dark:bg-neutral-900 border-b border-gray-200 dark:border-darkborder flex justify-between items-center"><span class="text-xs font-bold uppercase text-gray-500">Editor</span><button onclick="copyEmail()" class="text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded transition">Copiar</button></div>
-                        <textarea id="email-content" class="flex-1 w-full p-6 bg-transparent outline-none resize-none font-mono text-sm leading-relaxed text-gray-700 dark:text-gray-300" spellcheck="false">Selecione um modelo...</textarea>
+                    <div class="lg:col-span-2 flex flex-col bg-white dark:bg-darkcard rounded-xl border border-gray-200 dark:border-darkborder overflow-hidden shadow-md">
+                        <div class="p-3 bg-gray-50 dark:bg-neutral-900 border-b border-gray-200 dark:border-darkborder flex justify-between items-center"><span class="text-xs font-bold uppercase text-gray-500">Editor</span><button onclick="copyEmail()" class="text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded transition font-bold">Copiar Texto</button></div>
+                        <textarea id="email-content" class="flex-1 w-full p-6 bg-transparent outline-none resize-none font-mono text-sm leading-relaxed text-gray-700 dark:text-gray-300" spellcheck="false" placeholder="Selecione um modelo ao lado ou comece a digitar..."></textarea>
                     </div>
                 </div>
             </div>
 
-            <!-- A div view-aulas é deixada propositalmente vazia para ser preenchida pelo script.js -->
-            <div id="view-aulas" class="hidden fade-in"></div>
+            <!-- A div view-aulas é preenchida pelo script.js -->
+            <div id="view-aulas" class="hidden fade-in pb-20"></div>
         </main>
     </div>
 
-    <!-- MODAIS -->
-    <div id="class-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm hidden opacity-0 transition-opacity duration-300">
+    <!-- ================= MODAIS PERSONALIZADOS ================= -->
+    
+    <!-- 1. Modal de Aula -->
+    <div id="class-modal" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm hidden opacity-0 transition-opacity duration-300">
         <div class="bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl w-full max-w-md p-6 m-4 transform scale-95 transition-transform duration-300 border border-gray-200 dark:border-neutral-800" id="class-modal-content">
             <div class="flex justify-between items-center mb-6">
                 <h3 id="modal-title" class="text-lg font-bold text-gray-900 dark:text-white">Adicionar Aula</h3>
@@ -516,54 +498,52 @@
             <input type="hidden" id="class-id">
             <div class="space-y-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Nome da Matéria</label>
-                    <input type="text" id="class-name" class="w-full bg-gray-50 dark:bg-neutral-800 border border-gray-300 dark:border-neutral-700 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-indigo-500 outline-none text-gray-900 dark:text-white transition placeholder-gray-400 dark:placeholder-gray-600" placeholder="Ex: Cálculo I">
+                    <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Matéria</label>
+                    <input type="text" id="class-name" class="w-full bg-gray-50 dark:bg-neutral-800 border border-gray-300 dark:border-neutral-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-indigo-500 outline-none text-gray-900 dark:text-white transition" placeholder="Ex: Cálculo I">
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Professor</label>
-                    <input type="text" id="class-prof" class="w-full bg-gray-50 dark:bg-neutral-800 border border-gray-300 dark:border-neutral-700 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-indigo-500 outline-none text-gray-900 dark:text-white transition placeholder-gray-400 dark:placeholder-gray-600" placeholder="Nome do professor">
+                    <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Professor</label>
+                    <input type="text" id="class-prof" class="w-full bg-gray-50 dark:bg-neutral-800 border border-gray-300 dark:border-neutral-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-indigo-500 outline-none text-gray-900 dark:text-white transition" placeholder="Nome do professor">
                 </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Sala ou Local</label>
-                    <input type="text" id="class-room" class="w-full bg-gray-50 dark:bg-neutral-800 border border-gray-300 dark:border-neutral-700 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-indigo-500 outline-none text-gray-900 dark:text-white transition placeholder-gray-400 dark:placeholder-gray-600" placeholder="Ex: PAV I SALA 11">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Dia da Semana</label>
-                    <select id="class-day" class="w-32 bg-gray-50 dark:bg-neutral-800 border border-gray-300 dark:border-neutral-700 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-indigo-500 outline-none text-gray-900 dark:text-white transition">
-                        <option value="seg">Seg</option>
-                        <option value="ter">Ter</option>
-                        <option value="qua">Qua</option>
-                        <option value="qui">Qui</option>
-                        <option value="sex">Sex</option>
-                        <option value="sab">Sab</option>
-                    </select>
+                <div class="grid grid-cols-2 gap-4">
+                     <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Local</label>
+                        <input type="text" id="class-room" class="w-full bg-gray-50 dark:bg-neutral-800 border border-gray-300 dark:border-neutral-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-indigo-500 outline-none text-gray-900 dark:text-white transition" placeholder="Sala">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Dia</label>
+                        <select id="class-day" class="w-full bg-gray-50 dark:bg-neutral-800 border border-gray-300 dark:border-neutral-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-indigo-500 outline-none text-gray-900 dark:text-white transition">
+                            <option value="seg">Seg</option><option value="ter">Ter</option><option value="qua">Qua</option><option value="qui">Qui</option><option value="sex">Sex</option><option value="sab">Sab</option>
+                        </select>
+                    </div>
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Horário de Início</label>
-                        <select id="class-start" onchange="updateEndTime()" class="w-full bg-gray-50 dark:bg-neutral-800 border border-gray-300 dark:border-neutral-700 rounded-lg px-3 py-2.5 outline-none text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 transition"></select>
+                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Início</label>
+                        <select id="class-start" onchange="updateEndTime()" class="w-full bg-gray-50 dark:bg-neutral-800 border border-gray-300 dark:border-neutral-700 rounded-xl px-4 py-3 outline-none text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 transition"></select>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Horário de Fim</label>
-                        <select id="class-end" class="w-full bg-gray-50 dark:bg-neutral-800 border border-gray-300 dark:border-neutral-700 rounded-lg px-3 py-2.5 outline-none text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 transition"></select>
+                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Fim</label>
+                        <select id="class-end" class="w-full bg-gray-50 dark:bg-neutral-800 border border-gray-300 dark:border-neutral-700 rounded-xl px-4 py-3 outline-none text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 transition"></select>
                     </div>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">Cor da Matéria</label>
+                    <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Cor</label>
                     <div class="flex gap-3 flex-wrap" id="color-picker-container"></div>
                 </div>
             </div>
             <div class="mt-8 flex justify-end gap-3">
-                <button id="btn-delete-class" onclick="confirmDeleteClass()" class="hidden bg-red-100 hover:bg-red-200 dark:bg-red-900/50 dark:hover:bg-red-900 text-red-600 dark:text-red-200 font-medium py-2 px-4 rounded-lg transition border border-red-200 dark:border-red-900">
-                    <i class="fas fa-trash-alt mr-2"></i> Deletar
+                <button id="btn-delete-class" onclick="confirmDeleteClass()" class="hidden bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/40 text-red-600 dark:text-red-400 font-bold py-3 px-5 rounded-xl transition">
+                    Deletar
                 </button>
-                <button onclick="saveClass()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded-lg transition shadow-md">
+                <button onclick="saveClass()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-xl transition shadow-lg shadow-indigo-500/30">
                     Salvar
                 </button>
             </div>
         </div>
     </div>
 
+    <!-- 2. Modal de Lembretes -->
     <div id="reminders-modal" class="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 backdrop-blur-sm hidden opacity-0 transition-opacity duration-300">
         <div class="bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl w-full max-w-md p-6 m-4 transform scale-95 transition-transform duration-300 border border-gray-200 dark:border-neutral-800 flex flex-col max-h-[85vh]">
             <div class="flex justify-between items-center mb-1">
@@ -572,57 +552,56 @@
                     <i class="fas fa-times text-lg"></i>
                 </button>
             </div>
-            <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">Gerencie suas tarefas e lembretes importantes aqui.</p>
-            <button onclick="showReminderForm()" id="btn-add-reminder" class="w-full py-3 border border-gray-200 dark:border-neutral-700 rounded-lg flex items-center justify-center gap-2 hover:bg-gray-50 dark:hover:bg-neutral-800 transition text-gray-700 dark:text-gray-300 font-medium mb-4">
-                <i class="fas fa-plus text-sm"></i> Adicionar Novo Lembrete
+            <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">Coisas importantes para não esquecer.</p>
+            
+            <button onclick="showReminderForm()" id="btn-add-reminder" class="w-full py-3 border-2 border-dashed border-gray-300 dark:border-neutral-700 rounded-xl flex items-center justify-center gap-2 hover:border-indigo-500 hover:text-indigo-500 dark:hover:border-indigo-400 dark:hover:text-indigo-400 transition text-gray-500 dark:text-gray-400 font-bold mb-4">
+                <i class="fas fa-plus"></i> Novo Lembrete
             </button>
+            
             <div id="reminder-form" class="hidden mb-6 bg-gray-50 dark:bg-neutral-800/50 p-4 rounded-xl border border-gray-200 dark:border-neutral-700 space-y-3">
-                <input type="text" id="rem-desc" class="w-full bg-white dark:bg-neutral-900 border border-gray-300 dark:border-neutral-700 rounded-lg px-3 py-2.5 outline-none text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 transition placeholder-gray-400" placeholder="Descrição do lembrete...">
+                <input type="text" id="rem-desc" class="w-full bg-white dark:bg-neutral-900 border border-gray-300 dark:border-neutral-700 rounded-xl px-4 py-3 outline-none text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 transition placeholder-gray-400" placeholder="Ex: Entregar relatório">
                 <div class="flex gap-2">
-                    <input type="date" id="rem-date" class="flex-1 bg-white dark:bg-neutral-900 border border-gray-300 dark:border-neutral-700 rounded-lg px-3 py-2.5 outline-none text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 transition text-sm">
-                    <select id="rem-prio" class="w-32 bg-white dark:bg-neutral-900 border border-gray-300 dark:border-neutral-700 rounded-lg px-3 py-2.5 outline-none text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 transition text-sm">
+                    <input type="date" id="rem-date" class="flex-1 bg-white dark:bg-neutral-900 border border-gray-300 dark:border-neutral-700 rounded-xl px-4 py-3 outline-none text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 transition text-sm font-medium">
+                    <select id="rem-prio" class="w-32 bg-white dark:bg-neutral-900 border border-gray-300 dark:border-neutral-700 rounded-xl px-3 py-3 outline-none text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 transition text-sm font-medium">
                         <option value="low">Baixa</option>
                         <option value="medium" selected>Média</option>
                         <option value="high">Alta</option>
                     </select>
                 </div>
                 <div class="flex justify-end gap-2 pt-2">
-                    <button onclick="hideReminderForm()" class="px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-neutral-700 rounded-lg transition">Cancelar</button>
-                    <button onclick="addReminder()" class="px-4 py-2 text-sm font-bold text-white bg-gray-900 dark:bg-white dark:text-black hover:opacity-90 rounded-lg transition shadow-sm">Salvar</button>
+                    <button onclick="hideReminderForm()" class="px-4 py-2 text-sm font-bold text-gray-500 hover:bg-gray-200 dark:hover:bg-neutral-700 rounded-lg transition">Cancelar</button>
+                    <button onclick="addReminder()" class="px-4 py-2 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition shadow-sm">Salvar</button>
                 </div>
             </div>
-            <div id="reminders-list-modal" class="flex-1 overflow-y-auto space-y-2 pr-1">
-                <div class="flex flex-col items-center justify-center h-32 text-gray-400">
-                    <i class="fas fa-exclamation-circle text-2xl mb-2 opacity-50"></i>
-                    <p class="text-sm">Nenhum lembrete</p>
-                </div>
-            </div>
+            <div id="reminders-list-modal" class="flex-1 overflow-y-auto space-y-2 pr-1"></div>
         </div>
     </div>
 
-    <div id="delete-confirmation-modal" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 backdrop-blur-sm hidden opacity-0 transition-opacity duration-300">
-        <div class="bg-white dark:bg-neutral-900 rounded-xl shadow-2xl w-full max-w-sm p-6 m-4 transform scale-95 transition-transform duration-300 border border-gray-200 dark:border-darkborder text-center">
-            <div class="w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/20 flex items-center justify-center mx-auto mb-4">
-                <i class="fas fa-exclamation-triangle text-2xl text-red-600 dark:text-red-400"></i>
+    <!-- 3. Modal de Confirmação de Exclusão -->
+    <div id="delete-confirmation-modal" class="fixed inset-0 z-[90] flex items-center justify-center bg-black/70 backdrop-blur-sm hidden opacity-0 transition-opacity duration-300">
+        <div class="bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl w-full max-w-sm p-8 m-4 transform scale-95 transition-transform duration-300 border border-gray-200 dark:border-darkborder text-center">
+            <div class="w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/20 flex items-center justify-center mx-auto mb-4 animate-bounce">
+                <i class="fas fa-trash-alt text-2xl text-red-600 dark:text-red-400"></i>
             </div>
             <h3 class="text-xl font-bold text-gray-800 dark:text-white mb-2">Tem certeza?</h3>
             <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">Essa ação não pode ser desfeita.</p>
             <div class="flex gap-3 justify-center">
-                <button onclick="closeDeleteConfirmation()" class="px-4 py-2 rounded-lg bg-gray-100 dark:bg-neutral-800 text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-200 dark:hover:bg-neutral-700 transition">Cancelar</button>
-                <button onclick="performDeleteClass()" class="px-4 py-2 rounded-lg bg-red-600 text-white font-bold hover:bg-red-700 transition shadow-lg shadow-red-600/30">Sim, Deletar</button>
+                <button onclick="closeDeleteConfirmation()" class="px-5 py-2.5 rounded-xl bg-gray-100 dark:bg-neutral-800 text-gray-700 dark:text-gray-300 font-bold hover:bg-gray-200 dark:hover:bg-neutral-700 transition">Cancelar</button>
+                <button onclick="performDeleteClass()" class="px-5 py-2.5 rounded-xl bg-red-600 text-white font-bold hover:bg-red-700 transition shadow-lg shadow-red-600/30">Sim, Deletar</button>
             </div>
         </div>
     </div>
 
-    <div id="generic-modal" class="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-sm hidden opacity-0 transition-opacity duration-300">
-        <div class="bg-white dark:bg-neutral-900 rounded-xl shadow-2xl w-full max-w-sm p-6 transform scale-95 transition-transform duration-300 border border-gray-200 dark:border-darkborder text-center">
-            <h3 id="generic-modal-title" class="text-lg font-bold text-gray-800 dark:text-white mb-2">Aviso</h3>
-            <p id="generic-modal-message" class="text-sm text-gray-500 dark:text-gray-400 mb-6">Mensagem aqui</p>
-            <button onclick="closeGenericModal()" class="w-full py-2 rounded-lg bg-indigo-600 text-white font-bold hover:bg-indigo-700 transition">Entendi</button>
+    <!-- 4. Modal Genérico (Substituto do Alert) -->
+    <div id="generic-modal" class="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm hidden opacity-0 transition-opacity duration-300">
+        <div class="bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl w-full max-w-sm p-8 m-4 transform scale-95 transition-transform duration-300 border border-gray-200 dark:border-darkborder text-center">
+            <h3 id="generic-modal-title" class="text-xl font-bold text-gray-800 dark:text-white mb-2">Aviso</h3>
+            <p id="generic-modal-message" class="text-gray-600 dark:text-gray-300 mb-8">Mensagem aqui</p>
+            <button onclick="closeGenericModal()" class="w-full py-3 rounded-xl bg-indigo-600 text-white font-bold hover:bg-indigo-700 transition shadow-lg">Entendi</button>
         </div>
     </div>
 
     <!-- Scripts da Aplicação -->
-    <script src="script.js" defer></script>
+    <script src="script.js?v=10"></script>
 </body>
 </html>

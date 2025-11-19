@@ -26,7 +26,7 @@ function toggleTheme() {
 // --- LÓGICA PWA E OFFLINE ---
 // ------------------------------------------------
 
-// 1. Criar Manifesto Dinamicamente (opcional, mas mantido para garantir icons)
+// 1. Criar Manifesto Dinamicamente
 const manifest = {
     "name": "Salve-se Painel",
     "short_name": "Salve-se",
@@ -47,12 +47,15 @@ if (pwaManifestLink) {
     pwaManifestLink.setAttribute('href', manifestURL);
 }
 
-// 2. Registro do Service Worker (Modificado para usar arquivo externo sw.js)
+// 2. Registro do Service Worker com FORÇAR ATUALIZAÇÃO
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-        // Registra o arquivo sw.js que deve estar na raiz do projeto
         navigator.serviceWorker.register('./sw.js')
-            .then(reg => console.log('SW registrado com sucesso no escopo:', reg.scope))
+            .then(reg => {
+                console.log('SW registrado:', reg.scope);
+                // Esta linha força o navegador a checar se o sw.js mudou
+                reg.update(); 
+            })
             .catch(err => console.log('SW falhou:', err));
     });
 

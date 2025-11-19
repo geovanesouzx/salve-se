@@ -1,4 +1,4 @@
-const CACHE_NAME = 'salvese-v1.3-offline'; // Atualize esta versão sempre que mudar o código
+const CACHE_NAME = 'salvese-v2.0-network-first'; // Mudei a versão para forçar atualização
 const URLS_TO_CACHE = [
     './',
     './index.html',
@@ -14,26 +14,25 @@ const URLS_TO_CACHE = [
     'https://media.tenor.com/qL2ySe3uUgQAAAAj/gatto.gif'
 ];
 
-// Instalação: Cacheia os arquivos estáticos
+// 1. Instalação: Cacheia o básico imediatamente
 self.addEventListener('install', event => {
-    self.skipWaiting(); // Força o SW a ativar imediatamente
+    self.skipWaiting();
     event.waitUntil(
         caches.open(CACHE_NAME).then(cache => {
-            console.log('Abrindo cache e adicionando arquivos...');
             return Promise.all(
                 URLS_TO_CACHE.map(url => {
                     return fetch(url, { mode: 'no-cors' })
                         .then(response => {
                             if (response) return cache.put(url, response);
                         })
-                        .catch(e => console.warn('Falha ao cachear recurso externo:', url));
+                        .catch(e => console.warn('Falha no pré-cache:', url));
                 })
             );
         })
     );
 });
 
-// Ativação: Limpa caches antigos
+// 2. Ativação: Limpa caches de versões antigas
 self.addEventListener('activate', event => {
     const cacheWhitelist = [CACHE_NAME];
     event.waitUntil(
@@ -41,34 +40,41 @@ self.addEventListener('activate', event => {
             return Promise.all(
                 cacheNames.map(cacheName => {
                     if (cacheWhitelist.indexOf(cacheName) === -1) {
-                        console.log('Deletando cache antigo:', cacheName);
                         return caches.delete(cacheName);
                     }
                 })
             );
-        }).then(() => self.clients.claim()) // Assume o controle das páginas imediatamente
+        }).then(() => self.clients.claim())
     );
 });
 
-// Interceptação: Serve do cache, cai para rede se não tiver
+// 3. Interceptação: ESTRATÉGIA NETWORK FIRST (Rede Primeiro)
+// Tenta pegar da internet. Se der certo, atualiza o cache e mostra.
+// Se der errado (offline), pega do cache.
 self.addEventListener('fetch', event => {
     event.respondWith(
-        caches.match(event.request).then(response => {
-            // Cache hit - retorna a resposta do cache
-            if (response) {
-                return response;
-            }
-            
-            // Clone a requisição
-            const fetchRequest = event.request.clone();
-
-            return fetch(fetchRequest).catch(() => {
-                // Se falhar (offline) e não estiver no cache:
-                // Se for uma navegação (ex: reload na página), retorna o index.html
-                if (event.request.mode === 'navigate') {
-                    return caches.match('./index.html');
+        fetch(event.request)
+            .then(networkResponse => {
+                // Se a resposta da rede for válida, a gente clona e salva no cache atualizado
+                if (networkResponse && networkResponse.status === 200) {
+                    const responseToCache = networkResponse.clone();
+                    caches.open(CACHE_NAME).then(cache => {
+                        cache.put(event.request, responseToCache);
+                    });
                 }
-            });
-        })
+                return networkResponse;
+            })
+            .catch(() => {
+                // Se deu erro na rede (está OFFLINE), tenta pegar do cache
+                return caches.match(event.request).then(cachedResponse => {
+                    if (cachedResponse) {
+                        return cachedResponse;
+                    }
+                    // Se não tem no cache e é navegação (ex: recarregar página), manda pro index
+                    if (event.request.mode === 'navigate') {
+                        return caches.match('./index.html');
+                    }
+                });
+            })
     );
 });

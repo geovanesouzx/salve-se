@@ -1,6 +1,51 @@
-// ------------------------------------------------
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
+// --- FIREBASE CONFIG ---
+const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+    apiKey: "AIzaSyD5Ggqw9FpMS98CHcfXKnghMQNMV5WIVTw",
+    authDomain: "salvee-se.firebaseapp.com",
+    projectId: "salvee-se",
+    storageBucket: "salvee-se.firebasestorage.app",
+    messagingSenderId: "132544174908",
+    appId: "1:132544174908:web:00c6aa4855cc18ed2cdc39"
+};
+
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const auth = getAuth(app);
+
+// --- CONFIGURAÇÃO DO CARDÁPIO ---
+const menuRowConfigs = {
+    'desjejum': [
+        { key: 'bebida', label: 'Bebida' },
+        { key: 'proteina', label: 'Proteína' },
+        { key: 'pao', label: 'Pão/Acomp.' },
+        { key: 'fruta', label: 'Fruta' }
+    ],
+    'almoco': [
+        { key: 'proteina_01', label: 'Proteína Principal' },
+        { key: 'proteina_02', label: 'Opção' },
+        { key: 'vegetariano', label: 'Vegetariano' },
+        { key: 'guarnicao', label: 'Guarnição' },
+        { key: 'acompanhamento_01', label: 'Acomp. 1' },
+        { key: 'salada_01', label: 'Salada' },
+        { key: 'sobremesa', label: 'Sobremesa' },
+        { key: 'suco', label: 'Suco' }
+    ],
+    'jantar': [
+        { key: 'sopa', label: 'Sopa' },
+        { key: 'pao', label: 'Pão' },
+        { key: 'proteina', label: 'Proteína' },
+        { key: 'guarnicao', label: 'Guarnição' },
+        { key: 'vegetariano', label: 'Vegetariano' },
+        { key: 'bebida', label: 'Bebida' }
+    ]
+};
+
 // --- LÓGICA DE TEMA (INICIALIZAÇÃO) ---
-// ------------------------------------------------
 function initTheme() {
     if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
         document.documentElement.classList.add('dark');
@@ -12,7 +57,8 @@ function initTheme() {
 }
 initTheme();
 
-function toggleTheme() {
+// Expondo funções globalmente (necessário pois agora é um module)
+window.toggleTheme = function() {
     if (document.documentElement.classList.contains('dark')) {
         document.documentElement.classList.remove('dark');
         localStorage.setItem('theme', 'light');
@@ -22,10 +68,7 @@ function toggleTheme() {
     }
 }
 
-// ------------------------------------------------
 // --- LÓGICA PWA E OFFLINE ---
-// ------------------------------------------------
-
 const manifest = {
     "name": "Salve-se Painel",
     "short_name": "Salve-se",
@@ -99,16 +142,12 @@ if ('serviceWorker' in navigator) {
     window.addEventListener('offline', updateNetworkStatus);
 }
 
-// ------------------------------------------------
 // --- GESTÃO DE DADOS ---
-// ------------------------------------------------
 let scheduleData = JSON.parse(localStorage.getItem('salvese_schedule')) || [];
 let tasksData = JSON.parse(localStorage.getItem('salvese_tasks')) || [];
 let remindersData = JSON.parse(localStorage.getItem('salvese_reminders')) || [];
 let selectedClassIdToDelete = null;
-
-// Variável global para filtro de tarefas
-let currentTaskFilter = 'all'; // 'all', 'active', 'completed'
+let currentTaskFilter = 'all'; 
 
 function saveData() {
     localStorage.setItem('salvese_schedule', JSON.stringify(scheduleData));
@@ -119,24 +158,238 @@ function saveData() {
     if (window.renderTasks) window.renderTasks();
     if (window.renderReminders) window.renderReminders();
     
-    updateDashboardTasksWidget(); // Nova função do dashboard
-    
+    updateDashboardTasksWidget();
     if (window.updateNextClassWidget) window.updateNextClassWidget();
 }
 
-// ------------------------------------------------
-// --- NOVA LÓGICA DE TAREFAS (TODO) ---
-// ------------------------------------------------
+// --- NOVAS FUNÇÕES DO CARDÁPIO (HOME WIDGET) ---
 
+async function getMenuData(dateStr, mealType) {
+    try {
+        const docId = `${dateStr}_${mealType}`;
+        const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'menus', docId);
+        const docSnap = await getDoc(docRef);
+        return docSnap.exists() ? docSnap.data() : null;
+    } catch (error) {
+        console.error("Erro ao buscar cardápio:", error);
+        return null;
+    }
+}
+
+window.updateDashboardMenuWidget = async function() {
+    const container = document.getElementById('dashboard-menu-widget');
+    const timerEl = document.getElementById('menu-timer');
+    const statusEl = document.getElementById('menu-status-text');
+    const statusDot = document.getElementById('menu-status-dot');
+    const titleEl = document.getElementById('menu-meal-title');
+
+    if (!container) return;
+
+    const now = new Date();
+    const currentHour = now.getHours();
+    const currentMin = now.getMinutes();
+    const currentTotalMins = currentHour * 60 + currentMin;
+
+    // Definição de Janelas de Refeição (Padrão)
+    const windows = {
+        desjejum: { start: 6*60+30, end: 8*60 },      // 06:30 - 08:00
+        almoco:   { start: 11*60, end: 13*60+30 },    // 11:00 - 13:30
+        jantar:   { start: 17*60, end: 18*60+30 }     // 17:00 - 18:30
+    };
+
+    // Determina qual refeição mostrar
+    let targetMeal = 'almoco';
+    let targetDate = new Date();
+    let status = 'waiting'; // waiting, open, closed
+    let targetTimeMins = 0; // Para o timer
+
+    // Lógica Temporal
+    if (currentTotalMins < windows.desjejum.end) {
+        targetMeal = 'desjejum';
+        if (currentTotalMins >= windows.desjejum.start) status = 'open';
+        targetTimeMins = status === 'open' ? windows.desjejum.end : windows.desjejum.start;
+    } 
+    else if (currentTotalMins < windows.almoco.end) {
+        targetMeal = 'almoco';
+        if (currentTotalMins >= windows.almoco.start) status = 'open';
+        targetTimeMins = status === 'open' ? windows.almoco.end : windows.almoco.start;
+    }
+    else if (currentTotalMins < windows.jantar.end) {
+        targetMeal = 'jantar';
+        if (currentTotalMins >= windows.jantar.start) status = 'open';
+        targetTimeMins = status === 'open' ? windows.jantar.end : windows.jantar.start;
+    }
+    else {
+        // Passou do jantar, mostra desjejum de amanhã
+        targetMeal = 'desjejum';
+        targetDate.setDate(targetDate.getDate() + 1);
+        targetTimeMins = windows.desjejum.start; // Para o timer (simplificado)
+    }
+
+    // Formata data YYYY-MM-DD
+    const dateStr = targetDate.getFullYear() + '-' + String(targetDate.getMonth() + 1).padStart(2, '0') + '-' + String(targetDate.getDate()).padStart(2, '0');
+    
+    // Atualiza UI de Estado
+    const mealTitles = { 'desjejum': 'Desjejum', 'almoco': 'Almoço', 'jantar': 'Jantar' };
+    if (titleEl) titleEl.innerText = mealTitles[targetMeal];
+
+    if (status === 'open') {
+        statusDot.className = "w-2 h-2 rounded-full bg-green-500 animate-pulse";
+        statusEl.innerText = "Aberto agora";
+        statusEl.className = "text-xs font-bold text-green-600 dark:text-green-400 uppercase tracking-wider";
+    } else {
+        statusDot.className = "w-2 h-2 rounded-full bg-orange-500";
+        statusEl.innerText = "Aguardando";
+        statusEl.className = "text-xs font-bold text-orange-600 dark:text-orange-400 uppercase tracking-wider";
+    }
+
+    // Atualiza Timer (Visual apenas, não é um contador real preciso JS)
+    if (timerEl) {
+        let diffMins = 0;
+        if (status === 'open') diffMins = targetTimeMins - currentTotalMins;
+        else diffMins = targetTimeMins - currentTotalMins;
+        
+        // Se for para o dia seguinte, adiciona 24h (aprox)
+        if (targetDate.getDate() !== now.getDate()) diffMins += (24*60);
+
+        const h = Math.floor(diffMins / 60);
+        const m = diffMins % 60;
+        
+        if (diffMins < 0) timerEl.innerText = "--:--";
+        else if (status === 'open') timerEl.innerText = `Fecha em ${h}h ${m}m`;
+        else timerEl.innerText = `Abre em ${h}h ${m}m`;
+    }
+
+    // Busca Dados
+    container.innerHTML = '<div class="flex justify-center py-4"><i class="fas fa-circle-notch fa-spin text-indigo-500"></i></div>';
+    
+    const menuData = await getMenuData(dateStr, targetMeal);
+
+    if (!menuData) {
+        container.innerHTML = `
+            <div class="text-center py-4">
+                <i class="fas fa-utensils text-gray-300 dark:text-neutral-700 text-3xl mb-2"></i>
+                <p class="text-sm text-gray-500 dark:text-gray-400">Cardápio não disponível.</p>
+            </div>
+        `;
+        return;
+    }
+
+    // Renderiza Itens Principais (Filtra campos vazios)
+    let html = '<div class="space-y-2">';
+    const config = menuRowConfigs[targetMeal];
+    
+    // Mostra apenas os 3 primeiros itens preenchidos para não poluir a home
+    let count = 0;
+    config.forEach(field => {
+        if (count >= 4) return;
+        const val = menuData[field.key];
+        if (val && val.trim() !== '') {
+            html += `
+                <div class="flex justify-between items-start text-sm border-b border-gray-100 dark:border-neutral-800 pb-1 last:border-0">
+                    <span class="font-bold text-gray-500 dark:text-gray-400 text-xs uppercase w-24 flex-shrink-0">${field.label}</span>
+                    <span class="text-gray-800 dark:text-gray-200 text-right flex-1 pl-2 font-medium">${val}</span>
+                </div>
+            `;
+            count++;
+        }
+    });
+    html += '</div>';
+    
+    container.innerHTML = html;
+}
+
+// --- NOVA FUNÇÃO DA PÁGINA DE CARDÁPIO ---
+let currentMenuTab = 'almoco';
+
+window.setMenuTab = function(tab) {
+    currentMenuTab = tab;
+    document.querySelectorAll('.menu-tab-btn').forEach(btn => {
+        if(btn.id === `menu-tab-${tab}`) {
+            btn.classList.add('bg-indigo-600', 'text-white', 'shadow-md');
+            btn.classList.remove('bg-white', 'dark:bg-darkcard', 'text-gray-600', 'dark:text-gray-300');
+        } else {
+            btn.classList.remove('bg-indigo-600', 'text-white', 'shadow-md');
+            btn.classList.add('bg-white', 'dark:bg-darkcard', 'text-gray-600', 'dark:text-gray-300');
+        }
+    });
+    renderWeeklyMenu();
+}
+
+window.renderWeeklyMenu = async function() {
+    const container = document.getElementById('weekly-menu-grid');
+    if (!container) return;
+
+    container.innerHTML = '<div class="p-8 text-center"><i class="fas fa-spinner fa-spin text-3xl text-indigo-600"></i><p class="mt-2 text-gray-500">Carregando semana...</p></div>';
+
+    const today = new Date();
+    const day = today.getDay(); // 0 Dom, 1 Seg
+    const diff = today.getDate() - day + (day == 0 ? -6 : 1); 
+    const monday = new Date(today.setDate(diff));
+    
+    const dates = [];
+    for (let i = 0; i < 6; i++) { // Seg a Sab
+        const d = new Date(monday);
+        d.setDate(monday.getDate() + i);
+        dates.push({
+            obj: d,
+            str: d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'),
+            label: ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'][i]
+        });
+    }
+
+    // Busca dados em paralelo
+    const promises = dates.map(d => getMenuData(d.str, currentMenuTab));
+    const results = await Promise.all(promises);
+
+    let html = `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">`;
+
+    results.forEach((data, index) => {
+        const dateInfo = dates[index];
+        const isToday = new Date().toDateString() === dateInfo.obj.toDateString();
+        
+        html += `
+            <div class="bg-white dark:bg-darkcard rounded-xl border ${isToday ? 'border-indigo-500 ring-1 ring-indigo-500' : 'border-gray-200 dark:border-darkborder'} shadow-sm overflow-hidden flex flex-col">
+                <div class="p-3 bg-gray-50 dark:bg-neutral-900 border-b border-gray-100 dark:border-neutral-800 flex justify-between items-center">
+                    <span class="font-bold text-indigo-600 dark:text-indigo-400 uppercase text-sm">${dateInfo.label}</span>
+                    <span class="text-xs text-gray-500">${dateInfo.obj.getDate()}/${dateInfo.obj.getMonth()+1}</span>
+                </div>
+                <div class="p-4 space-y-3 flex-1">
+        `;
+
+        if (!data) {
+            html += `<div class="h-full flex items-center justify-center text-gray-400 text-xs italic py-6">Sem dados</div>`;
+        } else {
+            const fields = menuRowConfigs[currentMenuTab];
+            fields.forEach(field => {
+                const val = data[field.key];
+                if(val && val.trim()) {
+                    html += `
+                        <div class="text-sm">
+                            <p class="text-[10px] font-bold text-gray-400 uppercase mb-0.5">${field.label}</p>
+                            <p class="text-gray-800 dark:text-gray-200 font-medium leading-tight">${val}</p>
+                        </div>
+                    `;
+                }
+            });
+        }
+
+        html += `</div></div>`;
+    });
+
+    html += `</div>`;
+    container.innerHTML = html;
+}
+
+// --- TAREFAS (Mantido e Adaptado para Module) ---
 window.addTask = function () {
     const input = document.getElementById('todo-input');
-    const priorityInput = document.getElementById('todo-priority'); // Novo input (esperado no HTML)
-    const categoryInput = document.getElementById('todo-category'); // Novo input (esperado no HTML)
+    const priorityInput = document.getElementById('todo-priority'); 
+    const categoryInput = document.getElementById('todo-category'); 
     
     const text = input.value.trim();
     if (!text) return;
 
-    // Valores padrão caso os inputs novos ainda não existam no DOM
     const priority = priorityInput ? priorityInput.value : 'normal';
     const category = categoryInput ? categoryInput.value : 'geral';
 
@@ -173,7 +426,6 @@ window.clearCompleted = function () {
 
 window.setTaskFilter = function(filter) {
     currentTaskFilter = filter;
-    // Atualiza botões visuais (esperado no HTML)
     ['filter-all', 'filter-active', 'filter-completed'].forEach(id => {
         const btn = document.getElementById(id);
         if(btn) {
@@ -184,7 +436,6 @@ window.setTaskFilter = function(filter) {
     renderTasks();
 };
 
-// Função auxiliar para cores de prioridade
 function getPriorityInfo(prio) {
     switch(prio) {
         case 'high': return { label: 'Alta', color: 'text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400 border-red-100 dark:border-red-900' };
@@ -193,7 +444,6 @@ function getPriorityInfo(prio) {
     }
 }
 
-// Função auxiliar para ícones de categoria
 function getCategoryIcon(cat) {
     switch(cat) {
         case 'estudo': return '<i class="fas fa-book"></i>';
@@ -209,16 +459,14 @@ window.renderTasks = function () {
     
     list.innerHTML = '';
     
-    // Filtra
     let filteredTasks = tasksData;
     if (currentTaskFilter === 'active') filteredTasks = tasksData.filter(t => !t.done);
     if (currentTaskFilter === 'completed') filteredTasks = tasksData.filter(t => t.done);
 
-    // Ordena: Pendentes primeiro, depois por prioridade (High > Medium > Normal), depois por data
     const priorityWeight = { 'high': 3, 'medium': 2, 'normal': 1 };
     
     const sortedTasks = [...filteredTasks].sort((a, b) => {
-        if (a.done !== b.done) return a.done ? 1 : -1; // Feitas vão pro final
+        if (a.done !== b.done) return a.done ? 1 : -1; 
         if (priorityWeight[b.priority || 'normal'] !== priorityWeight[a.priority || 'normal']) {
             return priorityWeight[b.priority || 'normal'] - priorityWeight[a.priority || 'normal'];
         }
@@ -264,26 +512,20 @@ window.renderTasks = function () {
         list.appendChild(div);
     });
     
-    updateDashboardTasksWidget(); // Atualiza o widget da home sempre que renderizar a lista
+    updateDashboardTasksWidget();
 }
 
-// --- NOVO: Widget de Tarefas na Home ---
 window.updateDashboardTasksWidget = function() {
     const container = document.getElementById('dashboard-tasks-list');
-    const taskCountEl = document.getElementById('task-count-badge'); // Novo badge
-    
-    // Filtra apenas as pendentes
+    const taskCountEl = document.getElementById('task-count-badge');
     const pendingTasks = tasksData.filter(t => !t.done);
-    
-    // Atualiza contadores em todo lugar
-    const dashCountOld = document.getElementById('dash-task-count'); // Retrocompatibilidade
+    const dashCountOld = document.getElementById('dash-task-count');
     if(dashCountOld) dashCountOld.innerText = pendingTasks.length;
     
     if(taskCountEl) {
         taskCountEl.innerText = pendingTasks.length;
         taskCountEl.className = pendingTasks.length > 0 ? 'bg-indigo-600 text-white px-2 py-0.5 rounded-full text-xs font-bold' : 'hidden';
     }
-    
     if (!container) return;
 
     container.innerHTML = '';
@@ -300,17 +542,16 @@ window.updateDashboardTasksWidget = function() {
         return;
     }
 
-    // Ordena por prioridade para mostrar as mais importantes
     const priorityWeight = { 'high': 3, 'medium': 2, 'normal': 1 };
     const topTasks = [...pendingTasks].sort((a, b) => {
         return priorityWeight[b.priority || 'normal'] - priorityWeight[a.priority || 'normal'];
-    }).slice(0, 3); // Pega só as top 3
+    }).slice(0, 3); 
 
     topTasks.forEach(t => {
         const prioInfo = getPriorityInfo(t.priority || 'normal');
         const item = document.createElement('div');
         item.className = "flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-neutral-800 transition cursor-pointer border border-transparent hover:border-gray-100 dark:hover:border-neutral-700";
-        item.onclick = () => switchPage('todo'); // Leva para a página de tarefas
+        item.onclick = () => switchPage('todo');
         
         item.innerHTML = `
             <div class="w-1.5 h-1.5 rounded-full ${t.priority === 'high' ? 'bg-red-500' : (t.priority === 'medium' ? 'bg-orange-500' : 'bg-blue-500')}"></div>
@@ -320,7 +561,6 @@ window.updateDashboardTasksWidget = function() {
         container.appendChild(item);
     });
 
-    // Se tiver mais que 3, mostra "+X mais"
     if (pendingTasks.length > 3) {
         const more = document.createElement('div');
         more.className = "text-center mt-2";
@@ -329,48 +569,25 @@ window.updateDashboardTasksWidget = function() {
     }
 };
 
-
-// ------------------------------------------------
-// --- CONFIGURAÇÃO DE HORÁRIOS CORRIGIDA ---
-// ------------------------------------------------
-
-// Definição exata dos blocos de horário
+// --- GRADE HORÁRIA ---
 const timeSlots = [
-    { start: "07:00", end: "08:00" },
-    { start: "08:00", end: "09:00" },
-    { start: "09:00", end: "10:00" },
-    { start: "10:00", end: "11:00" },
-    { start: "11:00", end: "12:00" },
-    { start: "12:00", end: "13:00" },
-    { start: "13:00", end: "14:00" },
-    { start: "14:00", end: "15:00" },
-    { start: "15:00", end: "16:00" },
-    { start: "16:00", end: "17:00" },
-    { start: "17:00", end: "18:00" }, // Adicionado o slot até 18h
-    { start: "18:30", end: "19:30" }, // Pula intervalo 18h-18h30
-    { start: "19:30", end: "20:30" },
-    { start: "20:30", end: "21:30" },
-    { start: "21:30", end: "22:30" }
+    { start: "07:00", end: "08:00" }, { start: "08:00", end: "09:00" }, { start: "09:00", end: "10:00" },
+    { start: "10:00", end: "11:00" }, { start: "11:00", end: "12:00" }, { start: "12:00", end: "13:00" },
+    { start: "13:00", end: "14:00" }, { start: "14:00", end: "15:00" }, { start: "15:00", end: "16:00" },
+    { start: "16:00", end: "17:00" }, { start: "17:00", end: "18:00" }, { start: "18:30", end: "19:30" },
+    { start: "19:30", end: "20:30" }, { start: "20:30", end: "21:30" }, { start: "21:30", end: "22:30" }
 ];
-
 const daysList = ['seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
 const daysDisplay = {'seg': 'Seg', 'ter': 'Ter', 'qua': 'Qua', 'qui': 'Qui', 'sex': 'Sex', 'sab': 'Sab'};
-
-// ------------------------------------------------
-// --- SISTEMA DE GRADE ---
-// ------------------------------------------------
 
 window.renderSchedule = function () {
     const viewContainer = document.getElementById('view-aulas');
     if (!viewContainer) return;
 
     viewContainer.innerHTML = '';
-
-    // Container Principal
     const wrapper = document.createElement('div');
     wrapper.className = "max-w-6xl mx-auto pb-20 md:pb-10";
 
-    // Cabeçalho Desktop
     const header = document.createElement('div');
     header.className = "hidden md:flex justify-between items-center mb-6 px-2";
     header.innerHTML = `
@@ -384,21 +601,17 @@ window.renderSchedule = function () {
     `;
     wrapper.appendChild(header);
 
-    // Cabeçalho Mobile (Só título)
     const mobileHeader = document.createElement('h2');
     mobileHeader.className = "md:hidden text-xl font-bold text-gray-900 dark:text-white mb-6 px-1";
     mobileHeader.innerText = "Minha Grade de Horários";
     wrapper.appendChild(mobileHeader);
 
-    // 1. VERSÃO MOBILE (Lista Vertical por Dia)
     const mobileContainer = document.createElement('div');
     mobileContainer.className = "md:hidden space-y-6";
 
     daysList.forEach(dayKey => {
         const daySection = document.createElement('div');
         daySection.className = "flex flex-col gap-3";
-
-        // Header do Dia
         const headerRow = document.createElement('div');
         headerRow.className = "flex justify-between items-center px-1";
         headerRow.innerHTML = `
@@ -409,7 +622,6 @@ window.renderSchedule = function () {
         `;
         daySection.appendChild(headerRow);
 
-        // Filtra aulas do dia
         const classesToday = scheduleData
             .filter(c => c.day === dayKey)
             .sort((a, b) => parseInt(a.start.replace(':','')) - parseInt(b.start.replace(':','')));
@@ -430,8 +642,6 @@ window.renderSchedule = function () {
                 const card = document.createElement('div');
                 card.className = "relative rounded-xl p-4 cursor-pointer active:scale-[0.98] transition-transform overflow-hidden group";
                 card.style.backgroundColor = `rgba(${palette[500]}, 0.12)`;
-                
-                // Fonte AUMENTADA AQUI
                 card.innerHTML = `
                     <div class="absolute left-0 top-2 bottom-2 w-1.5 rounded-r-full" style="background-color: rgb(${palette[500]})"></div>
                     <div class="pl-3 flex justify-between items-start">
@@ -448,7 +658,6 @@ window.renderSchedule = function () {
                         </div>
                     </div>
                 `;
-                
                 card.onclick = () => openEditClassModal(aula.id);
                 cardsContainer.appendChild(card);
             });
@@ -459,7 +668,6 @@ window.renderSchedule = function () {
 
     wrapper.appendChild(mobileContainer);
 
-    // 2. VERSÃO DESKTOP (Tabela)
     const desktopContainer = document.createElement('div');
     desktopContainer.className = "hidden md:block bg-white dark:bg-darkcard rounded-xl border border-gray-200 dark:border-darkborder shadow-sm overflow-hidden";
     
@@ -479,7 +687,6 @@ window.renderSchedule = function () {
 
     timeSlots.forEach((slot, index) => {
         tableHTML += `<tr>`;
-        // Mostra o intervalo completo no Desktop (ex: 07:00 - 08:00)
         tableHTML += `<td class="p-3 font-mono text-xs font-bold text-gray-500 dark:text-gray-400 bg-gray-50/50 dark:bg-neutral-900/50 sticky left-0 z-10 border-r dark:border-darkborder whitespace-nowrap">${slot.start} - ${slot.end}</td>`;
 
         daysList.forEach(day => {
@@ -489,16 +696,10 @@ window.renderSchedule = function () {
             const foundClass = scheduleData.find(c => c.day === day && c.start === slot.start);
             
             if (foundClass) {
-                // Encontra o índice do horário de fim para calcular o rowspan
                 let endIndex = timeSlots.findIndex(s => s.end === foundClass.end);
-                // Se não achar pelo fim (caso raro), tenta achar pelo inicio do proximo
                 if(endIndex === -1) endIndex = timeSlots.findIndex(s => s.start === foundClass.end) - 1;
-                
-                // Se ainda assim não achar, assume duração de 1 slot ou até o fim
                 if (endIndex === -1) endIndex = index; 
-                
                 const span = Math.max(1, (endIndex - index) + 1);
-                
                 for (let k = 1; k < span; k++) occupied[`${day}-${index + k}`] = true;
 
                 const colorKey = foundClass.color || 'indigo';
@@ -507,7 +708,6 @@ window.renderSchedule = function () {
                 const borderStyle = `border-left: 4px solid rgb(${palette[500]})`;
                 const textStyle = `color: rgb(${palette[700]})`;
 
-                // Fonte AUMENTADA na tabela também
                 tableHTML += `
                     <td rowspan="${span}" class="p-1 align-top h-full border-l border-gray-100 dark:border-neutral-800 relative group cursor-pointer hover:brightness-95 dark:hover:brightness-110 transition" onclick="openEditClassModal('${foundClass.id}')">
                         <div class="h-full w-full rounded p-2 flex flex-col justify-center text-left shadow-sm" style="${bgStyle}; ${borderStyle}">
@@ -533,11 +733,9 @@ window.renderSchedule = function () {
     tableHTML += `</tbody></table></div>`;
     desktopContainer.innerHTML = tableHTML;
     wrapper.appendChild(desktopContainer);
-
     viewContainer.appendChild(wrapper);
 };
 
-// --- FUNÇÕES DE MODAL E CORES ---
 window.openAddClassModal = function (day, startHourStr) {
     resetModalFields();
     document.getElementById('modal-title').innerText = "Adicionar Aula";
@@ -549,10 +747,8 @@ window.openAddClassModal = function (day, startHourStr) {
          const map = ['dom','seg','ter','qua','qui','sex','sab'];
          if(todayIndex > 0 && todayIndex < 7) document.getElementById('class-day').value = map[todayIndex];
     }
-
     if (startHourStr) {
         document.getElementById('class-start').value = startHourStr;
-        // Tenta definir fim padrão como +2 slots (2 horas)
         updateEndTime(2);
     }
     toggleModal(true);
@@ -635,24 +831,11 @@ function resetModalFields() {
     
     const startSel = document.getElementById('class-start'); 
     const endSel = document.getElementById('class-end');
-    
-    startSel.innerHTML = ''; 
-    endSel.innerHTML = '';
-    
-    // Popula opções de Início (todos os slots disponíveis)
-    timeSlots.forEach(t => { 
-        const opt = `<option value="${t.start}">${t.start}</option>`; 
-        startSel.innerHTML += opt; 
-    });
-    
-    // Popula opções de Fim (todos os finais de slots disponíveis)
-    timeSlots.forEach(t => { 
-        const opt = `<option value="${t.end}">${t.end}</option>`; 
-        endSel.innerHTML += opt; 
-    });
-    
+    startSel.innerHTML = ''; endSel.innerHTML = '';
+    timeSlots.forEach(t => { startSel.innerHTML += `<option value="${t.start}">${t.start}</option>`; });
+    timeSlots.forEach(t => { endSel.innerHTML += `<option value="${t.end}">${t.end}</option>`; });
     startSel.value = "07:00"; 
-    updateEndTime(2); // Define fim padrão como 2 slots depois
+    updateEndTime(2); 
     renderColorPicker();
 }
 
@@ -660,35 +843,23 @@ function updateEndTime(slotsToAdd = 2) {
     const startSel = document.getElementById('class-start');
     const endSel = document.getElementById('class-end');
     const startHourStr = startSel.value;
-    
-    // Encontra o índice do horário de início
     const idx = timeSlots.findIndex(s => s.start === startHourStr);
-    
     if (idx !== -1) {
-        // Tenta definir o fim X slots depois (ex: 2 horas de aula)
         let targetIdx = idx + (slotsToAdd - 1); 
-        
-        // Se passar do limite, pega o último horário
         if (targetIdx >= timeSlots.length) targetIdx = timeSlots.length - 1;
-        
         endSel.value = timeSlots[targetIdx].end;
     }
 }
 
-// MODAL COM SUPORTE A HISTÓRICO (VOLTAR DO CELULAR)
-function toggleModal(show) {
+window.toggleModal = function(show) {
     const modal = document.getElementById('class-modal'); 
     const content = document.getElementById('class-modal-content');
     if (show) { 
-        // Adiciona ao histórico para o botão voltar funcionar
         history.pushState({modal: 'class'}, null, '#class-modal');
-        
         modal.classList.remove('hidden'); 
         setTimeout(() => { modal.classList.remove('opacity-0'); content.classList.remove('scale-95'); content.classList.add('scale-100'); }, 10); 
     } else { 
-        modal.classList.add('opacity-0'); 
-        content.classList.remove('scale-100'); 
-        content.classList.add('scale-95'); 
+        modal.classList.add('opacity-0'); content.classList.remove('scale-100'); content.classList.add('scale-95'); 
         setTimeout(() => modal.classList.add('hidden'), 300); 
     }
 }
@@ -708,12 +879,10 @@ function renderColorPicker() {
     });
 }
 
-// --- OUTRAS FUNCIONALIDADES (TASKS, REMINDERS, BUS, WIDGETS) ---
-
+// --- WIDGETS E UTILITÁRIOS ---
 function updateNextClassWidget() {
     const container = document.getElementById('next-class-content');
     if (!container) return;
-
     const now = new Date();
     const daysArr = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
     const currentDay = daysArr[now.getDay()];
@@ -735,15 +904,8 @@ function updateNextClassWidget() {
         const startMins = hStart * 60 + mStart;
         const endMins = hEnd * 60 + mEnd;
 
-        if (currentMinutes < startMins) {
-            nextClass = c;
-            status = 'future';
-            break;
-        } else if (currentMinutes >= startMins && currentMinutes < endMins) {
-            nextClass = c;
-            status = 'now';
-            break;
-        }
+        if (currentMinutes < startMins) { nextClass = c; status = 'future'; break; } 
+        else if (currentMinutes >= startMins && currentMinutes < endMins) { nextClass = c; status = 'now'; break; }
     }
 
     if (nextClass) {
@@ -751,33 +913,22 @@ function updateNextClassWidget() {
         const [hEnd, mEnd] = nextClass.end.split(':').map(Number);
         const startMins = hStart * 60 + mStart;
         const endMins = hEnd * 60 + mEnd;
-
-        let badgeHTML = '';
-        let progressHTML = '';
+        let badgeHTML = ''; let progressHTML = '';
 
         if (status === 'future') {
             let diffMins = startMins - currentMinutes;
             if (diffMins > 60) {
-                const h = Math.floor(diffMins / 60);
-                const m = diffMins % 60;
+                const h = Math.floor(diffMins / 60); const m = diffMins % 60;
                 badgeHTML = `<div class="inline-flex items-center gap-1 bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-3 py-1 rounded-full text-xs font-bold mt-3 shadow-sm"><i class="far fa-clock"></i> Faltam ${h}h ${m}min</div>`;
             } else {
                 badgeHTML = `<div class="inline-flex items-center gap-1 bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-3 py-1 rounded-full text-xs font-bold mt-3 shadow-sm"><i class="far fa-clock"></i> Faltam ${diffMins} min</div>`;
             }
         } else {
-            const totalDuration = endMins - startMins;
-            const elapsed = currentMinutes - startMins;
+            const totalDuration = endMins - startMins; const elapsed = currentMinutes - startMins;
             const percentage = Math.min(100, Math.max(0, (elapsed / totalDuration) * 100));
             const remaining = endMins - currentMinutes;
-
             badgeHTML = `<div class="inline-flex items-center gap-1 bg-green-600 text-white px-3 py-1 rounded-full text-xs font-bold mt-3 shadow-sm animate-pulse"><i class="fas fa-circle text-[8px]"></i> Acontecendo Agora</div>`;
-
-            progressHTML = `
-                <div class="w-full bg-gray-200 dark:bg-neutral-700 rounded-full h-1.5 mt-3">
-                    <div class="bg-green-500 h-1.5 rounded-full transition-all duration-1000" style="width: ${percentage}%"></div>
-                </div>
-                <p class="text-[10px] text-gray-400 dark:text-gray-500 text-right mt-1">Termina em ${remaining} min</p>
-            `;
+            progressHTML = `<div class="w-full bg-gray-200 dark:bg-neutral-700 rounded-full h-1.5 mt-3"><div class="bg-green-500 h-1.5 rounded-full transition-all duration-1000" style="width: ${percentage}%"></div></div><p class="text-[10px] text-gray-400 dark:text-gray-500 text-right mt-1">Termina em ${remaining} min</p>`;
         }
 
         container.innerHTML = `
@@ -788,229 +939,111 @@ function updateNextClassWidget() {
                     <span class="font-semibold flex items-center"><i class="fas fa-map-marker-alt mr-1.5 text-indigo-500"></i> ${nextClass.room}</span>
                     <span class="flex items-center text-gray-400 dark:text-gray-500 text-xs bg-gray-100 dark:bg-neutral-800 px-2 py-0.5 rounded">${nextClass.start} - ${nextClass.end}</span>
                 </div>
-                ${badgeHTML}
-                ${progressHTML}
+                ${badgeHTML} ${progressHTML}
             </div>
         `;
     } else {
-        const msg = scheduleData.length === 0
-            ? "Adicione aulas na Grade Horária."
-            : "Você está livre pelo resto do dia!";
+        const msg = scheduleData.length === 0 ? "Adicione aulas na Grade Horária." : "Você está livre pelo resto do dia!";
         const icon = scheduleData.length === 0 ? "fas fa-plus-circle" : "fas fa-couch";
         const action = scheduleData.length === 0 ? "onclick=\"switchPage('aulas'); openAddClassModal()\" class='cursor-pointer hover:opacity-80 transition'" : "";
-
-        container.innerHTML = `
-            <div class="py-4 text-center" ${action}>
-                <div class="w-12 h-12 bg-gray-100 dark:bg-neutral-800 rounded-full flex items-center justify-center mx-auto mb-3 text-gray-400 dark:text-gray-500">
-                        <i class="${icon} text-xl"></i>
-                </div>
-                <h2 class="text-lg font-bold text-gray-400 dark:text-gray-500 mb-1 leading-tight">Sem mais aulas</h2>
-                <p class="text-xs text-gray-400 dark:text-gray-600 font-medium">${msg}</p>
-            </div>
-        `;
+        container.innerHTML = `<div class="py-4 text-center" ${action}><div class="w-12 h-12 bg-gray-100 dark:bg-neutral-800 rounded-full flex items-center justify-center mx-auto mb-3 text-gray-400 dark:text-gray-500"><i class="${icon} text-xl"></i></div><h2 class="text-lg font-bold text-gray-400 dark:text-gray-500 mb-1 leading-tight">Sem mais aulas</h2><p class="text-xs text-gray-400 dark:text-gray-600 font-medium">${msg}</p></div>`;
     }
 }
 
-// Reminders Logic (Com suporte a voltar)
-function toggleRemindersModal() {
-    const modal = document.getElementById('reminders-modal');
-    const content = modal ? modal.firstElementChild : null;
+window.toggleRemindersModal = function() {
+    const modal = document.getElementById('reminders-modal'); const content = modal ? modal.firstElementChild : null;
     if (!modal) return;
-
     if (modal.classList.contains('hidden')) {
-        // Push History
-        history.pushState({modal: 'reminders'}, null, '#reminders-modal');
-        renderReminders();
-        modal.classList.remove('hidden');
-        setTimeout(() => { modal.classList.remove('opacity-0'); if(content) { content.classList.remove('scale-95'); content.classList.add('scale-100'); } }, 10);
+        history.pushState({modal: 'reminders'}, null, '#reminders-modal'); renderReminders();
+        modal.classList.remove('hidden'); setTimeout(() => { modal.classList.remove('opacity-0'); if(content) { content.classList.remove('scale-95'); content.classList.add('scale-100'); } }, 10);
     } else {
-        modal.classList.add('opacity-0'); if(content) { content.classList.remove('scale-100'); content.classList.add('scale-95'); }
-        setTimeout(() => modal.classList.add('hidden'), 300);
+        modal.classList.add('opacity-0'); if(content) { content.classList.remove('scale-100'); content.classList.add('scale-95'); } setTimeout(() => modal.classList.add('hidden'), 300);
     }
 }
 
-function showReminderForm() {
+window.showReminderForm = function() {
     document.getElementById('btn-add-reminder').classList.add('hidden');
     document.getElementById('reminder-form').classList.remove('hidden');
     document.getElementById('rem-date').valueAsDate = new Date();
 }
 
-function hideReminderForm() {
+window.hideReminderForm = function() {
     document.getElementById('reminder-form').classList.add('hidden');
     document.getElementById('btn-add-reminder').classList.remove('hidden');
     document.getElementById('rem-desc').value = '';
 }
 
-function addReminder() {
+window.addReminder = function() {
     const desc = document.getElementById('rem-desc').value.trim();
     const date = document.getElementById('rem-date').value;
     const prio = document.getElementById('rem-prio').value;
-
     if (!desc) return;
-
-    remindersData.push({
-        id: Date.now().toString(),
-        desc, date, prio,
-        createdAt: Date.now()
-    });
-
-    saveData();
-    hideReminderForm();
+    remindersData.push({ id: Date.now().toString(), desc, date, prio, createdAt: Date.now() });
+    saveData(); hideReminderForm();
 }
 
-function deleteReminder(id) {
-    remindersData = remindersData.filter(r => r.id !== id);
-    saveData();
-}
+window.deleteReminder = function(id) { remindersData = remindersData.filter(r => r.id !== id); saveData(); }
 
-function renderReminders() {
+window.renderReminders = function() {
     const listModal = document.getElementById('reminders-list-modal');
     const listHome = document.getElementById('home-reminders-list');
     const badge = document.getElementById('notification-badge');
-
     const sorted = [...remindersData].sort((a, b) => new Date(a.date) - new Date(b.date));
-
-    if(badge) {
-        if (sorted.length > 0) badge.classList.remove('hidden'); else badge.classList.add('hidden');
-    }
+    if(badge) { if (sorted.length > 0) badge.classList.remove('hidden'); else badge.classList.add('hidden'); }
 
     const generateHTML = (rem, isHome) => {
         const dateObj = new Date(rem.date + 'T00:00:00');
-
         let prioColor = 'bg-gray-100 text-gray-600 dark:bg-neutral-800 dark:text-gray-400';
         if (rem.prio === 'high') prioColor = 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400';
         if (rem.prio === 'medium') prioColor = 'bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400';
-
         const deleteBtn = isHome ? '' : `<button onclick="deleteReminder('${rem.id}')" class="text-gray-400 hover:text-red-500 transition px-2"><i class="fas fa-trash-alt"></i></button>`;
-
-        return `
-            <div class="flex items-center justify-between p-3 rounded-lg border border-gray-100 dark:border-neutral-800 bg-white dark:bg-darkcard hover:bg-gray-50 dark:hover:bg-neutral-800/50 transition group">
-                <div class="flex items-center gap-3 overflow-hidden">
-                    <div class="flex flex-col items-center justify-center w-10 h-10 rounded-lg bg-gray-50 dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 flex-shrink-0">
-                        <span class="text-xs font-bold uppercase text-gray-500 leading-none">${dateObj.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '')}</span>
-                        <span class="text-lg font-bold text-gray-800 dark:text-white leading-none">${dateObj.getDate()}</span>
-                    </div>
-                    <div class="min-w-0">
-                        <p class="text-sm font-medium text-gray-800 dark:text-white truncate">${rem.desc}</p>
-                        <span class="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${prioColor}">${rem.prio === 'high' ? 'Alta' : (rem.prio === 'medium' ? 'Média' : 'Baixa')}</span>
-                    </div>
-                </div>
-                ${deleteBtn}
-            </div>
-        `;
+        return `<div class="flex items-center justify-between p-3 rounded-lg border border-gray-100 dark:border-neutral-800 bg-white dark:bg-darkcard hover:bg-gray-50 dark:hover:bg-neutral-800/50 transition group"><div class="flex items-center gap-3 overflow-hidden"><div class="flex flex-col items-center justify-center w-10 h-10 rounded-lg bg-gray-50 dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 flex-shrink-0"><span class="text-xs font-bold uppercase text-gray-500 leading-none">${dateObj.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '')}</span><span class="text-lg font-bold text-gray-800 dark:text-white leading-none">${dateObj.getDate()}</span></div><div class="min-w-0"><p class="text-sm font-medium text-gray-800 dark:text-white truncate">${rem.desc}</p><span class="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${prioColor}">${rem.prio === 'high' ? 'Alta' : (rem.prio === 'medium' ? 'Média' : 'Baixa')}</span></div></div>${deleteBtn}</div>`;
     };
 
     if(listModal) {
-        if (sorted.length === 0) {
-            listModal.innerHTML = `
-                <div class="flex flex-col items-center justify-center h-32 text-gray-400 dark:text-gray-600">
-                    <i class="fas fa-exclamation-circle text-3xl mb-2 opacity-20"></i>
-                    <p class="text-sm">Nenhum lembrete. <br>Use o botão acima para adicionar.</p>
-                </div>`;
-        } else {
-            listModal.innerHTML = sorted.map(r => generateHTML(r, false)).join('');
-        }
+        if (sorted.length === 0) listModal.innerHTML = `<div class="flex flex-col items-center justify-center h-32 text-gray-400 dark:text-gray-600"><i class="fas fa-exclamation-circle text-3xl mb-2 opacity-20"></i><p class="text-sm">Nenhum lembrete. <br>Use o botão acima para adicionar.</p></div>`;
+        else listModal.innerHTML = sorted.map(r => generateHTML(r, false)).join('');
     }
-
     if(listHome) {
-        if (sorted.length === 0) {
-            listHome.innerHTML = `
-                <div class="flex flex-col items-center justify-center text-center p-4 border-2 border-dashed border-gray-100 dark:border-neutral-800 rounded-lg h-full">
-                    <p class="text-gray-400 dark:text-gray-500 font-medium">Nenhum lembrete de alta prioridade.</p>
-                </div>`;
-        } else {
-            listHome.innerHTML = sorted.slice(0, 3).map(r => generateHTML(r, true)).join('');
-        }
+        if (sorted.length === 0) listHome.innerHTML = `<div class="flex flex-col items-center justify-center text-center p-4 border-2 border-dashed border-gray-100 dark:border-neutral-800 rounded-lg h-full"><p class="text-gray-400 dark:text-gray-500 font-medium">Nenhum lembrete de alta prioridade.</p></div>`;
+        else listHome.innerHTML = sorted.slice(0, 3).map(r => generateHTML(r, true)).join('');
     }
 }
 
-// Inicialização e Listeners do Botão Voltar
 document.addEventListener('DOMContentLoaded', () => {
-    renderTasks();
-    renderReminders();
-    if (window.renderSchedule) window.renderSchedule();
-    updateNextClassWidget();
-    
-    // Inicializa o highlight da aba mobile
+    renderTasks(); renderReminders(); if (window.renderSchedule) window.renderSchedule(); updateNextClassWidget();
+    updateDashboardMenuWidget(); // Init menu widget
     const activeMobileLink = document.querySelector(`#mobile-menu nav a[onclick*="'home'"]`);
-    if(activeMobileLink) {
-         activeMobileLink.classList.add('bg-indigo-50', 'text-indigo-600', 'dark:bg-indigo-900/50', 'dark:text-indigo-300');
-         activeMobileLink.classList.remove('text-gray-600', 'dark:text-gray-400');
-    }
-
+    if(activeMobileLink) { activeMobileLink.classList.add('bg-indigo-50', 'text-indigo-600', 'dark:bg-indigo-900/50', 'dark:text-indigo-300'); activeMobileLink.classList.remove('text-gray-600', 'dark:text-gray-400'); }
     setInterval(updateNextClassWidget, 60000);
+    setInterval(updateDashboardMenuWidget, 60000); // Refresh menu every minute
 });
 
-// --- LÓGICA DO BOTÃO VOLTAR (POPSTATE) ---
 window.addEventListener('popstate', (event) => {
-    // 1. Se tiver modal aberto, fecha
-    const classModal = document.getElementById('class-modal');
-    const remindersModal = document.getElementById('reminders-modal');
-    const genericModal = document.getElementById('generic-modal');
-
-    if (classModal && !classModal.classList.contains('hidden')) {
-        // Fecha o modal diretamente sem mexer no histórico de novo
-        classModal.classList.add('opacity-0'); 
-        setTimeout(() => classModal.classList.add('hidden'), 300);
-        return;
-    }
-    
-    if (remindersModal && !remindersModal.classList.contains('hidden')) {
-        remindersModal.classList.add('opacity-0');
-        setTimeout(() => remindersModal.classList.add('hidden'), 300);
-        return;
-    }
-
-    if (genericModal && !genericModal.classList.contains('hidden')) {
-        closeGenericModal();
-        return;
-    }
-
-    // 2. Se não tiver modal, verifica navegação
-    if (event.state && event.state.view) {
-        // Navega visualmente sem adicionar ao histórico (addToHistory = false)
-        switchPage(event.state.view, false);
-    } else {
-        // Estado inicial
-        switchPage('home', false);
-    }
+    const classModal = document.getElementById('class-modal'); const remindersModal = document.getElementById('reminders-modal'); const genericModal = document.getElementById('generic-modal');
+    if (classModal && !classModal.classList.contains('hidden')) { classModal.classList.add('opacity-0'); setTimeout(() => classModal.classList.add('hidden'), 300); return; }
+    if (remindersModal && !remindersModal.classList.contains('hidden')) { remindersModal.classList.add('opacity-0'); setTimeout(() => remindersModal.classList.add('hidden'), 300); return; }
+    if (genericModal && !genericModal.classList.contains('hidden')) { closeGenericModal(); return; }
+    if (event.state && event.state.view) { switchPage(event.state.view, false); } else { switchPage('home', false); }
 });
 
-function showModal(title, message) {
-    const m = document.getElementById('generic-modal');
-    document.getElementById('generic-modal-title').innerText = title;
-    document.getElementById('generic-modal-message').innerText = message;
-    if (m) {
-        history.pushState({modal: 'generic'}, null, '#alert');
-        m.classList.remove('hidden');
-        setTimeout(() => { m.classList.remove('opacity-0'); m.firstElementChild.classList.remove('scale-95'); m.firstElementChild.classList.add('scale-100'); }, 10);
-    }
+window.showModal = function(title, message) {
+    const m = document.getElementById('generic-modal'); document.getElementById('generic-modal-title').innerText = title; document.getElementById('generic-modal-message').innerText = message;
+    if (m) { history.pushState({modal: 'generic'}, null, '#alert'); m.classList.remove('hidden'); setTimeout(() => { m.classList.remove('opacity-0'); m.firstElementChild.classList.remove('scale-95'); m.firstElementChild.classList.add('scale-100'); }, 10); }
 }
-function closeGenericModal() {
-    const m = document.getElementById('generic-modal');
-    if (m) {
-        m.classList.add('opacity-0'); m.firstElementChild.classList.remove('scale-100'); m.firstElementChild.classList.add('scale-95');
-        setTimeout(() => m.classList.add('hidden'), 300);
-    }
+window.closeGenericModal = function() {
+    const m = document.getElementById('generic-modal'); if (m) { m.classList.add('opacity-0'); m.firstElementChild.classList.remove('scale-100'); m.firstElementChild.classList.add('scale-95'); setTimeout(() => m.classList.add('hidden'), 300); }
 }
 
-function toggleColorMenu(device) {
-    const menu = document.getElementById(`color-menu-${device}`);
-    if (!menu) return;
-    const isHidden = menu.classList.contains('hidden');
-    document.querySelectorAll('.color-menu').forEach(m => m.classList.add('hidden'));
+window.toggleColorMenu = function(device) {
+    const menu = document.getElementById(`color-menu-${device}`); if (!menu) return;
+    const isHidden = menu.classList.contains('hidden'); document.querySelectorAll('.color-menu').forEach(m => m.classList.add('hidden'));
     if (isHidden) {
-        menu.innerHTML = '';
-        Object.keys(colorPalettes).forEach(color => {
-            const btn = document.createElement('button');
-            const rgb = colorPalettes[color][500];
+        menu.innerHTML = ''; Object.keys(colorPalettes).forEach(color => {
+            const btn = document.createElement('button'); const rgb = colorPalettes[color][500];
             btn.className = `w-6 h-6 rounded-full border border-gray-200 dark:border-gray-700 hover:scale-110 transition transform focus:outline-none ring-2 ring-transparent focus:ring-offset-1 focus:ring-gray-400`;
-            btn.style.backgroundColor = `rgb(${rgb})`;
-            btn.onclick = () => setThemeColor(color);
-            menu.appendChild(btn);
-        });
-        menu.classList.remove('hidden');
-        menu.classList.add('visible');
+            btn.style.backgroundColor = `rgb(${rgb})`; btn.onclick = () => setThemeColor(color); menu.appendChild(btn);
+        }); menu.classList.remove('hidden'); menu.classList.add('visible');
     }
 }
 
@@ -1026,24 +1059,17 @@ const colorPalettes = {
     teal: { 50: '240 253 250', 100: '204 251 241', 200: '153 246 228', 300: '94 234 212', 400: '45 212 191', 500: '20 184 166', 600: '13 148 136', 700: '15 118 110', 800: '17 94 89', 900: '19 78 74' }
 };
 
-function setThemeColor(colorName) {
-    const palette = colorPalettes[colorName];
-    if (!palette) return;
+window.setThemeColor = function(colorName) {
+    const palette = colorPalettes[colorName]; if (!palette) return;
     const iconColor = `rgb(${palette[600]})`;
-    document.querySelectorAll('#desktop-palette-icon, #mobile-palette-icon').forEach(icon => {
-        icon.classList.remove('text-indigo-600');
-        icon.style.color = iconColor;
-    });
-    updateColorVars(palette);
-    localStorage.setItem('salvese_color', JSON.stringify(palette));
+    document.querySelectorAll('#desktop-palette-icon, #mobile-palette-icon').forEach(icon => { icon.classList.remove('text-indigo-600'); icon.style.color = iconColor; });
+    updateColorVars(palette); localStorage.setItem('salvese_color', JSON.stringify(palette));
     document.querySelectorAll('.color-menu').forEach(m => m.classList.add('hidden'));
 }
 
 function updateColorVars(palette) {
     const root = document.documentElement;
-    Object.keys(palette).forEach(shade => {
-        root.style.setProperty(`--theme-${shade}`, palette[shade]);
-    });
+    Object.keys(palette).forEach(shade => { root.style.setProperty(`--theme-${shade}`, palette[shade]); });
 }
 
 document.addEventListener('click', (e) => {
@@ -1052,61 +1078,32 @@ document.addEventListener('click', (e) => {
     }
 });
 
-function switchPage(pageId, addToHistory = true) {
-    // Esconde todas as views
+window.switchPage = function(pageId, addToHistory = true) {
     document.querySelectorAll('[id^="view-"]').forEach(el => el.classList.add('hidden'));
-    const target = document.getElementById(`view-${pageId}`);
-    if (target) target.classList.remove('hidden');
-
-    // Atualiza navegação DESKTOP
+    const target = document.getElementById(`view-${pageId}`); if (target) target.classList.remove('hidden');
     document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-    const activeLink = document.getElementById(`nav-${pageId}`);
-    if (activeLink) activeLink.classList.add('active');
-
-    // Atualiza navegação MOBILE (Correção solicitada)
+    const activeLink = document.getElementById(`nav-${pageId}`); if (activeLink) activeLink.classList.add('active');
     const mobileNavLinks = document.querySelectorAll('#mobile-menu nav a');
     mobileNavLinks.forEach(link => {
-        // Remove estilo ativo de todos
-        link.classList.remove('bg-indigo-50', 'text-indigo-600', 'dark:bg-indigo-900/50', 'dark:text-indigo-300');
-        link.classList.add('text-gray-600', 'dark:text-gray-400');
-
-        // Verifica se o link é da página atual
-        if(link.getAttribute('onclick').includes(`'${pageId}'`)) {
-             link.classList.add('bg-indigo-50', 'text-indigo-600', 'dark:bg-indigo-900/50', 'dark:text-indigo-300');
-             link.classList.remove('text-gray-600', 'dark:text-gray-400');
-        }
+        link.classList.remove('bg-indigo-50', 'text-indigo-600', 'dark:bg-indigo-900/50', 'dark:text-indigo-300'); link.classList.add('text-gray-600', 'dark:text-gray-400');
+        if(link.getAttribute('onclick').includes(`'${pageId}'`)) { link.classList.add('bg-indigo-50', 'text-indigo-600', 'dark:bg-indigo-900/50', 'dark:text-indigo-300'); link.classList.remove('text-gray-600', 'dark:text-gray-400'); }
     });
-
-    const titles = { home: 'Página Principal', onibus: 'Transporte', calc: 'Calculadora', pomo: 'Modo Foco', todo: 'Tarefas', email: 'Templates', aulas: 'Grade Horária', fluxo: 'Fluxograma' };
-    const pageTitleEl = document.getElementById('page-title');
-    if (pageTitleEl) pageTitleEl.innerText = titles[pageId] || 'Salve-se';
-    
-    // Trigger render if switching to schedule
+    const titles = { home: 'Página Principal', cardapio: 'Cardápio RU', onibus: 'Transporte', calc: 'Calculadora', pomo: 'Modo Foco', todo: 'Tarefas', email: 'Templates', aulas: 'Grade Horária' };
+    const pageTitleEl = document.getElementById('page-title'); if (pageTitleEl) pageTitleEl.innerText = titles[pageId] || 'Salve-se';
     if(pageId === 'aulas' && window.renderSchedule) window.renderSchedule();
-
-    // Adiciona ao histórico para o botão voltar
-    if(addToHistory) {
-        history.pushState({view: pageId}, null, `#${pageId}`);
-    }
+    if(pageId === 'cardapio' && window.renderWeeklyMenu) window.renderWeeklyMenu();
+    if(addToHistory) { history.pushState({view: pageId}, null, `#${pageId}`); }
 }
 
 let clockMode = 0;
-function cycleClockMode() { clockMode = (clockMode + 1) % 4; updateClock(); }
+window.cycleClockMode = function() { clockMode = (clockMode + 1) % 4; updateClock(); }
 function updateClock() {
-    const now = new Date();
-    let timeString = "";
+    const now = new Date(); let timeString = "";
     if (clockMode === 0) timeString = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     else if (clockMode === 1) timeString = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
     else if (clockMode === 2) timeString = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', hour12: true });
-    else {
-        const date = now.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-        const time = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-        timeString = `${date} • ${time}`;
-    }
-    
-    // Atualiza o relógio em ambos os locais (Desktop e o novo do cabeçalho se existir)
-    const clockEls = document.querySelectorAll('#clock');
-    clockEls.forEach(el => el.innerText = timeString);
+    else { const date = now.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }); const time = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }); timeString = `${date} • ${time}`; }
+    const clockEls = document.querySelectorAll('#clock'); clockEls.forEach(el => el.innerText = timeString);
 }
 setInterval(updateClock, 1000); updateClock();
 
@@ -1180,7 +1177,6 @@ renderBusTable(); updateNextBus(); setInterval(updateNextBus, 1000);
 function addGradeRow() {
     const container = document.getElementById('grades-container');
     if (!container) return;
-    
     const div = document.createElement('div'); div.className = "flex gap-3 items-center fade-in";
     div.innerHTML = `
         <div class="flex-grow relative group">
@@ -1206,61 +1202,32 @@ function calculateAverage() {
     const passingEl = document.getElementById('passing-grade');
     if(!passingEl) return;
     const passing = parseFloat(passingEl.value) || 6.0;
-
     document.querySelectorAll('.grade-input').forEach((inp, i) => {
         const val = parseLocalFloat(inp.value);
         const weightInps = document.querySelectorAll('.weight-input');
         if(weightInps[i]) {
-            let wStr = weightInps[i].value;
-            let w = parseLocalFloat(wStr);
+            let wStr = weightInps[i].value; let w = parseLocalFloat(wStr);
             if (isNaN(w) && !isNaN(val)) w = 1;
-            if (!isNaN(val) && !isNaN(w)) {
-                hasInput = true;
-                totalScore += val * w;
-                totalWeight += w;
-            }
+            if (!isNaN(val) && !isNaN(w)) { hasInput = true; totalScore += val * w; totalWeight += w; }
         }
     });
-
-    const display = document.getElementById('result-display');
-    const feedback = document.getElementById('result-feedback');
-
-    if (!hasInput || totalWeight === 0) {
-        display.innerText = "--";
-        display.className = "text-6xl font-black text-gray-300 dark:text-gray-600 mb-6 transition-all duration-500";
-        feedback.innerHTML = '<p class="text-gray-400 text-sm italic">Adicione notas para ver o resultado...</p>';
-        return;
-    }
-
-    const avg = totalScore / totalWeight;
-    display.innerText = avg.toFixed(2);
-
+    const display = document.getElementById('result-display'); const feedback = document.getElementById('result-feedback');
+    if (!hasInput || totalWeight === 0) { display.innerText = "--"; display.className = "text-6xl font-black text-gray-300 dark:text-gray-600 mb-6 transition-all duration-500"; feedback.innerHTML = '<p class="text-gray-400 text-sm italic">Adicione notas para ver o resultado...</p>'; return; }
+    const avg = totalScore / totalWeight; display.innerText = avg.toFixed(2);
     if (avg >= passing) {
         display.className = "text-6xl font-black text-green-500 dark:text-green-400 mb-6 transition-all duration-500 scale-110";
-        feedback.innerHTML = `
-            <div class="flex flex-col items-center animate-scale-in">
-                <img src="https://media.tenor.com/q9CixI3CcrkAAAAj/dance.gif" class="w-32 h-32 object-contain mb-4 drop-shadow-lg rounded-full">
-                <p class="text-green-600 dark:text-green-400 font-bold text-lg">Parabéns! Aprovado!</p>
-            </div>
-        `;
+        feedback.innerHTML = `<div class="flex flex-col items-center animate-scale-in"><img src="https://media.tenor.com/q9CixI3CcrkAAAAj/dance.gif" class="w-32 h-32 object-contain mb-4 drop-shadow-lg rounded-full"><p class="text-green-600 dark:text-green-400 font-bold text-lg">Parabéns! Aprovado!</p></div>`;
     } else {
         display.className = "text-6xl font-black text-red-500 dark:text-red-400 mb-6 transition-all duration-500";
-        feedback.innerHTML = `
-            <div class="flex flex-col items-center animate-scale-in">
-                <img src="https://media.tenor.com/qL2ySe3uUgQAAAAj/gatto.gif" class="w-32 h-32 object-contain mb-4 drop-shadow-lg rounded-lg">
-                <p class="text-red-600 dark:text-red-400 font-bold text-lg">Ixi... Não foi dessa vez.</p>
-            </div>
-        `;
+        feedback.innerHTML = `<div class="flex flex-col items-center animate-scale-in"><img src="https://media.tenor.com/qL2ySe3uUgQAAAAj/gatto.gif" class="w-32 h-32 object-contain mb-4 drop-shadow-lg rounded-lg"><p class="text-red-600 dark:text-red-400 font-bold text-lg">Ixi... Não foi dessa vez.</p></div>`;
     }
 }
 
-function resetCalc() {
+window.resetCalc = function() {
     const container = document.getElementById('grades-container');
     if(container) container.innerHTML = '';
-    addGradeRow(); addGradeRow();
-    calculateAverage();
+    addGradeRow(); addGradeRow(); calculateAverage();
 }
-
 addGradeRow(); addGradeRow();
 if(document.getElementById('passing-grade')) document.getElementById('passing-grade').addEventListener('input', calculateAverage);
 
@@ -1268,29 +1235,23 @@ let timerInterval1, timeLeft1 = 25 * 60, isRunning1 = false, currentMode1 = 'pom
 const modes1 = { 'pomodoro': 25 * 60, 'short': 5 * 60, 'long': 15 * 60 };
 function updateTimerDisplay() {
     const m = Math.floor(timeLeft1 / 60), s = timeLeft1 % 60;
-    const display = document.getElementById('timer-display');
-    const circle = document.getElementById('timer-circle');
-    
+    const display = document.getElementById('timer-display'); const circle = document.getElementById('timer-circle');
     if(display) display.innerText = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
     if(circle) circle.style.strokeDashoffset = 816 - (timeLeft1 / modes1[currentMode1]) * 816;
 }
-function toggleTimer() {
-    const btn = document.getElementById('btn-start');
-    if(!btn) return;
+window.toggleTimer = function() {
+    const btn = document.getElementById('btn-start'); if(!btn) return;
     if (isRunning1) {
         clearInterval(timerInterval1); isRunning1 = false; btn.innerHTML = '<i class="fas fa-play pl-1"></i>'; btn.classList.replace('bg-red-600', 'bg-indigo-600'); btn.classList.replace('hover:bg-red-700', 'hover:bg-indigo-700');
-    }
-    else {
+    } else {
         isRunning1 = true; btn.innerHTML = '<i class="fas fa-pause"></i>'; btn.classList.replace('bg-indigo-600', 'bg-red-600'); btn.classList.replace('hover:bg-indigo-700', 'hover:bg-red-700');
         timerInterval1 = setInterval(() => {
-            timeLeft1--; if (timeLeft1 <= 0) {
-                clearInterval(timerInterval1); isRunning1 = false; showModal('Tempo', 'O tempo acabou!'); toggleTimer(); return;
-            } updateTimerDisplay();
+            timeLeft1--; if (timeLeft1 <= 0) { clearInterval(timerInterval1); isRunning1 = false; showModal('Tempo', 'O tempo acabou!'); toggleTimer(); return; } updateTimerDisplay();
         }, 1000);
     }
 }
-function resetTimer() { if (isRunning1) toggleTimer(); timeLeft1 = modes1[currentMode1]; updateTimerDisplay(); }
-function setTimerMode(m) {
+window.resetTimer = function() { if (isRunning1) toggleTimer(); timeLeft1 = modes1[currentMode1]; updateTimerDisplay(); }
+window.setTimerMode = function(m) {
     ['pomodoro', 'short', 'long'].forEach(mode => {
         const btn = document.getElementById(`mode-${mode}`);
         if (btn) {
@@ -1298,10 +1259,8 @@ function setTimerMode(m) {
             else { btn.classList.remove('bg-white', 'dark:bg-neutral-700', 'text-gray-800', 'dark:text-white', 'shadow-sm'); btn.classList.add('text-gray-500', 'dark:text-gray-400'); }
         }
     }); 
-    currentMode1 = m; 
-    const label = document.getElementById('timer-label');
-    if(label) label.innerText = m === 'pomodoro' ? 'Foco' : (m === 'short' ? 'Curta' : 'Longa'); 
-    resetTimer();
+    currentMode1 = m; const label = document.getElementById('timer-label');
+    if(label) label.innerText = m === 'pomodoro' ? 'Foco' : (m === 'short' ? 'Curta' : 'Longa'); resetTimer();
 }
 
 const templates = {
@@ -1310,10 +1269,6 @@ const templates = {
     absence: `Prezado(a) Prof(a). [Nome],\n\nJustifico minha falta no dia [Data] devido a [Motivo]. Segue anexo (se houver).\n\nAtenciosamente,\n[Seu Nome]`,
     tcc: `Prezado(a) Prof(a). [Nome],\n\nTenho interesse em sua área de pesquisa e gostaria de saber se há disponibilidade para orientação de TCC sobre [Tema].\n\nAtenciosamente,\n[Seu Nome]`
 };
-function loadTemplate(k) { document.getElementById('email-content').value = templates[k]; }
-function copyEmail() { const e = document.getElementById('email-content'); e.select(); document.execCommand('copy'); }
-
-// --- Função para Abrir Portal Acadêmico ---
-function openPortal() {
-    window.open('https://sistemas.ufrb.edu.br/sigaa/verTelaLogin.do', '_blank');
-}
+window.loadTemplate = function(k) { document.getElementById('email-content').value = templates[k]; }
+window.copyEmail = function() { const e = document.getElementById('email-content'); e.select(); document.execCommand('copy'); }
+window.openPortal = function() { window.open('https://sistemas.ufrb.edu.br/sigaa/verTelaLogin.do', '_blank'); }

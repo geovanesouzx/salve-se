@@ -1,6 +1,241 @@
-// ------------------------------------------------
+// ============================================================
+// --- CONFIGURAÇÃO FIREBASE & IMPORTAÇÕES ---
+// ============================================================
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+import { 
+    getAuth, 
+    signInWithPopup, 
+    GoogleAuthProvider, 
+    onAuthStateChanged, 
+    signOut 
+} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+import { 
+    getFirestore, 
+    doc, 
+    setDoc, 
+    getDoc, 
+    onSnapshot,
+    enableIndexedDbPersistence 
+} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyD5Ggqw9FpMS98CHcfXKnghMQNMV5WIVTw",
+  authDomain: "salvee-se.firebaseapp.com",
+  projectId: "salvee-se",
+  storageBucket: "salvee-se.firebasestorage.app",
+  messagingSenderId: "132544174908",
+  appId: "1:132544174908:web:00c6aa4855cc18ed2cdc39"
+};
+
+// Inicializa Firebase
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+// Tenta habilitar persistência offline do próprio Firestore (cache extra)
+try {
+    enableIndexedDbPersistence(db).catch((err) => {
+        if (err.code == 'failed-precondition') {
+            console.log('Múltiplas abas abertas, persistência habilitada em apenas uma.');
+        } else if (err.code == 'unimplemented') {
+            console.log('Navegador não suporta persistência.');
+        }
+    });
+} catch (e) { console.log("Persistência já ativa ou não suportada"); }
+
+// Variáveis Globais de Usuário
+let currentUser = null;
+let userProfile = null;
+let unsubscribeData = null; // Para parar de ouvir o banco se deslogar
+
+// ============================================================
+// --- LÓGICA DE AUTENTICAÇÃO & SINCRONIZAÇÃO ---
+// ============================================================
+
+// 1. Monitora Estado do Usuário (Login/Logout)
+onAuthStateChanged(auth, async (user) => {
+    const loginScreen = document.getElementById('login-screen');
+    const profileScreen = document.getElementById('profile-setup-screen');
+    const appContent = document.querySelector('.app-content-wrapper'); // Vamos envolver o app nisso no HTML
+
+    if (user) {
+        currentUser = user;
+        // Verifica se já tem perfil criado (handle único)
+        const docRef = doc(db, "users", user.uid);
+        const docSnap = await getDoc(docRef);
+
+        if (docSnap.exists()) {
+            // Usuário logado e com perfil -> Vai para o App
+            userProfile = docSnap.data();
+            
+            if(loginScreen) loginScreen.classList.add('hidden');
+            if(profileScreen) profileScreen.classList.add('hidden');
+            if(appContent) appContent.classList.remove('hidden');
+            
+            updateUserInterfaceInfo();
+            initRealtimeSync(user.uid); // Inicia sincronização
+        } else {
+            // Usuário logado, mas sem handle -> Vai para Setup de Perfil
+            if(loginScreen) loginScreen.classList.add('hidden');
+            if(profileScreen) profileScreen.classList.remove('hidden');
+            if(appContent) appContent.classList.add('hidden');
+        }
+    } else {
+        // Deslogado -> Mostra Login
+        currentUser = null;
+        userProfile = null;
+        if(unsubscribeData) unsubscribeData(); // Para de ouvir Firebase
+
+        if(loginScreen) loginScreen.classList.remove('hidden');
+        if(profileScreen) profileScreen.classList.add('hidden');
+        if(appContent) appContent.classList.add('hidden');
+    }
+});
+
+// 2. Função de Login Google
+window.loginWithGoogle = async () => {
+    const provider = new GoogleAuthProvider();
+    try {
+        await signInWithPopup(auth, provider);
+    } catch (error) {
+        console.error("Erro no login:", error);
+        alert("Erro ao fazer login: " + error.message);
+    }
+};
+
+// 3. Função de Logout
+window.logoutApp = async () => {
+    try {
+        await signOut(auth);
+        // Limpa dados visuais sensíveis se necessário, mas mantém LocalStorage para uso offline futuro
+        location.reload();
+    } catch (error) {
+        console.error("Erro ao sair:", error);
+    }
+};
+
+// 4. Verificar e Salvar Perfil Único
+window.saveUserProfile = async () => {
+    const handleInput = document.getElementById('input-handle').value.toLowerCase().trim();
+    const nameInput = document.getElementById('input-display-name').value.trim();
+    const errorMsg = document.getElementById('profile-error');
+
+    if (!handleInput || !nameInput) {
+        errorMsg.innerText = "Preencha todos os campos.";
+        return;
+    }
+
+    // Regex para permitir apenas letras, numeros e underscore
+    const handleRegex = /^[a-z0-9_]+$/;
+    if (!handleRegex.test(handleInput)) {
+        errorMsg.innerText = "Usuário deve conter apenas letras minúsculas, números e _";
+        return;
+    }
+
+    try {
+        // Verifica se o handle já existe na coleção 'usernames'
+        const usernameRef = doc(db, "usernames", handleInput);
+        const usernameSnap = await getDoc(usernameRef);
+
+        if (usernameSnap.exists()) {
+            errorMsg.innerText = "Este nome de usuário já está em uso. Escolha outro.";
+            return;
+        }
+
+        // Se não existe, cria as referências
+        const batch =  // Operação em lote (atômica)
+        
+        // 1. Reserva o username
+        await setDoc(doc(db, "usernames", handleInput), { uid: currentUser.uid });
+        
+        // 2. Cria o perfil do usuário
+        const profileData = {
+            handle: handleInput,
+            displayName: nameInput,
+            email: currentUser.email,
+            photoURL: currentUser.photoURL,
+            createdAt: new Date().toISOString()
+        };
+        
+        await setDoc(doc(db, "users", currentUser.uid), profileData);
+
+        // 3. Salva dados iniciais vazios ou pega do localStorage se o usuário já usava offline
+        const initialData = {
+            schedule: JSON.parse(localStorage.getItem('salvese_schedule')) || [],
+            tasks: JSON.parse(localStorage.getItem('salvese_tasks')) || [],
+            reminders: JSON.parse(localStorage.getItem('salvese_reminders')) || [],
+            lastUpdated: new Date().toISOString()
+        };
+        
+        await setDoc(doc(db, "users", currentUser.uid, "data", "appData"), initialData);
+
+        // Atualiza estado local e força recarregamento da UI
+        userProfile = profileData;
+        document.getElementById('profile-setup-screen').classList.add('hidden');
+        document.querySelector('.app-content-wrapper').classList.remove('hidden');
+        updateUserInterfaceInfo();
+        initRealtimeSync(currentUser.uid);
+
+    } catch (error) {
+        console.error("Erro ao criar perfil:", error);
+        errorMsg.innerText = "Erro ao salvar perfil. Tente novamente.";
+    }
+};
+
+// 5. Sincronização Realtime (O Coração do Híbrido)
+function initRealtimeSync(uid) {
+    const dataRef = doc(db, "users", uid, "data", "appData");
+
+    // Escuta mudanças no Firebase
+    unsubscribeData = onSnapshot(dataRef, (doc) => {
+        if (doc.exists()) {
+            const cloudData = doc.data();
+            console.log("Dados recebidos da nuvem:", cloudData);
+
+            // LÓGICA DE CONFLITO SIMPLES:
+            // Se a nuvem mudar, atualizamos o LocalStorage e a Tela.
+            // Isso garante que se você usou o celular, o PC atualiza.
+            
+            // Salva no LocalStorage
+            localStorage.setItem('salvese_schedule', JSON.stringify(cloudData.schedule || []));
+            localStorage.setItem('salvese_tasks', JSON.stringify(cloudData.tasks || []));
+            localStorage.setItem('salvese_reminders', JSON.stringify(cloudData.reminders || []));
+
+            // Atualiza variáveis globais do script antigo
+            scheduleData = cloudData.schedule || [];
+            tasksData = cloudData.tasks || [];
+            remindersData = cloudData.reminders || [];
+
+            // Re-renderiza a interface
+            refreshAllUI();
+        }
+    });
+}
+
+function updateUserInterfaceInfo() {
+    const nameDisplay = document.getElementById('user-display-name');
+    const handleDisplay = document.getElementById('user-display-id');
+    
+    if(userProfile) {
+        if(nameDisplay) nameDisplay.innerText = userProfile.displayName;
+        if(handleDisplay) handleDisplay.innerText = "@" + userProfile.handle;
+    }
+}
+
+function refreshAllUI() {
+    if (window.renderSchedule) window.renderSchedule();
+    if (window.renderTasks) window.renderTasks();
+    if (window.renderReminders) window.renderReminders();
+    if (window.updateDashboardTasksWidget) window.updateDashboardTasksWidget();
+    if (window.updateNextClassWidget) window.updateNextClassWidget();
+}
+
+
+// ============================================================
+// --- CÓDIGO ORIGINAL DA APLICAÇÃO (ADAPTADO) ---
+// ============================================================
+
 // --- LÓGICA DE TEMA (INICIALIZAÇÃO) ---
-// ------------------------------------------------
 function initTheme() {
     if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
         document.documentElement.classList.add('dark');
@@ -12,7 +247,7 @@ function initTheme() {
 }
 initTheme();
 
-function toggleTheme() {
+window.toggleTheme = function() {
     if (document.documentElement.classList.contains('dark')) {
         document.documentElement.classList.remove('dark');
         localStorage.setItem('theme', 'light');
@@ -22,10 +257,7 @@ function toggleTheme() {
     }
 }
 
-// ------------------------------------------------
 // --- LÓGICA PWA E OFFLINE ---
-// ------------------------------------------------
-
 const manifest = {
     "name": "Salve-se Painel",
     "short_name": "Salve-se",
@@ -50,7 +282,6 @@ if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         navigator.serviceWorker.register('./sw.js')
             .then(reg => {
-                console.log('SW registrado:', reg.scope);
                 reg.update();
             })
             .catch(err => console.log('SW falhou:', err));
@@ -66,9 +297,6 @@ if ('serviceWorker' in navigator) {
             installBtn.addEventListener('click', () => {
                 deferredPrompt.prompt();
                 deferredPrompt.userChoice.then((choiceResult) => {
-                    if (choiceResult.outcome === 'accepted') {
-                        console.log('Usuário aceitou instalar');
-                    }
                     deferredPrompt = null;
                     installBtn.classList.add('hidden');
                 });
@@ -87,6 +315,9 @@ if ('serviceWorker' in navigator) {
                 text.innerText = 'Online';
                 icon.className = 'fas fa-wifi';
                 setTimeout(() => toast.classList.remove('show'), 3000);
+                
+                // Se voltar a ficar online, tenta sincronizar dados pendentes (O Firestore faz isso sozinho, mas forçamos atualização da UI)
+                if(currentUser) refreshAllUI();
             } else {
                 toast.className = 'network-status offline show';
                 text.innerText = 'Offline';
@@ -99,44 +330,55 @@ if ('serviceWorker' in navigator) {
     window.addEventListener('offline', updateNetworkStatus);
 }
 
-// ------------------------------------------------
-// --- GESTÃO DE DADOS ---
-// ------------------------------------------------
+// --- GESTÃO DE DADOS (MODIFICADO PARA FIREBASE) ---
+
+// Inicializa com LocalStorage para ser RÁPIDO e OFFLINE FIRST
 let scheduleData = JSON.parse(localStorage.getItem('salvese_schedule')) || [];
 let tasksData = JSON.parse(localStorage.getItem('salvese_tasks')) || [];
 let remindersData = JSON.parse(localStorage.getItem('salvese_reminders')) || [];
 let selectedClassIdToDelete = null;
 
-// Variável global para filtro de tarefas
-let currentTaskFilter = 'all'; // 'all', 'active', 'completed'
+let currentTaskFilter = 'all'; 
 
-function saveData() {
+// FUNÇÃO SAVEDATA ATUALIZADA
+async function saveData() {
+    // 1. Salva Localmente (Sempre, funciona offline)
     localStorage.setItem('salvese_schedule', JSON.stringify(scheduleData));
     localStorage.setItem('salvese_tasks', JSON.stringify(tasksData));
     localStorage.setItem('salvese_reminders', JSON.stringify(remindersData));
 
-    if (window.renderSchedule) window.renderSchedule();
-    if (window.renderTasks) window.renderTasks();
-    if (window.renderReminders) window.renderReminders();
-    
-    updateDashboardTasksWidget(); // Nova função do dashboard
-    
-    if (window.updateNextClassWidget) window.updateNextClassWidget();
+    // 2. Atualiza UI Local
+    refreshAllUI();
+
+    // 3. Salva no Firebase (Se logado)
+    // O Firestore gerencia a fila se estiver offline automaticamente via enableIndexedDbPersistence
+    if (currentUser) {
+        try {
+            const dataToSave = {
+                schedule: scheduleData,
+                tasks: tasksData,
+                reminders: remindersData,
+                lastUpdated: new Date().toISOString()
+            };
+            // Usamos setDoc com merge para não apagar outros campos se houver
+            await setDoc(doc(db, "users", currentUser.uid, "data", "appData"), dataToSave, { merge: true });
+            console.log("Dados sincronizados com a nuvem.");
+        } catch (e) {
+            console.error("Erro ao sincronizar nuvem (provavelmente offline, será enviado depois):", e);
+        }
+    }
 }
 
-// ------------------------------------------------
-// --- NOVA LÓGICA DE TAREFAS (TODO) ---
-// ------------------------------------------------
+// --- LÓGICA DE TAREFAS (TODO) ---
 
 window.addTask = function () {
     const input = document.getElementById('todo-input');
-    const priorityInput = document.getElementById('todo-priority'); // Novo input (esperado no HTML)
-    const categoryInput = document.getElementById('todo-category'); // Novo input (esperado no HTML)
+    const priorityInput = document.getElementById('todo-priority'); 
+    const categoryInput = document.getElementById('todo-category'); 
     
     const text = input.value.trim();
     if (!text) return;
 
-    // Valores padrão caso os inputs novos ainda não existam no DOM
     const priority = priorityInput ? priorityInput.value : 'normal';
     const category = categoryInput ? categoryInput.value : 'geral';
 
@@ -173,7 +415,6 @@ window.clearCompleted = function () {
 
 window.setTaskFilter = function(filter) {
     currentTaskFilter = filter;
-    // Atualiza botões visuais (esperado no HTML)
     ['filter-all', 'filter-active', 'filter-completed'].forEach(id => {
         const btn = document.getElementById(id);
         if(btn) {
@@ -181,10 +422,9 @@ window.setTaskFilter = function(filter) {
             else btn.classList.remove('bg-indigo-100', 'text-indigo-700', 'dark:bg-indigo-900/50', 'dark:text-indigo-300');
         }
     });
-    renderTasks();
+    window.renderTasks();
 };
 
-// Função auxiliar para cores de prioridade
 function getPriorityInfo(prio) {
     switch(prio) {
         case 'high': return { label: 'Alta', color: 'text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400 border-red-100 dark:border-red-900' };
@@ -193,7 +433,6 @@ function getPriorityInfo(prio) {
     }
 }
 
-// Função auxiliar para ícones de categoria
 function getCategoryIcon(cat) {
     switch(cat) {
         case 'estudo': return '<i class="fas fa-book"></i>';
@@ -209,16 +448,14 @@ window.renderTasks = function () {
     
     list.innerHTML = '';
     
-    // Filtra
     let filteredTasks = tasksData;
     if (currentTaskFilter === 'active') filteredTasks = tasksData.filter(t => !t.done);
     if (currentTaskFilter === 'completed') filteredTasks = tasksData.filter(t => t.done);
 
-    // Ordena: Pendentes primeiro, depois por prioridade (High > Medium > Normal), depois por data
     const priorityWeight = { 'high': 3, 'medium': 2, 'normal': 1 };
     
     const sortedTasks = [...filteredTasks].sort((a, b) => {
-        if (a.done !== b.done) return a.done ? 1 : -1; // Feitas vão pro final
+        if (a.done !== b.done) return a.done ? 1 : -1; 
         if (priorityWeight[b.priority || 'normal'] !== priorityWeight[a.priority || 'normal']) {
             return priorityWeight[b.priority || 'normal'] - priorityWeight[a.priority || 'normal'];
         }
@@ -264,19 +501,16 @@ window.renderTasks = function () {
         list.appendChild(div);
     });
     
-    updateDashboardTasksWidget(); // Atualiza o widget da home sempre que renderizar a lista
+    window.updateDashboardTasksWidget(); 
 }
 
-// --- NOVO: Widget de Tarefas na Home ---
 window.updateDashboardTasksWidget = function() {
     const container = document.getElementById('dashboard-tasks-list');
-    const taskCountEl = document.getElementById('task-count-badge'); // Novo badge
+    const taskCountEl = document.getElementById('task-count-badge'); 
     
-    // Filtra apenas as pendentes
     const pendingTasks = tasksData.filter(t => !t.done);
     
-    // Atualiza contadores em todo lugar
-    const dashCountOld = document.getElementById('dash-task-count'); // Retrocompatibilidade
+    const dashCountOld = document.getElementById('dash-task-count'); 
     if(dashCountOld) dashCountOld.innerText = pendingTasks.length;
     
     if(taskCountEl) {
@@ -285,7 +519,6 @@ window.updateDashboardTasksWidget = function() {
     }
     
     if (!container) return;
-
     container.innerHTML = '';
 
     if (pendingTasks.length === 0) {
@@ -300,17 +533,16 @@ window.updateDashboardTasksWidget = function() {
         return;
     }
 
-    // Ordena por prioridade para mostrar as mais importantes
     const priorityWeight = { 'high': 3, 'medium': 2, 'normal': 1 };
     const topTasks = [...pendingTasks].sort((a, b) => {
         return priorityWeight[b.priority || 'normal'] - priorityWeight[a.priority || 'normal'];
-    }).slice(0, 3); // Pega só as top 3
+    }).slice(0, 3); 
 
     topTasks.forEach(t => {
         const prioInfo = getPriorityInfo(t.priority || 'normal');
         const item = document.createElement('div');
         item.className = "flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-neutral-800 transition cursor-pointer border border-transparent hover:border-gray-100 dark:hover:border-neutral-700";
-        item.onclick = () => switchPage('todo'); // Leva para a página de tarefas
+        item.onclick = () => switchPage('todo'); 
         
         item.innerHTML = `
             <div class="w-1.5 h-1.5 rounded-full ${t.priority === 'high' ? 'bg-red-500' : (t.priority === 'medium' ? 'bg-orange-500' : 'bg-blue-500')}"></div>
@@ -320,7 +552,6 @@ window.updateDashboardTasksWidget = function() {
         container.appendChild(item);
     });
 
-    // Se tiver mais que 3, mostra "+X mais"
     if (pendingTasks.length > 3) {
         const more = document.createElement('div');
         more.className = "text-center mt-2";
@@ -330,11 +561,7 @@ window.updateDashboardTasksWidget = function() {
 };
 
 
-// ------------------------------------------------
-// --- CONFIGURAÇÃO DE HORÁRIOS CORRIGIDA ---
-// ------------------------------------------------
-
-// Definição exata dos blocos de horário
+// --- CONFIGURAÇÃO DE HORÁRIOS ---
 const timeSlots = [
     { start: "07:00", end: "08:00" },
     { start: "08:00", end: "09:00" },
@@ -346,8 +573,8 @@ const timeSlots = [
     { start: "14:00", end: "15:00" },
     { start: "15:00", end: "16:00" },
     { start: "16:00", end: "17:00" },
-    { start: "17:00", end: "18:00" }, // Adicionado o slot até 18h
-    { start: "18:30", end: "19:30" }, // Pula intervalo 18h-18h30
+    { start: "17:00", end: "18:00" }, 
+    { start: "18:30", end: "19:30" }, 
     { start: "19:30", end: "20:30" },
     { start: "20:30", end: "21:30" },
     { start: "21:30", end: "22:30" }
@@ -356,21 +583,16 @@ const timeSlots = [
 const daysList = ['seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
 const daysDisplay = {'seg': 'Seg', 'ter': 'Ter', 'qua': 'Qua', 'qui': 'Qui', 'sex': 'Sex', 'sab': 'Sab'};
 
-// ------------------------------------------------
 // --- SISTEMA DE GRADE ---
-// ------------------------------------------------
-
 window.renderSchedule = function () {
     const viewContainer = document.getElementById('view-aulas');
     if (!viewContainer) return;
 
     viewContainer.innerHTML = '';
 
-    // Container Principal
     const wrapper = document.createElement('div');
     wrapper.className = "max-w-6xl mx-auto pb-20 md:pb-10";
 
-    // Cabeçalho Desktop
     const header = document.createElement('div');
     header.className = "hidden md:flex justify-between items-center mb-6 px-2";
     header.innerHTML = `
@@ -384,13 +606,11 @@ window.renderSchedule = function () {
     `;
     wrapper.appendChild(header);
 
-    // Cabeçalho Mobile (Só título)
     const mobileHeader = document.createElement('h2');
     mobileHeader.className = "md:hidden text-xl font-bold text-gray-900 dark:text-white mb-6 px-1";
     mobileHeader.innerText = "Minha Grade de Horários";
     wrapper.appendChild(mobileHeader);
 
-    // 1. VERSÃO MOBILE (Lista Vertical por Dia)
     const mobileContainer = document.createElement('div');
     mobileContainer.className = "md:hidden space-y-6";
 
@@ -398,7 +618,6 @@ window.renderSchedule = function () {
         const daySection = document.createElement('div');
         daySection.className = "flex flex-col gap-3";
 
-        // Header do Dia
         const headerRow = document.createElement('div');
         headerRow.className = "flex justify-between items-center px-1";
         headerRow.innerHTML = `
@@ -409,7 +628,6 @@ window.renderSchedule = function () {
         `;
         daySection.appendChild(headerRow);
 
-        // Filtra aulas do dia
         const classesToday = scheduleData
             .filter(c => c.day === dayKey)
             .sort((a, b) => parseInt(a.start.replace(':','')) - parseInt(b.start.replace(':','')));
@@ -431,7 +649,6 @@ window.renderSchedule = function () {
                 card.className = "relative rounded-xl p-4 cursor-pointer active:scale-[0.98] transition-transform overflow-hidden group";
                 card.style.backgroundColor = `rgba(${palette[500]}, 0.12)`;
                 
-                // Fonte AUMENTADA AQUI
                 card.innerHTML = `
                     <div class="absolute left-0 top-2 bottom-2 w-1.5 rounded-r-full" style="background-color: rgb(${palette[500]})"></div>
                     <div class="pl-3 flex justify-between items-start">
@@ -459,7 +676,6 @@ window.renderSchedule = function () {
 
     wrapper.appendChild(mobileContainer);
 
-    // 2. VERSÃO DESKTOP (Tabela)
     const desktopContainer = document.createElement('div');
     desktopContainer.className = "hidden md:block bg-white dark:bg-darkcard rounded-xl border border-gray-200 dark:border-darkborder shadow-sm overflow-hidden";
     
@@ -479,7 +695,6 @@ window.renderSchedule = function () {
 
     timeSlots.forEach((slot, index) => {
         tableHTML += `<tr>`;
-        // Mostra o intervalo completo no Desktop (ex: 07:00 - 08:00)
         tableHTML += `<td class="p-3 font-mono text-xs font-bold text-gray-500 dark:text-gray-400 bg-gray-50/50 dark:bg-neutral-900/50 sticky left-0 z-10 border-r dark:border-darkborder whitespace-nowrap">${slot.start} - ${slot.end}</td>`;
 
         daysList.forEach(day => {
@@ -489,12 +704,8 @@ window.renderSchedule = function () {
             const foundClass = scheduleData.find(c => c.day === day && c.start === slot.start);
             
             if (foundClass) {
-                // Encontra o índice do horário de fim para calcular o rowspan
                 let endIndex = timeSlots.findIndex(s => s.end === foundClass.end);
-                // Se não achar pelo fim (caso raro), tenta achar pelo inicio do proximo
                 if(endIndex === -1) endIndex = timeSlots.findIndex(s => s.start === foundClass.end) - 1;
-                
-                // Se ainda assim não achar, assume duração de 1 slot ou até o fim
                 if (endIndex === -1) endIndex = index; 
                 
                 const span = Math.max(1, (endIndex - index) + 1);
@@ -507,13 +718,12 @@ window.renderSchedule = function () {
                 const borderStyle = `border-left: 4px solid rgb(${palette[500]})`;
                 const textStyle = `color: rgb(${palette[700]})`;
 
-                // Fonte AUMENTADA na tabela também
                 tableHTML += `
                     <td rowspan="${span}" class="p-1 align-top h-full border-l border-gray-100 dark:border-neutral-800 relative group cursor-pointer hover:brightness-95 dark:hover:brightness-110 transition" onclick="openEditClassModal('${foundClass.id}')">
                         <div class="h-full w-full rounded p-2 flex flex-col justify-center text-left shadow-sm" style="${bgStyle}; ${borderStyle}">
                             <p class="text-sm font-bold truncate" style="${textStyle}">${foundClass.name}</p>
                             <p class="text-xs text-gray-600 dark:text-gray-300 truncate opacity-80">${foundClass.prof}</p>
-                            <p class="text-[10px] text-gray-500 dark:text-gray-400 truncate mt-1 bg-white/50 dark:bg-black/20 rounded w-fit px-1">${foundClass.room}</p>
+                            <p class="text--[10px] text-gray-500 dark:text-gray-400 truncate mt-1 bg-white/50 dark:bg-black/20 rounded w-fit px-1">${foundClass.room}</p>
                         </div>
                     </td>
                 `;
@@ -552,7 +762,6 @@ window.openAddClassModal = function (day, startHourStr) {
 
     if (startHourStr) {
         document.getElementById('class-start').value = startHourStr;
-        // Tenta definir fim padrão como +2 slots (2 horas)
         updateEndTime(2);
     }
     toggleModal(true);
@@ -639,50 +848,40 @@ function resetModalFields() {
     startSel.innerHTML = ''; 
     endSel.innerHTML = '';
     
-    // Popula opções de Início (todos os slots disponíveis)
     timeSlots.forEach(t => { 
         const opt = `<option value="${t.start}">${t.start}</option>`; 
         startSel.innerHTML += opt; 
     });
     
-    // Popula opções de Fim (todos os finais de slots disponíveis)
     timeSlots.forEach(t => { 
         const opt = `<option value="${t.end}">${t.end}</option>`; 
         endSel.innerHTML += opt; 
     });
     
     startSel.value = "07:00"; 
-    updateEndTime(2); // Define fim padrão como 2 slots depois
+    updateEndTime(2); 
     renderColorPicker();
 }
 
-function updateEndTime(slotsToAdd = 2) {
+window.updateEndTime = function(slotsToAdd = 2) {
     const startSel = document.getElementById('class-start');
     const endSel = document.getElementById('class-end');
     const startHourStr = startSel.value;
     
-    // Encontra o índice do horário de início
     const idx = timeSlots.findIndex(s => s.start === startHourStr);
     
     if (idx !== -1) {
-        // Tenta definir o fim X slots depois (ex: 2 horas de aula)
         let targetIdx = idx + (slotsToAdd - 1); 
-        
-        // Se passar do limite, pega o último horário
         if (targetIdx >= timeSlots.length) targetIdx = timeSlots.length - 1;
-        
         endSel.value = timeSlots[targetIdx].end;
     }
 }
 
-// MODAL COM SUPORTE A HISTÓRICO (VOLTAR DO CELULAR)
-function toggleModal(show) {
+window.toggleModal = function(show) {
     const modal = document.getElementById('class-modal'); 
     const content = document.getElementById('class-modal-content');
     if (show) { 
-        // Adiciona ao histórico para o botão voltar funcionar
         history.pushState({modal: 'class'}, null, '#class-modal');
-        
         modal.classList.remove('hidden'); 
         setTimeout(() => { modal.classList.remove('opacity-0'); content.classList.remove('scale-95'); content.classList.add('scale-100'); }, 10); 
     } else { 
@@ -708,9 +907,9 @@ function renderColorPicker() {
     });
 }
 
-// --- OUTRAS FUNCIONALIDADES (TASKS, REMINDERS, BUS, WIDGETS) ---
+// --- OUTRAS FUNCIONALIDADES ---
 
-function updateNextClassWidget() {
+window.updateNextClassWidget = function() {
     const container = document.getElementById('next-class-content');
     if (!container) return;
 
@@ -811,14 +1010,13 @@ function updateNextClassWidget() {
     }
 }
 
-// Reminders Logic (Com suporte a voltar)
-function toggleRemindersModal() {
+// Reminders Logic
+window.toggleRemindersModal = function() {
     const modal = document.getElementById('reminders-modal');
     const content = modal ? modal.firstElementChild : null;
     if (!modal) return;
 
     if (modal.classList.contains('hidden')) {
-        // Push History
         history.pushState({modal: 'reminders'}, null, '#reminders-modal');
         renderReminders();
         modal.classList.remove('hidden');
@@ -829,19 +1027,19 @@ function toggleRemindersModal() {
     }
 }
 
-function showReminderForm() {
+window.showReminderForm = function() {
     document.getElementById('btn-add-reminder').classList.add('hidden');
     document.getElementById('reminder-form').classList.remove('hidden');
     document.getElementById('rem-date').valueAsDate = new Date();
 }
 
-function hideReminderForm() {
+window.hideReminderForm = function() {
     document.getElementById('reminder-form').classList.add('hidden');
     document.getElementById('btn-add-reminder').classList.remove('hidden');
     document.getElementById('rem-desc').value = '';
 }
 
-function addReminder() {
+window.addReminder = function() {
     const desc = document.getElementById('rem-desc').value.trim();
     const date = document.getElementById('rem-date').value;
     const prio = document.getElementById('rem-prio').value;
@@ -858,12 +1056,12 @@ function addReminder() {
     hideReminderForm();
 }
 
-function deleteReminder(id) {
+window.deleteReminder = function(id) {
     remindersData = remindersData.filter(r => r.id !== id);
     saveData();
 }
 
-function renderReminders() {
+window.renderReminders = function() {
     const listModal = document.getElementById('reminders-list-modal');
     const listHome = document.getElementById('home-reminders-list');
     const badge = document.getElementById('notification-badge');
@@ -876,7 +1074,6 @@ function renderReminders() {
 
     const generateHTML = (rem, isHome) => {
         const dateObj = new Date(rem.date + 'T00:00:00');
-
         let prioColor = 'bg-gray-100 text-gray-600 dark:bg-neutral-800 dark:text-gray-400';
         if (rem.prio === 'high') prioColor = 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400';
         if (rem.prio === 'medium') prioColor = 'bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400';
@@ -924,32 +1121,30 @@ function renderReminders() {
     }
 }
 
-// Inicialização e Listeners do Botão Voltar
+// Inicialização
 document.addEventListener('DOMContentLoaded', () => {
-    renderTasks();
-    renderReminders();
+    // Renderiza imediatamente o que estiver no localStorage
+    window.renderTasks();
+    window.renderReminders();
     if (window.renderSchedule) window.renderSchedule();
-    updateNextClassWidget();
+    window.updateNextClassWidget();
     
-    // Inicializa o highlight da aba mobile
     const activeMobileLink = document.querySelector(`#mobile-menu nav a[onclick*="'home'"]`);
     if(activeMobileLink) {
          activeMobileLink.classList.add('bg-indigo-50', 'text-indigo-600', 'dark:bg-indigo-900/50', 'dark:text-indigo-300');
          activeMobileLink.classList.remove('text-gray-600', 'dark:text-gray-400');
     }
 
-    setInterval(updateNextClassWidget, 60000);
+    setInterval(window.updateNextClassWidget, 60000);
 });
 
-// --- LÓGICA DO BOTÃO VOLTAR (POPSTATE) ---
+// Navegação e Histórico
 window.addEventListener('popstate', (event) => {
-    // 1. Se tiver modal aberto, fecha
     const classModal = document.getElementById('class-modal');
     const remindersModal = document.getElementById('reminders-modal');
     const genericModal = document.getElementById('generic-modal');
 
     if (classModal && !classModal.classList.contains('hidden')) {
-        // Fecha o modal diretamente sem mexer no histórico de novo
         classModal.classList.add('opacity-0'); 
         setTimeout(() => classModal.classList.add('hidden'), 300);
         return;
@@ -966,17 +1161,14 @@ window.addEventListener('popstate', (event) => {
         return;
     }
 
-    // 2. Se não tiver modal, verifica navegação
     if (event.state && event.state.view) {
-        // Navega visualmente sem adicionar ao histórico (addToHistory = false)
         switchPage(event.state.view, false);
     } else {
-        // Estado inicial
         switchPage('home', false);
     }
 });
 
-function showModal(title, message) {
+window.showModal = function(title, message) {
     const m = document.getElementById('generic-modal');
     document.getElementById('generic-modal-title').innerText = title;
     document.getElementById('generic-modal-message').innerText = message;
@@ -986,7 +1178,8 @@ function showModal(title, message) {
         setTimeout(() => { m.classList.remove('opacity-0'); m.firstElementChild.classList.remove('scale-95'); m.firstElementChild.classList.add('scale-100'); }, 10);
     }
 }
-function closeGenericModal() {
+
+window.closeGenericModal = function() {
     const m = document.getElementById('generic-modal');
     if (m) {
         m.classList.add('opacity-0'); m.firstElementChild.classList.remove('scale-100'); m.firstElementChild.classList.add('scale-95');
@@ -994,7 +1187,7 @@ function closeGenericModal() {
     }
 }
 
-function toggleColorMenu(device) {
+window.toggleColorMenu = function(device) {
     const menu = document.getElementById(`color-menu-${device}`);
     if (!menu) return;
     const isHidden = menu.classList.contains('hidden');
@@ -1052,25 +1245,20 @@ document.addEventListener('click', (e) => {
     }
 });
 
-function switchPage(pageId, addToHistory = true) {
-    // Esconde todas as views
+window.switchPage = function(pageId, addToHistory = true) {
     document.querySelectorAll('[id^="view-"]').forEach(el => el.classList.add('hidden'));
     const target = document.getElementById(`view-${pageId}`);
     if (target) target.classList.remove('hidden');
 
-    // Atualiza navegação DESKTOP
     document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
     const activeLink = document.getElementById(`nav-${pageId}`);
     if (activeLink) activeLink.classList.add('active');
 
-    // Atualiza navegação MOBILE (Correção solicitada)
     const mobileNavLinks = document.querySelectorAll('#mobile-menu nav a');
     mobileNavLinks.forEach(link => {
-        // Remove estilo ativo de todos
         link.classList.remove('bg-indigo-50', 'text-indigo-600', 'dark:bg-indigo-900/50', 'dark:text-indigo-300');
         link.classList.add('text-gray-600', 'dark:text-gray-400');
 
-        // Verifica se o link é da página atual
         if(link.getAttribute('onclick').includes(`'${pageId}'`)) {
              link.classList.add('bg-indigo-50', 'text-indigo-600', 'dark:bg-indigo-900/50', 'dark:text-indigo-300');
              link.classList.remove('text-gray-600', 'dark:text-gray-400');
@@ -1081,17 +1269,15 @@ function switchPage(pageId, addToHistory = true) {
     const pageTitleEl = document.getElementById('page-title');
     if (pageTitleEl) pageTitleEl.innerText = titles[pageId] || 'Salve-se';
     
-    // Trigger render if switching to schedule
     if(pageId === 'aulas' && window.renderSchedule) window.renderSchedule();
 
-    // Adiciona ao histórico para o botão voltar
     if(addToHistory) {
         history.pushState({view: pageId}, null, `#${pageId}`);
     }
 }
 
 let clockMode = 0;
-function cycleClockMode() { clockMode = (clockMode + 1) % 4; updateClock(); }
+window.cycleClockMode = function() { clockMode = (clockMode + 1) % 4; updateClock(); }
 function updateClock() {
     const now = new Date();
     let timeString = "";
@@ -1104,7 +1290,6 @@ function updateClock() {
         timeString = `${date} • ${time}`;
     }
     
-    // Atualiza o relógio em ambos os locais (Desktop e o novo do cabeçalho se existir)
     const clockEls = document.querySelectorAll('#clock');
     clockEls.forEach(el => el.innerText = timeString);
 }
@@ -1177,7 +1362,7 @@ function updateNextBus() {
 }
 renderBusTable(); updateNextBus(); setInterval(updateNextBus, 1000);
 
-function addGradeRow() {
+window.addGradeRow = function() {
     const container = document.getElementById('grades-container');
     if (!container) return;
     
@@ -1201,7 +1386,7 @@ function parseLocalFloat(val) {
     return parseFloat(val.replace(',', '.'));
 }
 
-function calculateAverage() {
+window.calculateAverage = function() {
     let totalScore = 0, totalWeight = 0, hasInput = false;
     const passingEl = document.getElementById('passing-grade');
     if(!passingEl) return;
@@ -1254,7 +1439,7 @@ function calculateAverage() {
     }
 }
 
-function resetCalc() {
+window.resetCalc = function() {
     const container = document.getElementById('grades-container');
     if(container) container.innerHTML = '';
     addGradeRow(); addGradeRow();
@@ -1274,7 +1459,7 @@ function updateTimerDisplay() {
     if(display) display.innerText = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
     if(circle) circle.style.strokeDashoffset = 816 - (timeLeft1 / modes1[currentMode1]) * 816;
 }
-function toggleTimer() {
+window.toggleTimer = function() {
     const btn = document.getElementById('btn-start');
     if(!btn) return;
     if (isRunning1) {
@@ -1289,8 +1474,8 @@ function toggleTimer() {
         }, 1000);
     }
 }
-function resetTimer() { if (isRunning1) toggleTimer(); timeLeft1 = modes1[currentMode1]; updateTimerDisplay(); }
-function setTimerMode(m) {
+window.resetTimer = function() { if (isRunning1) toggleTimer(); timeLeft1 = modes1[currentMode1]; updateTimerDisplay(); }
+window.setTimerMode = function(m) {
     ['pomodoro', 'short', 'long'].forEach(mode => {
         const btn = document.getElementById(`mode-${mode}`);
         if (btn) {
@@ -1310,10 +1495,6 @@ const templates = {
     absence: `Prezado(a) Prof(a). [Nome],\n\nJustifico minha falta no dia [Data] devido a [Motivo]. Segue anexo (se houver).\n\nAtenciosamente,\n[Seu Nome]`,
     tcc: `Prezado(a) Prof(a). [Nome],\n\nTenho interesse em sua área de pesquisa e gostaria de saber se há disponibilidade para orientação de TCC sobre [Tema].\n\nAtenciosamente,\n[Seu Nome]`
 };
-function loadTemplate(k) { document.getElementById('email-content').value = templates[k]; }
-function copyEmail() { const e = document.getElementById('email-content'); e.select(); document.execCommand('copy'); }
-
-// --- Função para Abrir Portal Acadêmico ---
-function openPortal() {
-    window.open('https://sistemas.ufrb.edu.br/sigaa/verTelaLogin.do', '_blank');
-}
+window.loadTemplate = function(k) { document.getElementById('email-content').value = templates[k]; }
+window.copyEmail = function() { const e = document.getElementById('email-content'); e.select(); document.execCommand('copy'); }
+window.openPortal = function() { window.open('https://sistemas.ufrb.edu.br/sigaa/verTelaLogin.do', '_blank'); }

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'salvese-v8.0-backup-fix'; // Nova versão para limpar cache antigo
+const CACHE_NAME = 'salvese-v9.0-refined-ui'; // Versão incrementada
 const URLS_TO_CACHE = [
     './',
     './index.html',
@@ -53,7 +53,8 @@ self.addEventListener('fetch', event => {
     const url = event.request.url;
     if (url.includes('firestore.googleapis.com') || 
         url.includes('googleapis.com/auth') || 
-        (url.includes('firebase') && !url.endsWith('.js'))) {
+        (url.includes('firebase') && !url.endsWith('.js')) ||
+        url.includes('api.imgur.com')) { // Ignora API de upload
         return; 
     }
 

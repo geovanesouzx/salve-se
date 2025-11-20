@@ -35,33 +35,43 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-// Tenta habilitar persistência offline do próprio Firestore (cache extra)
+// Tenta habilitar persistência offline
 try {
     enableIndexedDbPersistence(db).catch((err) => {
         console.log("Persistência Firestore:", err.code);
     });
 } catch (e) { console.log("Persistência já ativa ou não suportada"); }
 
-// Variáveis Globais de Usuário
+// Variáveis Globais
 let currentUser = null;
 let userProfile = null;
 let unsubscribeData = null;
 
 // ============================================================
+// --- ÍCONES SVG (Estilo Fino/Outline) ---
+// ============================================================
+const svgs = {
+    photo: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>`,
+    user: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`,
+    at: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-3.92 7.94"/></svg>`,
+    school: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>`,
+    lock: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`,
+    cloud: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19c0-3.037-2.463-5.5-5.5-5.5S6.5 15.963 6.5 19"/><path d="M12 13.5V4"/><path d="M7 9l5-5 5 5"/></svg>`, // Upload icon adaptado
+    logout: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>`,
+    chevron: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`
+};
+
+// ============================================================
 // --- SISTEMA DE BOOTSTRAP INTELIGENTE ---
 // ============================================================
 
-// Verifica se existe uma sessão ativa salva no localStorage (O "Crachá")
 const sessionActive = localStorage.getItem('salvese_session_active');
 
-// Timer de Segurança
 const forceLoadTimeout = setTimeout(() => {
     const loadingScreen = document.getElementById('loading-screen');
     if (loadingScreen && !loadingScreen.classList.contains('hidden')) {
         console.warn("Firebase demorou. Verificando modo offline...");
-        
         if (sessionActive === 'true') {
-            console.log("Sessão local encontrada. Forçando entrada offline.");
             loadAppOfflineMode(); 
         } else {
             showLoginScreen();
@@ -69,13 +79,11 @@ const forceLoadTimeout = setTimeout(() => {
     }
 }, 2000); 
 
-// 1. Monitora Estado do Usuário (Login/Logout)
 onAuthStateChanged(auth, async (user) => {
     clearTimeout(forceLoadTimeout);
 
     if (user) {
-        // --- CENÁRIO 1: USUÁRIO LOGADO ---
-        console.log("Usuário autenticado pelo Firebase.");
+        console.log("Usuário autenticado.");
         currentUser = user;
         localStorage.setItem('salvese_session_active', 'true');
 
@@ -85,11 +93,8 @@ onAuthStateChanged(auth, async (user) => {
 
             if (docSnap.exists()) {
                 userProfile = docSnap.data();
-                // Garante que campos novos existam
                 if (!userProfile.semester) userProfile.semester = "N/A";
-                
                 localStorage.setItem('salvese_user_profile', JSON.stringify(userProfile));
-                
                 showAppInterface(); 
                 initRealtimeSync(user.uid); 
             } else {
@@ -102,14 +107,11 @@ onAuthStateChanged(auth, async (user) => {
         }
 
     } else {
-        // --- CENÁRIO 2: SEM USUÁRIO ---
-        console.log("Sem usuário autenticado.");
         currentUser = null;
         userProfile = null;
         if(unsubscribeData) unsubscribeData();
 
         if (sessionActive === 'true' && !navigator.onLine) {
-            console.log("Offline e com sessão salva. Entrando em modo offline.");
             loadAppOfflineMode();
         } else {
             localStorage.removeItem('salvese_session_active');
@@ -117,8 +119,6 @@ onAuthStateChanged(auth, async (user) => {
         }
     }
 });
-
-// --- FUNÇÕES AUXILIARES DE UI ---
 
 function showAppInterface() {
     const loginScreen = document.getElementById('login-screen');
@@ -164,7 +164,6 @@ function showProfileSetupScreen() {
     if(loginScreen) loginScreen.classList.add('hidden');
     if(profileScreen) profileScreen.classList.remove('hidden');
     if(appContent) appContent.classList.add('hidden');
-    
     if(loadingScreen) loadingScreen.classList.add('hidden');
 }
 
@@ -178,31 +177,26 @@ function loadAppOfflineMode() {
     showAppInterface();
 }
 
-// 2. Função de Login Google
 window.loginWithGoogle = async () => {
     const provider = new GoogleAuthProvider();
     try {
         await signInWithPopup(auth, provider);
     } catch (error) {
-        console.error("Erro no login:", error);
         alert("Erro ao fazer login: " + error.message);
     }
 };
 
-// 3. Função de Logout
 window.logoutApp = async () => {
     try {
         await signOut(auth);
         localStorage.removeItem('salvese_session_active'); 
         location.reload();
     } catch (error) {
-        console.error("Erro ao sair:", error);
         localStorage.removeItem('salvese_session_active');
         location.reload();
     }
 };
 
-// 4. Verificar e Salvar Perfil Único
 window.saveUserProfile = async () => {
     const handleInput = document.getElementById('input-handle').value.toLowerCase().trim();
     const nameInput = document.getElementById('input-display-name').value.trim();
@@ -237,7 +231,7 @@ window.saveUserProfile = async () => {
             photoURL: currentUser.photoURL,
             createdAt: new Date().toISOString(),
             semester: "N/A",
-            lastHandleChange: Date.now() // Marca data inicial
+            lastHandleChange: Date.now()
         };
         
         await setDoc(doc(db, "users", currentUser.uid), profileData);
@@ -264,9 +258,7 @@ window.saveUserProfile = async () => {
     }
 };
 
-// 5. Sincronização Realtime
 function initRealtimeSync(uid) {
-    // Sincroniza dados do app (Tarefas, Aulas)
     const dataRef = doc(db, "users", uid, "data", "appData");
     unsubscribeData = onSnapshot(dataRef, (doc) => {
         if (doc.exists()) {
@@ -283,7 +275,6 @@ function initRealtimeSync(uid) {
         }
     }, (error) => console.log("Modo offline ou erro:", error.code));
 
-    // Sincroniza perfil (para pegar atualizações de foto/semestre/handle)
     onSnapshot(doc(db, "users", uid), (docSnap) => {
         if(docSnap.exists()) {
             userProfile = docSnap.data();
@@ -316,10 +307,87 @@ function refreshAllUI() {
 }
 
 // ============================================================
-// --- CÓDIGO DA APLICAÇÃO ---
+// --- SISTEMA DE MODAIS CUSTOMIZADOS (Substitui Prompt/Alert) ---
 // ============================================================
 
-// --- FUNÇÕES DE BACKUP MANUAL E CONFIGURAÇÕES ---
+// Função para chamar Modal de Input (estilo Prompt bonito)
+function openCustomInputModal(title, placeholder, initialValue, onConfirm) {
+    // Procura os elementos do modal (serão criados no index.html)
+    const modal = document.getElementById('custom-input-modal');
+    const modalTitle = document.getElementById('custom-modal-title');
+    const modalInput = document.getElementById('custom-modal-input');
+    const btnConfirm = document.getElementById('custom-modal-confirm');
+    const btnCancel = document.getElementById('custom-modal-cancel');
+
+    if(!modal) return console.error("Modal não encontrado no HTML");
+
+    modalTitle.innerText = title;
+    modalInput.placeholder = placeholder || "";
+    modalInput.value = initialValue || "";
+    
+    // Limpa eventos anteriores
+    const newBtnConfirm = btnConfirm.cloneNode(true);
+    btnConfirm.parentNode.replaceChild(newBtnConfirm, btnConfirm);
+    
+    const newBtnCancel = btnCancel.cloneNode(true);
+    btnCancel.parentNode.replaceChild(newBtnCancel, btnCancel);
+
+    // Evento Confirmar
+    newBtnConfirm.addEventListener('click', () => {
+        const val = modalInput.value;
+        modal.classList.add('hidden');
+        if(onConfirm) onConfirm(val);
+    });
+
+    // Evento Cancelar
+    newBtnCancel.addEventListener('click', () => {
+        modal.classList.add('hidden');
+    });
+
+    // Enter para confirmar
+    modalInput.onkeypress = (e) => {
+        if(e.key === 'Enter') newBtnConfirm.click();
+    };
+
+    // Mostrar modal
+    modal.classList.remove('hidden');
+    modalInput.focus();
+}
+
+// Função para chamar Modal de Confirmação (estilo Confirm bonito)
+function openCustomConfirmModal(title, message, onConfirm) {
+    const modal = document.getElementById('custom-confirm-modal'); // Novo ID
+    const modalTitle = document.getElementById('custom-confirm-title');
+    const modalMsg = document.getElementById('custom-confirm-msg');
+    const btnYes = document.getElementById('custom-confirm-yes');
+    const btnNo = document.getElementById('custom-confirm-no');
+
+    if(!modal) return;
+
+    modalTitle.innerText = title;
+    modalMsg.innerText = message;
+
+    const newBtnYes = btnYes.cloneNode(true);
+    btnYes.parentNode.replaceChild(newBtnYes, btnYes);
+    
+    const newBtnNo = btnNo.cloneNode(true);
+    btnNo.parentNode.replaceChild(newBtnNo, btnNo);
+
+    newBtnYes.addEventListener('click', () => {
+        modal.classList.add('hidden');
+        if(onConfirm) onConfirm();
+    });
+
+    newBtnNo.addEventListener('click', () => {
+        modal.classList.add('hidden');
+    });
+
+    modal.classList.remove('hidden');
+}
+
+// ============================================================
+// --- LÓGICA DA APLICAÇÃO ---
+// ============================================================
 
 window.manualBackup = async function() {
     const btn = document.getElementById('btn-manual-backup');
@@ -331,7 +399,6 @@ window.manualBackup = async function() {
 
     await saveData();
 
-    // Simula delay visual para feedback
     setTimeout(() => {
         showModal('Backup', 'Seus dados foram sincronizados com a nuvem com sucesso!');
         if(btn) {
@@ -341,94 +408,107 @@ window.manualBackup = async function() {
     }, 800);
 }
 
-// --- GESTÃO DE PERFIL E CONFIGURAÇÕES (ATUALIZADO) ---
+// --- GESTÃO DE PERFIL E CONFIGURAÇÕES (ATUALIZADO SEM PROMPTS) ---
 
-window.editName = async function() {
-    const newName = prompt("Digite seu novo nome de exibição:", userProfile.displayName || "");
-    if (newName && newName.trim() !== "" && newName !== userProfile.displayName) {
-        if(!currentUser) return showModal("Erro", "Você precisa estar online.");
-        
-        try {
-            await setDoc(doc(db, "users", currentUser.uid), { displayName: newName.trim() }, { merge: true });
-            await updateProfile(currentUser, { displayName: newName.trim() });
-            showModal("Sucesso", "Nome alterado com sucesso!");
-        } catch (e) {
-            showModal("Erro", "Falha ao alterar nome: " + e.message);
+window.editName = function() {
+    openCustomInputModal(
+        "Alterar Nome de Exibição", 
+        "Digite seu novo nome...", 
+        userProfile.displayName, 
+        async (newName) => {
+            if (newName && newName.trim() !== "" && newName !== userProfile.displayName) {
+                if(!currentUser) return showModal("Erro", "Você precisa estar online.");
+                
+                try {
+                    await setDoc(doc(db, "users", currentUser.uid), { displayName: newName.trim() }, { merge: true });
+                    await updateProfile(currentUser, { displayName: newName.trim() });
+                    showModal("Sucesso", "Nome alterado com sucesso!");
+                } catch (e) {
+                    showModal("Erro", "Falha ao alterar nome: " + e.message);
+                }
+            }
         }
-    }
+    );
 }
 
-window.editHandle = async function() {
+window.editHandle = function() {
     if (!userProfile || !currentUser) return;
 
-    // 1. Verificar regra dos 7 dias
     const lastChange = userProfile.lastHandleChange || 0;
     const now = Date.now();
     const daysSinceLastChange = (now - lastChange) / (1000 * 60 * 60 * 24);
     
     if (daysSinceLastChange < 7 && userProfile.createdAt !== userProfile.lastHandleChange) {
-        // Se não for a criação da conta e tiver menos de 7 dias
         const daysLeft = Math.ceil(7 - daysSinceLastChange);
         return showModal("Aguarde", `Você só pode alterar seu usuário a cada 7 dias. Aguarde mais ${daysLeft} dia(s).`);
     }
 
-    const newHandle = prompt("Digite seu novo @usuário (sem o @):", userProfile.handle || "");
-    
-    if (!newHandle || newHandle.trim() === "" || newHandle === userProfile.handle) return;
+    openCustomInputModal(
+        "Alterar @Usuário",
+        "Sem o @ (apenas letras e números)",
+        userProfile.handle,
+        async (newHandle) => {
+            if (!newHandle || newHandle.trim() === "" || newHandle === userProfile.handle) return;
 
-    const cleanHandle = newHandle.toLowerCase().trim();
-    const handleRegex = /^[a-z0-9_]+$/;
-    
-    if (!handleRegex.test(cleanHandle)) {
-        return showModal("Inválido", "Use apenas letras minúsculas, números e _.");
-    }
+            const cleanHandle = newHandle.toLowerCase().trim();
+            const handleRegex = /^[a-z0-9_]+$/;
+            
+            if (!handleRegex.test(cleanHandle)) {
+                return showModal("Inválido", "Use apenas letras minúsculas, números e _.");
+            }
 
-    if(!confirm(`Deseja alterar seu usuário para @${cleanHandle}? Esta ação não poderá ser desfeita por 7 dias.`)) return;
+            openCustomConfirmModal(
+                "Confirmar Troca",
+                `Deseja alterar para @${cleanHandle}? Essa ação não pode ser desfeita por 7 dias.`,
+                async () => {
+                    try {
+                        const newHandleRef = doc(db, "usernames", cleanHandle);
+                        const docSnap = await getDoc(newHandleRef);
+                        
+                        if (docSnap.exists()) {
+                            return showModal("Indisponível", "Este usuário já está em uso.");
+                        }
 
-    try {
-        // 2. Verificar disponibilidade
-        const newHandleRef = doc(db, "usernames", cleanHandle);
-        const docSnap = await getDoc(newHandleRef);
-        
-        if (docSnap.exists()) {
-            return showModal("Indisponível", "Este usuário já está em uso.");
+                        await setDoc(newHandleRef, { uid: currentUser.uid });
+                        
+                        if (userProfile.handle) {
+                            await deleteDoc(doc(db, "usernames", userProfile.handle));
+                        }
+
+                        await setDoc(doc(db, "users", currentUser.uid), { 
+                            handle: cleanHandle,
+                            lastHandleChange: Date.now()
+                        }, { merge: true });
+
+                        showModal("Sucesso", `Seu usuário agora é @${cleanHandle}`);
+
+                    } catch (e) {
+                        console.error(e);
+                        showModal("Erro", "Erro ao atualizar usuário. Tente novamente.");
+                    }
+                }
+            );
         }
-
-        // 3. Executar troca (Exige passos sequenciais pois não estamos usando Cloud Functions aqui)
-        // A. Reservar novo handle
-        await setDoc(newHandleRef, { uid: currentUser.uid });
-        
-        // B. Remover handle antigo (se existir e for diferente)
-        if (userProfile.handle) {
-            await deleteDoc(doc(db, "usernames", userProfile.handle));
-        }
-
-        // C. Atualizar perfil do usuário
-        await setDoc(doc(db, "users", currentUser.uid), { 
-            handle: cleanHandle,
-            lastHandleChange: Date.now()
-        }, { merge: true });
-
-        showModal("Sucesso", `Seu usuário agora é @${cleanHandle}`);
-
-    } catch (e) {
-        console.error(e);
-        showModal("Erro", "Erro ao atualizar usuário. Tente novamente.");
-    }
+    );
 }
 
-window.editSemester = async function() {
-    const newSemester = prompt("Digite seu semestre de ingresso (ex: 2025.1):", userProfile.semester || "");
-    if (newSemester !== null && currentUser) {
-        try {
-            await setDoc(doc(db, "users", currentUser.uid), { semester: newSemester }, { merge: true });
-        } catch (e) {
-            alert("Erro ao salvar semestre: " + e.message);
+window.editSemester = function() {
+    openCustomInputModal(
+        "Semestre Atual",
+        "Ex: 2025.1",
+        userProfile.semester,
+        async (newSemester) => {
+            if (newSemester !== null && currentUser) {
+                try {
+                    await setDoc(doc(db, "users", currentUser.uid), { semester: newSemester }, { merge: true });
+                } catch (e) {
+                    showModal("Erro", "Erro ao salvar semestre: " + e.message);
+                }
+            }
         }
-    }
+    );
 }
 
-// === FUNÇÃO DE UPLOAD PARA O IMGUR ===
 window.changePhoto = function() {
     const input = document.createElement('input');
     input.type = 'file';
@@ -452,12 +532,9 @@ window.changePhoto = function() {
         formData.append('image', file);
 
         try {
-            // Faz o upload para a API do Imgur
             const response = await fetch('https://api.imgur.com/3/image', {
                 method: 'POST',
-                headers: {
-                    'Authorization': 'Client-ID 513bb727cecf9ac' // Client ID Público
-                },
+                headers: { 'Authorization': 'Client-ID 513bb727cecf9ac' },
                 body: formData
             });
 
@@ -479,7 +556,7 @@ window.changePhoto = function() {
 
         } catch (error) {
             console.error("Erro ao atualizar foto:", error);
-            alert("Erro ao enviar foto: " + error.message);
+            showModal("Erro", "Erro ao enviar foto: " + error.message);
         } finally {
             if(loadingBtn) {
                 loadingBtn.innerHTML = originalBtnContent;
@@ -491,47 +568,51 @@ window.changePhoto = function() {
     input.click();
 }
 
-window.changePassword = async function() {
+window.changePassword = function() {
     if (currentUser && currentUser.email) {
-        if(confirm(`Enviar e-mail de redefinição de senha para ${currentUser.email}?`)) {
-            try {
-                await sendPasswordResetEmail(auth, currentUser.email);
-                showModal("E-mail Enviado", "Verifique sua caixa de entrada para redefinir a senha.");
-            } catch (e) {
-                alert("Erro: " + e.message);
+        openCustomConfirmModal(
+            "Redefinir Senha",
+            `Enviar e-mail de redefinição de senha para ${currentUser.email}?`,
+            async () => {
+                try {
+                    await sendPasswordResetEmail(auth, currentUser.email);
+                    showModal("E-mail Enviado", "Verifique sua caixa de entrada para redefinir a senha.");
+                } catch (e) {
+                    showModal("Erro", "Erro: " + e.message);
+                }
             }
-        }
+        );
     }
 }
 
-// === RENDERIZAÇÃO DA TELA DE CONFIGURAÇÕES (NOVO DESIGN ESTILO APP) ===
+// === RENDERIZAÇÃO DA TELA DE CONFIGURAÇÕES (Com ícones SVG finos e sem fundo branco na foto) ===
 window.renderSettings = function() {
     const container = document.getElementById('settings-content');
     if (!container || !userProfile) return;
 
-    // Formata a data de registro
     let dateStr = "N/A";
     if (userProfile.createdAt) {
         const date = new Date(userProfile.createdAt);
         dateStr = date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
     }
 
-    // Foto ou placeholder
     const photo = userProfile.photoURL || "https://files.catbox.moe/pmdtq6.png";
 
-    // Função auxiliar para criar cartões de ação
-    const createActionCard = (onclick, icon, title, subtitle, colorClass = "text-gray-500 group-hover:text-indigo-500") => `
+    // Helper para criar cards com SVG
+    const createActionCard = (onclick, svgIcon, title, subtitle, colorClass = "text-gray-500 group-hover:text-indigo-500") => `
         <button onclick="${onclick}" class="group w-full bg-white dark:bg-darkcard border border-gray-100 dark:border-darkborder p-4 rounded-2xl flex items-center justify-between hover:border-indigo-500 dark:hover:border-indigo-500 hover:shadow-md transition-all duration-200 mb-3 text-left">
             <div class="flex items-center gap-4">
-                <div class="w-10 h-10 rounded-full bg-gray-50 dark:bg-neutral-800 flex items-center justify-center ${colorClass} transition-colors text-lg">
-                    <i class="${icon}"></i>
+                <div class="w-10 h-10 rounded-full bg-gray-50 dark:bg-neutral-800 flex items-center justify-center ${colorClass} transition-colors">
+                    ${svgIcon}
                 </div>
                 <div>
                     <p class="font-bold text-gray-800 dark:text-gray-200 text-sm">${title}</p>
                     <p class="text-xs text-gray-400 dark:text-gray-500">${subtitle}</p>
                 </div>
             </div>
-            <i class="fas fa-chevron-right text-gray-300 dark:text-neutral-700 group-hover:text-indigo-500 transition-colors"></i>
+            <div class="text-gray-300 dark:text-neutral-700 group-hover:text-indigo-500 transition-colors">
+                ${svgs.chevron}
+            </div>
         </button>
     `;
 
@@ -543,10 +624,11 @@ window.renderSettings = function() {
                  <div class="absolute top-0 left-0 w-full h-24 bg-gradient-to-r from-indigo-500 to-purple-600 opacity-10 dark:opacity-20"></div>
                  
                  <div class="relative group mb-4 mt-4">
-                    <div class="w-28 h-28 rounded-full overflow-hidden bg-white dark:bg-neutral-800 p-1 border-4 border-white dark:border-darkcard shadow-lg">
+                    <!-- REMOVIDO bg-white e dark:bg-neutral-800 para suportar PNG transparente sem fundo -->
+                    <div class="w-28 h-28 rounded-full overflow-hidden p-1 border-4 border-white dark:border-darkcard shadow-lg relative z-10">
                         <img src="${photo}" class="w-full h-full object-cover rounded-full" onerror="this.src='https://files.catbox.moe/pmdtq6.png'">
                     </div>
-                    <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition rounded-full flex items-center justify-center cursor-pointer m-1" onclick="changePhoto()">
+                    <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition rounded-full flex items-center justify-center cursor-pointer m-1 z-20" onclick="changePhoto()">
                         <i class="fas fa-camera text-white text-2xl"></i>
                     </div>
                 </div>
@@ -568,46 +650,46 @@ window.renderSettings = function() {
                 </div>
             </div>
 
-            <!-- Seção de Ações -->
+            <!-- Seção de Ações (Usando SVG fino) -->
             <div>
                 <h3 class="px-4 text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Gerenciar Conta</h3>
                 
-                ${createActionCard('changePhoto()', 'fas fa-image', 'Foto de Perfil', 'Atualize sua imagem de exibição')}
-                ${createActionCard('editName()', 'fas fa-user-tag', 'Nome de Exibição', 'Como seu nome aparece no app')}
-                ${createActionCard('editHandle()', 'fas fa-at', 'Nome de Usuário', 'Seu identificador único @handle')}
-                ${createActionCard('editSemester()', 'fas fa-graduation-cap', 'Semestre Atual', 'Para organizar suas matérias')}
+                ${createActionCard('changePhoto()', svgs.photo, 'Foto de Perfil', 'Atualize sua imagem de exibição')}
+                ${createActionCard('editName()', svgs.user, 'Nome de Exibição', 'Como seu nome aparece no app')}
+                ${createActionCard('editHandle()', svgs.at, 'Nome de Usuário', 'Seu identificador único @handle')}
+                ${createActionCard('editSemester()', svgs.school, 'Semestre Atual', 'Para organizar suas matérias')}
             </div>
 
             <!-- Segurança e Dados -->
             <div>
                 <h3 class="px-4 text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Segurança & Dados</h3>
                 
-                ${createActionCard('changePassword()', 'fas fa-lock', 'Redefinir Senha', 'Receba um e-mail para trocar a senha')}
-                ${createActionCard('manualBackup()', 'fas fa-cloud-upload-alt', 'Backup Manual', 'Forçar sincronização com a nuvem')}
+                ${createActionCard('changePassword()', svgs.lock, 'Redefinir Senha', 'Receba um e-mail para trocar a senha')}
+                ${createActionCard('manualBackup()', svgs.cloud, 'Backup Manual', 'Forçar sincronização com a nuvem')}
                 
                 <button onclick="logoutApp()" class="group w-full bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/30 p-4 rounded-2xl flex items-center justify-between hover:bg-red-100 dark:hover:bg-red-900/20 transition-all duration-200 text-left mt-4">
                     <div class="flex items-center gap-4">
-                        <div class="w-10 h-10 rounded-full bg-white dark:bg-red-900/20 flex items-center justify-center text-red-500 text-lg">
-                            <i class="fas fa-sign-out-alt"></i>
+                        <div class="w-10 h-10 rounded-full bg-white dark:bg-red-900/20 flex items-center justify-center text-red-500">
+                            ${svgs.logout}
                         </div>
                         <div>
                             <p class="font-bold text-red-600 dark:text-red-400 text-sm">Sair da Conta</p>
                             <p class="text-xs text-red-400 dark:text-red-500/70">Encerrar sessão neste dispositivo</p>
                         </div>
                     </div>
-                    <i class="fas fa-chevron-right text-red-300 dark:text-red-800"></i>
+                    <div class="text-red-300 dark:text-red-800">
+                        ${svgs.chevron}
+                    </div>
                 </button>
             </div>
 
             <div class="text-center pt-4 pb-8">
                  <p class="text-xs text-gray-300 dark:text-gray-600 font-mono">ID: ${currentUser.uid.substring(0,8)}...</p>
-                 <p class="text-xs text-gray-300 dark:text-gray-600 mt-1">Salve-se UFRB v2.1 (Build Refined)</p>
+                 <p class="text-xs text-gray-300 dark:text-gray-600 mt-1">Salve-se UFRB v2.2 (Clean UI)</p>
             </div>
         </div>
     `;
 }
-
-// --- FIM FUNÇÕES NOVAS ---
 
 function initTheme() {
     if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
@@ -630,7 +712,6 @@ window.toggleTheme = function() {
     }
 }
 
-// --- PWA SETUP ---
 const manifest = {
     "name": "Salve-se UFRB",
     "short_name": "Salve-se",
@@ -700,7 +781,6 @@ if ('serviceWorker' in navigator) {
     window.addEventListener('offline', updateNetworkStatus);
 }
 
-// --- GESTÃO DE DADOS ---
 let scheduleData = JSON.parse(localStorage.getItem('salvese_schedule')) || [];
 let tasksData = JSON.parse(localStorage.getItem('salvese_tasks')) || [];
 let remindersData = JSON.parse(localStorage.getItem('salvese_reminders')) || [];
@@ -708,15 +788,12 @@ let selectedClassIdToDelete = null;
 let currentTaskFilter = 'all'; 
 
 async function saveData() {
-    // 1. Salva Localmente (Imediato)
     localStorage.setItem('salvese_schedule', JSON.stringify(scheduleData));
     localStorage.setItem('salvese_tasks', JSON.stringify(tasksData));
     localStorage.setItem('salvese_reminders', JSON.stringify(remindersData));
 
-    // 2. Atualiza UI
     refreshAllUI();
 
-    // 3. Tenta Salvar no Firebase (Se tiver usuário)
     if (currentUser) {
         try {
             const dataToSave = {
@@ -725,7 +802,6 @@ async function saveData() {
                 reminders: remindersData,
                 lastUpdated: new Date().toISOString()
             };
-            // setDoc com merge: funciona mesmo offline (entra na fila do IndexedDB)
             await setDoc(doc(db, "users", currentUser.uid, "data", "appData"), dataToSave, { merge: true });
         } catch (e) {
             console.log("Salvamento local ok. Nuvem pendente.");
@@ -733,7 +809,6 @@ async function saveData() {
     }
 }
 
-// --- LÓGICA DE TAREFAS ---
 window.addTask = function () {
     const input = document.getElementById('todo-input');
     const priorityInput = document.getElementById('todo-priority'); 
@@ -923,7 +998,6 @@ window.updateDashboardTasksWidget = function() {
     }
 };
 
-// --- GRADE HORÁRIA ---
 const timeSlots = [
     { start: "07:00", end: "08:00" }, { start: "08:00", end: "09:00" }, { start: "09:00", end: "10:00" },
     { start: "10:00", end: "11:00" }, { start: "11:00", end: "12:00" }, { start: "12:00", end: "13:00" },
@@ -1098,7 +1172,6 @@ window.renderSchedule = function () {
     viewContainer.appendChild(wrapper);
 };
 
-// --- FUNÇÕES DE MODAL E CORES ---
 window.openAddClassModal = function (day, startHourStr) {
     resetModalFields();
     document.getElementById('modal-title').innerText = "Adicionar Aula";
@@ -1258,8 +1331,6 @@ function renderColorPicker() {
     });
 }
 
-// --- OUTRAS FUNCIONALIDADES ---
-
 window.updateNextClassWidget = function() {
     const container = document.getElementById('next-class-content');
     if (!container) return;
@@ -1361,7 +1432,6 @@ window.updateNextClassWidget = function() {
     }
 }
 
-// Reminders Logic
 window.toggleRemindersModal = function() {
     const modal = document.getElementById('reminders-modal');
     const content = modal ? modal.firstElementChild : null;
@@ -1472,7 +1542,6 @@ window.renderReminders = function() {
     }
 }
 
-// Inicialização
 document.addEventListener('DOMContentLoaded', () => {
     window.renderTasks();
     window.renderReminders();
@@ -1488,7 +1557,6 @@ document.addEventListener('DOMContentLoaded', () => {
     setInterval(window.updateNextClassWidget, 60000);
 });
 
-// Navegação e Histórico
 window.addEventListener('popstate', (event) => {
     const classModal = document.getElementById('class-modal');
     const remindersModal = document.getElementById('reminders-modal');
@@ -1558,7 +1626,6 @@ window.toggleColorMenu = function(device) {
     }
 }
 
-// ADICIONADO: Novas cores (Black/Zinc, Rose, Lime)
 const colorPalettes = {
     cyan: { 50: '236 254 255', 100: '207 250 254', 200: '165 243 252', 300: '103 232 249', 400: '34 211 238', 500: '6 182 212', 600: '8 145 178', 700: '14 116 144', 800: '21 94 117', 900: '22 78 99' },
     red: { 50: '254 242 242', 100: '254 226 226', 200: '254 202 202', 300: '252 165 165', 400: '248 113 113', 500: '239 68 68', 600: '220 38 38', 700: '185 28 28', 800: '153 27 27', 900: '127 29 29' },
@@ -1569,11 +1636,9 @@ const colorPalettes = {
     orange: { 50: '255 247 237', 100: '255 237 213', 200: '254 215 170', 300: '253 186 116', 400: '251 146 60', 500: '249 115 22', 600: '234 88 12', 700: '194 65 12', 800: '154 52 18', 900: '124 45 18' },
     indigo: { 50: '238 242 255', 100: '224 231 255', 200: '199 210 254', 300: '165 180 252', 400: '129 140 248', 500: '99 102 241', 600: '79 70 229', 700: '67 56 202', 800: '55 48 163', 900: '49 46 129' },
     teal: { 50: '240 253 250', 100: '204 251 241', 200: '153 246 228', 300: '94 234 212', 400: '45 212 191', 500: '20 184 166', 600: '13 148 136', 700: '15 118 110', 800: '17 94 89', 900: '19 78 74' },
-    // NOVAS CORES
     rose: { 50: '255 241 242', 100: '255 228 230', 200: '254 205 211', 300: '253 164 175', 400: '251 113 133', 500: '244 63 94', 600: '225 29 72', 700: '190 18 60', 800: '159 18 57', 900: '136 19 55' },
     lime: { 50: '247 254 231', 100: '236 252 203', 200: '217 249 157', 300: '190 242 100', 400: '163 230 53', 500: '132 204 22', 600: '101 163 13', 700: '77 124 15', 800: '63 98 18', 900: '54 83 20' },
     violet: { 50: '245 243 255', 100: '237 233 254', 200: '221 214 254', 300: '196 181 253', 400: '167 139 250', 500: '139 92 246', 600: '124 58 237', 700: '109 40 217', 800: '91 33 182', 900: '76 29 149' },
-    // TEMA PRETO (Zinc)
     black: { 50: '250 250 250', 100: '244 244 245', 200: '228 228 231', 300: '212 212 216', 400: '161 161 170', 500: '113 113 122', 600: '82 82 91', 700: '63 63 70', 800: '39 39 42', 900: '24 24 27' }
 };
 
@@ -1581,13 +1646,11 @@ function setThemeColor(colorName) {
     const palette = colorPalettes[colorName];
     if (!palette) return;
     
-    // Se for preto, usa cinza para ícones para contraste
     const iconColor = colorName === 'black' ? `rgb(${palette[900]})` : `rgb(${palette[600]})`;
     
     document.querySelectorAll('#desktop-palette-icon, #mobile-palette-icon').forEach(icon => {
         icon.classList.remove('text-indigo-600');
         icon.style.color = iconColor;
-        // Reset se for dark mode e cor preta
         if (colorName === 'black' && document.documentElement.classList.contains('dark')) {
              icon.style.color = '#ffffff';
         }

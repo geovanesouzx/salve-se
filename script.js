@@ -56,12 +56,15 @@ let unsubscribeData = null; // Para parar de ouvir o banco se deslogar
 onAuthStateChanged(auth, async (user) => {
     const loginScreen = document.getElementById('login-screen');
     const profileScreen = document.getElementById('profile-setup-screen');
-    const appContent = document.querySelector('.app-content-wrapper'); // Vamos envolver o app nisso no HTML
+    const appContent = document.querySelector('.app-content-wrapper'); 
+    const loadingScreen = document.getElementById('loading-screen'); // Referência ao Loading
 
     if (user) {
         currentUser = user;
         // Verifica se já tem perfil criado (handle único)
         const docRef = doc(db, "users", user.uid);
+        
+        // Pequena otimização: tentar ler do cache local primeiro se possível, ou deixar o loading rodar
         const docSnap = await getDoc(docRef);
 
         if (docSnap.exists()) {
@@ -86,9 +89,17 @@ onAuthStateChanged(auth, async (user) => {
         userProfile = null;
         if(unsubscribeData) unsubscribeData(); // Para de ouvir Firebase
 
-        if(loginScreen) loginScreen.classList.remove('hidden');
+        if(loginScreen) loginScreen.classList.remove('hidden'); // Agora mostramos o login explicitamente
         if(profileScreen) profileScreen.classList.add('hidden');
         if(appContent) appContent.classList.add('hidden');
+    }
+
+    // Remove a tela de carregamento com uma transição suave
+    if(loadingScreen && !loadingScreen.classList.contains('hidden')) {
+        loadingScreen.classList.add('opacity-0');
+        setTimeout(() => {
+            loadingScreen.classList.add('hidden');
+        }, 500); // Tempo igual ao duration-500 do CSS
     }
 });
 

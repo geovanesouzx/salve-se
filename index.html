@@ -66,10 +66,20 @@
         <i class="fas fa-wifi"></i> <span id="network-text">Online</span>
     </div>
 
-    <!-- ========================================== -->
-    <!-- TELA 1: LOGIN (Inicialmente visível)       -->
-    <!-- ========================================== -->
-    <div id="login-screen" class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-white dark:bg-darkbg transition-opacity duration-500">
+    <!-- TELA 0: LOADING (NOVO - Inicialmente visível para evitar piscada) -->
+    <div id="loading-screen" class="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-white dark:bg-darkbg transition-opacity duration-500">
+        <div class="relative">
+            <div class="w-16 h-16 border-4 border-indigo-100 dark:border-neutral-800 rounded-full"></div>
+            <div class="w-16 h-16 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin absolute top-0 left-0"></div>
+        </div>
+        <div class="mt-4 flex items-center gap-2 text-indigo-600 dark:text-indigo-400 font-bold text-sm animate-pulse">
+            <img src="https://files.catbox.moe/pmdtq6.png" class="w-5 h-5">
+            <span>Carregando...</span>
+        </div>
+    </div>
+
+    <!-- TELA 1: LOGIN (Alterado: Adicionado classe 'hidden' para não piscar) -->
+    <div id="login-screen" class="hidden fixed inset-0 z-50 flex flex-col items-center justify-center bg-white dark:bg-darkbg transition-opacity duration-500">
         <div class="text-center space-y-6 p-8 max-w-md w-full animate-fade-in-up">
             <div class="w-24 h-24 mx-auto bg-indigo-100 dark:bg-indigo-900/20 rounded-3xl flex items-center justify-center shadow-xl shadow-indigo-200 dark:shadow-none mb-6">
                 <img src="https://files.catbox.moe/pmdtq6.png" class="w-16 h-16 object-contain">

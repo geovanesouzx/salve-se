@@ -2,7 +2,7 @@
 <html lang="pt-BR" class="light">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Salve-se UFRB | Painel Híbrido</title>
     
     <!-- PWA Settings -->
@@ -13,9 +13,9 @@
     <link rel="apple-touch-icon" href="https://files.catbox.moe/pmdtq6.png">
 
     <!-- CSS Externo -->
-    <link rel="stylesheet" href="style.css?v=11">
+    <link rel="stylesheet" href="style.css?v=12">
 
-    <!-- Tailwind CSS -->
+    <!-- Tailwind CSS (Configurado para Variáveis Dinâmicas) -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -27,12 +27,19 @@
                         darkcard: '#18181b',
                         darkborder: '#27272a',
                         darkhover: '#27272a',
+                        // Truque: Mapeamos 'indigo' para as variáveis CSS.
+                        // Assim, bg-indigo-500 muda de cor conforme o tema escolhido (Rosa, Preto, etc).
                         indigo: {
                             50: 'rgb(var(--theme-50) / <alpha-value>)',
                             100: 'rgb(var(--theme-100) / <alpha-value>)',
+                            200: 'rgb(var(--theme-200) / <alpha-value>)',
+                            300: 'rgb(var(--theme-300) / <alpha-value>)',
+                            400: 'rgb(var(--theme-400) / <alpha-value>)',
                             500: 'rgb(var(--theme-500) / <alpha-value>)',
                             600: 'rgb(var(--theme-600) / <alpha-value>)',
                             700: 'rgb(var(--theme-700) / <alpha-value>)',
+                            800: 'rgb(var(--theme-800) / <alpha-value>)',
+                            900: 'rgb(var(--theme-900) / <alpha-value>)',
                         }
                     },
                     animation: {
@@ -57,7 +64,7 @@
 
     <!-- Fonts -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 </head>
 <body class="bg-gray-50 text-gray-900 dark:bg-darkbg dark:text-gray-100 h-screen flex overflow-hidden theme-transition selection:bg-indigo-500 selection:text-white">
 
@@ -195,7 +202,6 @@
                 <div class="pt-6"></div>
                 <p class="px-3 text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Sistema</p>
 
-                <!-- Botão de Configurações Adicionado -->
                 <a onclick="switchPage('config')" id="nav-config" class="nav-item flex items-center px-3 py-2.5 text-sm font-medium rounded-md cursor-pointer text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-darkhover transition-colors">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
                     Configurações
@@ -206,7 +212,8 @@
             <div class="p-4 border-t border-gray-200 dark:border-darkborder bg-gray-50 dark:bg-darkcard">
                 <div class="flex items-center justify-between">
                     <div class="flex items-center gap-3 overflow-hidden">
-                        <div class="w-9 h-9 rounded-full bg-indigo-100 dark:bg-neutral-800 flex items-center justify-center text-indigo-600 dark:text-indigo-400 transition-colors duration-300">
+                        <div class="w-9 h-9 rounded-full bg-indigo-100 dark:bg-neutral-800 flex items-center justify-center text-indigo-600 dark:text-indigo-400 transition-colors duration-300 overflow-hidden">
+                             <!-- Se houver foto, o JS pode injetar aqui, ou mantemos o ícone padrão -->
                              <i class="fas fa-user"></i>
                         </div>
                         <div class="overflow-hidden">
@@ -214,9 +221,6 @@
                             <p class="text-xs text-gray-500 dark:text-gray-500 truncate" id="user-display-id">@local</p>
                         </div>
                     </div>
-                    <button onclick="logoutApp()" class="text-gray-400 hover:text-red-500 transition" title="Sair">
-                        <i class="fas fa-sign-out-alt"></i>
-                    </button>
                 </div>
             </div>
         </aside>
@@ -231,6 +235,8 @@
                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
                     </button>
                     <span class="font-bold text-lg md:hidden hidden sm:block">Salve-se UFRB</span>
+                    
+                    <!-- Mobile Palette -->
                     <button onclick="toggleColorMenu('mobile')" class="md:hidden w-8 h-8 rounded-full bg-gray-100 dark:bg-neutral-800 hover:bg-gray-200 text-gray-500 flex items-center justify-center transition relative">
                           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-indigo-600" id="mobile-palette-icon"><circle cx="13.5" cy="6.5" r=".5"/><circle cx="17.5" cy="10.5" r=".5"/><circle cx="8.5" cy="7.5" r=".5"/><circle cx="6.5" cy="12.5" r=".5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>
                           <div id="color-menu-mobile" class="color-menu hidden absolute top-10 left-0 bg-white dark:bg-neutral-900 border border-gray-200 dark:border-darkborder shadow-xl rounded-xl p-3 z-50 w-48 grid grid-cols-5 gap-2"></div>
@@ -312,7 +318,6 @@
                         Templates
                     </a>
                     <hr class="border-gray-200 dark:border-neutral-800 my-2">
-                    <!-- Configurações no Mobile -->
                     <a onclick="switchPage('config'); document.getElementById('mobile-menu').classList.add('-translate-x-full')" class="block px-4 py-3 rounded-lg hover:bg-gray-50 dark:hover:bg-neutral-800 text-gray-600 dark:text-gray-400 font-medium transition">
                         <i class="fas fa-cog mr-3"></i> Configurações
                     </a>

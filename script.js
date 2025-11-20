@@ -303,8 +303,6 @@ function updateUserInterfaceInfo() {
     if(userProfile) {
         if(nameDisplay) nameDisplay.innerText = userProfile.displayName;
         if(handleDisplay) handleDisplay.innerText = "@" + userProfile.handle;
-        // Atualiza foto se existir elemento de avatar no menu
-        const avatarImg = document.querySelector('.app-content-wrapper aside img'); // Exemplo se tiver
     }
 }
 
@@ -506,7 +504,7 @@ window.changePassword = async function() {
     }
 }
 
-// === RENDERIZAÇÃO DA TELA DE CONFIGURAÇÕES (LAYOUT TIPO CARTÃO VERTICAL) ===
+// === RENDERIZAÇÃO DA TELA DE CONFIGURAÇÕES (NOVO DESIGN ESTILO APP) ===
 window.renderSettings = function() {
     const container = document.getElementById('settings-content');
     if (!container || !userProfile) return;
@@ -521,65 +519,90 @@ window.renderSettings = function() {
     // Foto ou placeholder
     const photo = userProfile.photoURL || "https://files.catbox.moe/pmdtq6.png";
 
+    // Função auxiliar para criar cartões de ação
+    const createActionCard = (onclick, icon, title, subtitle, colorClass = "text-gray-500 group-hover:text-indigo-500") => `
+        <button onclick="${onclick}" class="group w-full bg-white dark:bg-darkcard border border-gray-100 dark:border-darkborder p-4 rounded-2xl flex items-center justify-between hover:border-indigo-500 dark:hover:border-indigo-500 hover:shadow-md transition-all duration-200 mb-3 text-left">
+            <div class="flex items-center gap-4">
+                <div class="w-10 h-10 rounded-full bg-gray-50 dark:bg-neutral-800 flex items-center justify-center ${colorClass} transition-colors text-lg">
+                    <i class="${icon}"></i>
+                </div>
+                <div>
+                    <p class="font-bold text-gray-800 dark:text-gray-200 text-sm">${title}</p>
+                    <p class="text-xs text-gray-400 dark:text-gray-500">${subtitle}</p>
+                </div>
+            </div>
+            <i class="fas fa-chevron-right text-gray-300 dark:text-neutral-700 group-hover:text-indigo-500 transition-colors"></i>
+        </button>
+    `;
+
     container.innerHTML = `
-        <div class="max-w-md mx-auto w-full pb-20">
-            <div class="bg-white dark:bg-darkcard rounded-3xl shadow-sm border border-gray-200 dark:border-darkborder p-6 md:p-8 flex flex-col items-center text-center">
-                
-                <!-- Avatar Section -->
-                <div class="relative group mb-4">
-                    <div class="w-28 h-28 rounded-2xl overflow-hidden bg-indigo-50 dark:bg-neutral-800 shadow-inner">
-                        <img src="${photo}" class="w-full h-full object-cover" onerror="this.src='https://files.catbox.moe/pmdtq6.png'">
+        <div class="max-w-2xl mx-auto w-full pb-24 space-y-6">
+            
+            <!-- Header do Perfil -->
+            <div class="bg-white dark:bg-darkcard rounded-3xl shadow-sm border border-gray-200 dark:border-darkborder p-6 md:p-8 flex flex-col items-center text-center relative overflow-hidden">
+                 <div class="absolute top-0 left-0 w-full h-24 bg-gradient-to-r from-indigo-500 to-purple-600 opacity-10 dark:opacity-20"></div>
+                 
+                 <div class="relative group mb-4 mt-4">
+                    <div class="w-28 h-28 rounded-full overflow-hidden bg-white dark:bg-neutral-800 p-1 border-4 border-white dark:border-darkcard shadow-lg">
+                        <img src="${photo}" class="w-full h-full object-cover rounded-full" onerror="this.src='https://files.catbox.moe/pmdtq6.png'">
                     </div>
-                    <div class="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition rounded-2xl flex items-center justify-center cursor-pointer" onclick="changePhoto()">
+                    <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition rounded-full flex items-center justify-center cursor-pointer m-1" onclick="changePhoto()">
                         <i class="fas fa-camera text-white text-2xl"></i>
                     </div>
                 </div>
 
-                <!-- Basic Info -->
-                <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-1 flex items-center gap-2 justify-center">
+                <h2 class="text-2xl font-black text-gray-900 dark:text-white mb-0.5 tracking-tight">
                     ${userProfile.displayName}
                 </h2>
-                <p class="text-gray-500 dark:text-gray-400 text-sm mb-4">@${userProfile.handle}</p>
-                <p class="text-gray-400 dark:text-gray-500 text-xs mb-6 break-all">${userProfile.email}</p>
-
-                <!-- Action Button: Photo -->
-                <button id="btn-change-photo-settings" onclick="changePhoto()" class="w-full py-2.5 bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-xl text-sm font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-neutral-700 transition shadow-sm mb-8 flex items-center justify-center gap-2">
-                    <i class="fas fa-upload"></i> Mudar Foto
-                </button>
-
-                <!-- Details List -->
-                <div class="w-full space-y-4 text-left mb-8">
-                    <div>
-                        <p class="text-xs font-bold text-gray-900 dark:text-white mb-1">Data de Registro:</p>
-                        <p class="text-gray-500 dark:text-gray-400 text-sm">${dateStr}</p>
+                <p class="text-indigo-600 dark:text-indigo-400 font-bold text-sm mb-4 bg-indigo-50 dark:bg-indigo-900/20 px-3 py-1 rounded-full">@${userProfile.handle}</p>
+                
+                <div class="grid grid-cols-2 gap-4 w-full max-w-sm mt-2">
+                    <div class="bg-gray-50 dark:bg-neutral-800/50 p-3 rounded-xl">
+                         <p class="text-xs text-gray-400 uppercase font-bold mb-1">Semestre</p>
+                         <p class="font-bold text-gray-800 dark:text-white">${userProfile.semester || 'N/A'}</p>
                     </div>
-                    <div>
-                        <p class="text-xs font-bold text-gray-900 dark:text-white mb-1">Semestre de Ingresso:</p>
-                        <p class="text-gray-500 dark:text-gray-400 text-sm">${userProfile.semester || 'N/A'}</p>
+                    <div class="bg-gray-50 dark:bg-neutral-800/50 p-3 rounded-xl">
+                         <p class="text-xs text-gray-400 uppercase font-bold mb-1">Membro Desde</p>
+                         <p class="font-bold text-gray-800 dark:text-white">${dateStr.split(' de ')[2] || dateStr}</p>
                     </div>
                 </div>
-
-                <!-- Actions Stack -->
-                <div class="w-full space-y-3">
-                    <button onclick="editName()" class="w-full py-3 bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-200 hover:border-indigo-500 hover:text-indigo-600 transition">
-                        Alterar Nome
-                    </button>
-                     <button onclick="editHandle()" class="w-full py-3 bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-200 hover:border-indigo-500 hover:text-indigo-600 transition">
-                        Alterar Usuário (@)
-                    </button>
-                    <button onclick="editSemester()" class="w-full py-3 bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-200 hover:border-indigo-500 hover:text-indigo-600 transition">
-                        Editar Semestre
-                    </button>
-                    <button onclick="changePassword()" class="w-full py-3 bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-200 hover:border-indigo-500 hover:text-indigo-600 transition">
-                        Trocar Senha
-                    </button>
-                    <button onclick="logoutApp()" class="w-full py-3 bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-red-50 hover:text-red-600 hover:border-red-200 dark:hover:bg-red-900/20 transition">
-                        Trocar de Conta / Sair
-                    </button>
-                </div>
-
             </div>
-            <p class="text-center text-xs text-gray-300 dark:text-gray-600 mt-6">Salve-se UFRB v2.0</p>
+
+            <!-- Seção de Ações -->
+            <div>
+                <h3 class="px-4 text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Gerenciar Conta</h3>
+                
+                ${createActionCard('changePhoto()', 'fas fa-image', 'Foto de Perfil', 'Atualize sua imagem de exibição')}
+                ${createActionCard('editName()', 'fas fa-user-tag', 'Nome de Exibição', 'Como seu nome aparece no app')}
+                ${createActionCard('editHandle()', 'fas fa-at', 'Nome de Usuário', 'Seu identificador único @handle')}
+                ${createActionCard('editSemester()', 'fas fa-graduation-cap', 'Semestre Atual', 'Para organizar suas matérias')}
+            </div>
+
+            <!-- Segurança e Dados -->
+            <div>
+                <h3 class="px-4 text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Segurança & Dados</h3>
+                
+                ${createActionCard('changePassword()', 'fas fa-lock', 'Redefinir Senha', 'Receba um e-mail para trocar a senha')}
+                ${createActionCard('manualBackup()', 'fas fa-cloud-upload-alt', 'Backup Manual', 'Forçar sincronização com a nuvem')}
+                
+                <button onclick="logoutApp()" class="group w-full bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/30 p-4 rounded-2xl flex items-center justify-between hover:bg-red-100 dark:hover:bg-red-900/20 transition-all duration-200 text-left mt-4">
+                    <div class="flex items-center gap-4">
+                        <div class="w-10 h-10 rounded-full bg-white dark:bg-red-900/20 flex items-center justify-center text-red-500 text-lg">
+                            <i class="fas fa-sign-out-alt"></i>
+                        </div>
+                        <div>
+                            <p class="font-bold text-red-600 dark:text-red-400 text-sm">Sair da Conta</p>
+                            <p class="text-xs text-red-400 dark:text-red-500/70">Encerrar sessão neste dispositivo</p>
+                        </div>
+                    </div>
+                    <i class="fas fa-chevron-right text-red-300 dark:text-red-800"></i>
+                </button>
+            </div>
+
+            <div class="text-center pt-4 pb-8">
+                 <p class="text-xs text-gray-300 dark:text-gray-600 font-mono">ID: ${currentUser.uid.substring(0,8)}...</p>
+                 <p class="text-xs text-gray-300 dark:text-gray-600 mt-1">Salve-se UFRB v2.1 (Build Refined)</p>
+            </div>
         </div>
     `;
 }
@@ -1526,6 +1549,7 @@ window.toggleColorMenu = function(device) {
             const rgb = colorPalettes[color][500];
             btn.className = `w-6 h-6 rounded-full border border-gray-200 dark:border-gray-700 hover:scale-110 transition transform focus:outline-none ring-2 ring-transparent focus:ring-offset-1 focus:ring-gray-400`;
             btn.style.backgroundColor = `rgb(${rgb})`;
+            btn.title = color.charAt(0).toUpperCase() + color.slice(1);
             btn.onclick = () => setThemeColor(color);
             menu.appendChild(btn);
         });
@@ -1534,6 +1558,7 @@ window.toggleColorMenu = function(device) {
     }
 }
 
+// ADICIONADO: Novas cores (Black/Zinc, Rose, Lime)
 const colorPalettes = {
     cyan: { 50: '236 254 255', 100: '207 250 254', 200: '165 243 252', 300: '103 232 249', 400: '34 211 238', 500: '6 182 212', 600: '8 145 178', 700: '14 116 144', 800: '21 94 117', 900: '22 78 99' },
     red: { 50: '254 242 242', 100: '254 226 226', 200: '254 202 202', 300: '252 165 165', 400: '248 113 113', 500: '239 68 68', 600: '220 38 38', 700: '185 28 28', 800: '153 27 27', 900: '127 29 29' },
@@ -1543,17 +1568,31 @@ const colorPalettes = {
     pink: { 50: '253 242 248', 100: '252 231 243', 200: '251 204 231', 300: '249 168 212', 400: '244 114 182', 500: '236 72 153', 600: '219 39 119', 700: '190 24 93', 800: '157 23 77', 900: '131 24 67' },
     orange: { 50: '255 247 237', 100: '255 237 213', 200: '254 215 170', 300: '253 186 116', 400: '251 146 60', 500: '249 115 22', 600: '234 88 12', 700: '194 65 12', 800: '154 52 18', 900: '124 45 18' },
     indigo: { 50: '238 242 255', 100: '224 231 255', 200: '199 210 254', 300: '165 180 252', 400: '129 140 248', 500: '99 102 241', 600: '79 70 229', 700: '67 56 202', 800: '55 48 163', 900: '49 46 129' },
-    teal: { 50: '240 253 250', 100: '204 251 241', 200: '153 246 228', 300: '94 234 212', 400: '45 212 191', 500: '20 184 166', 600: '13 148 136', 700: '15 118 110', 800: '17 94 89', 900: '19 78 74' }
+    teal: { 50: '240 253 250', 100: '204 251 241', 200: '153 246 228', 300: '94 234 212', 400: '45 212 191', 500: '20 184 166', 600: '13 148 136', 700: '15 118 110', 800: '17 94 89', 900: '19 78 74' },
+    // NOVAS CORES
+    rose: { 50: '255 241 242', 100: '255 228 230', 200: '254 205 211', 300: '253 164 175', 400: '251 113 133', 500: '244 63 94', 600: '225 29 72', 700: '190 18 60', 800: '159 18 57', 900: '136 19 55' },
+    lime: { 50: '247 254 231', 100: '236 252 203', 200: '217 249 157', 300: '190 242 100', 400: '163 230 53', 500: '132 204 22', 600: '101 163 13', 700: '77 124 15', 800: '63 98 18', 900: '54 83 20' },
+    violet: { 50: '245 243 255', 100: '237 233 254', 200: '221 214 254', 300: '196 181 253', 400: '167 139 250', 500: '139 92 246', 600: '124 58 237', 700: '109 40 217', 800: '91 33 182', 900: '76 29 149' },
+    // TEMA PRETO (Zinc)
+    black: { 50: '250 250 250', 100: '244 244 245', 200: '228 228 231', 300: '212 212 216', 400: '161 161 170', 500: '113 113 122', 600: '82 82 91', 700: '63 63 70', 800: '39 39 42', 900: '24 24 27' }
 };
 
 function setThemeColor(colorName) {
     const palette = colorPalettes[colorName];
     if (!palette) return;
-    const iconColor = `rgb(${palette[600]})`;
+    
+    // Se for preto, usa cinza para ícones para contraste
+    const iconColor = colorName === 'black' ? `rgb(${palette[900]})` : `rgb(${palette[600]})`;
+    
     document.querySelectorAll('#desktop-palette-icon, #mobile-palette-icon').forEach(icon => {
         icon.classList.remove('text-indigo-600');
         icon.style.color = iconColor;
+        // Reset se for dark mode e cor preta
+        if (colorName === 'black' && document.documentElement.classList.contains('dark')) {
+             icon.style.color = '#ffffff';
+        }
     });
+
     updateColorVars(palette);
     localStorage.setItem('salvese_color', JSON.stringify(palette));
     document.querySelectorAll('.color-menu').forEach(m => m.classList.add('hidden'));

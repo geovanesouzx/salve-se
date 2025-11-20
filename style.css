@@ -2,6 +2,7 @@ body { font-family: 'Inter', sans-serif; transition: background-color 0.3s, colo
 .theme-transition { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
 
 :root {
+    /* Cores Padrão (Indigo) - Sobrescritas pelo JS */
     --theme-50: 238 242 255;
     --theme-100: 224 231 255;
     --theme-200: 199 210 254;
@@ -30,9 +31,9 @@ body { font-family: 'Inter', sans-serif; transition: background-color 0.3s, colo
     scrollbar-width: none;
 }
 
-/* Nav Active State */
-.nav-item.active { background-color: rgb(var(--theme-100)); color: rgb(var(--theme-700)); border-right: 3px solid rgb(var(--theme-600)); }
-.dark .nav-item.active { background-color: #27272a; color: rgb(var(--theme-400)); border-right: 3px solid rgb(var(--theme-500)); }
+/* Nav Active State - Utiliza variáveis para suportar todos os temas */
+.nav-item.active { background-color: rgb(var(--theme-50)); color: rgb(var(--theme-700)); border-right: 3px solid rgb(var(--theme-600)); }
+.dark .nav-item.active { background-color: rgba(var(--theme-500), 0.1); color: rgb(var(--theme-300)); border-right: 3px solid rgb(var(--theme-500)); }
 
 /* Animations */
 .fade-in { animation: fadeIn 0.4s ease-out; }

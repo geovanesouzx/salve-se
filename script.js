@@ -69,7 +69,10 @@ const svgs = {
 // ============================================================
 
 function initCustomUI() {
-    document.querySelectorAll('select:not(.custom-init)').forEach(createCustomSelect);
+    // AQUI ESTÁ A MUDANÇA: Adicionei os :not(...) para ignorar os campos do modal
+    // Isso força os horários e dias a usarem o sistema nativo do celular/PC, que não trava.
+    document.querySelectorAll('select:not(.custom-init):not(#class-start):not(#class-end):not(#class-day)').forEach(createCustomSelect);
+
     document.querySelectorAll('input[type="date"]:not(.custom-init)').forEach(createCustomDatePicker);
 }
 

@@ -1,4 +1,46 @@
 // ------------------------------------------------
+// --- IMPORTAÇÕES FIREBASE ---
+// ------------------------------------------------
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getFirestore, doc, getDoc, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
+// ------------------------------------------------
+// --- CONFIGURAÇÃO FIREBASE ---
+// ------------------------------------------------
+const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+    apiKey: "", // O ambiente injeta a chave se necessário, ou usa config padrão
+    authDomain: "salvee-se.firebaseapp.com",
+    projectId: "salvee-se",
+    storageBucket: "salvee-se.firebasestorage.app",
+    messagingSenderId: "132544174908",
+    appId: "1:132544174908:web:00c6aa4855cc18ed2cdc39"
+};
+
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const auth = getAuth(app);
+
+let currentUser = null;
+
+// Autenticação Anônima para Leitura
+const initAuth = async () => {
+    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+        try { await signInWithCustomToken(auth, __initial_auth_token); } 
+        catch (e) { await signInAnonymously(auth); }
+    } else { await signInAnonymously(auth); }
+};
+initAuth();
+
+onAuthStateChanged(auth, (user) => {
+    if (user) {
+        currentUser = user;
+        updateMenuWidget(); // Carrega o widget assim que logar
+    }
+});
+
+// ------------------------------------------------
 // --- LÓGICA DE TEMA (INICIALIZAÇÃO) ---
 // ------------------------------------------------
 function initTheme() {
@@ -12,7 +54,7 @@ function initTheme() {
 }
 initTheme();
 
-function toggleTheme() {
+window.toggleTheme = function() {
     if (document.documentElement.classList.contains('dark')) {
         document.documentElement.classList.remove('dark');
         localStorage.setItem('theme', 'light');
@@ -25,7 +67,6 @@ function toggleTheme() {
 // ------------------------------------------------
 // --- LÓGICA PWA E OFFLINE ---
 // ------------------------------------------------
-
 const manifest = {
     "name": "Salve-se Painel",
     "short_name": "Salve-se",
@@ -100,7 +141,7 @@ if ('serviceWorker' in navigator) {
 }
 
 // ------------------------------------------------
-// --- GESTÃO DE DADOS ---
+// --- GESTÃO DE DADOS LOCAIS ---
 // ------------------------------------------------
 let scheduleData = JSON.parse(localStorage.getItem('salvese_schedule')) || [];
 let tasksData = JSON.parse(localStorage.getItem('salvese_tasks')) || [];
@@ -108,7 +149,7 @@ let remindersData = JSON.parse(localStorage.getItem('salvese_reminders')) || [];
 let selectedClassIdToDelete = null;
 
 // Variável global para filtro de tarefas
-let currentTaskFilter = 'all'; // 'all', 'active', 'completed'
+let currentTaskFilter = 'all';
 
 function saveData() {
     localStorage.setItem('salvese_schedule', JSON.stringify(scheduleData));
@@ -119,9 +160,299 @@ function saveData() {
     if (window.renderTasks) window.renderTasks();
     if (window.renderReminders) window.renderReminders();
     
-    updateDashboardTasksWidget(); // Nova função do dashboard
-    
+    updateDashboardTasksWidget();
     if (window.updateNextClassWidget) window.updateNextClassWidget();
+}
+
+// ------------------------------------------------
+// --- CARDÁPIO RU (NOVA LÓGICA) ---
+// ------------------------------------------------
+
+const MEAL_TIMES = {
+    desjejum: { start: '06:30', end: '08:00' },
+    almoco: { start: '11:00', end: '13:30' },
+    jantar: { start: '17:00', end: '18:30' }
+};
+
+const MEAL_LABELS = {
+    desjejum: 'Desjejum',
+    almoco: 'Almoço',
+    jantar: 'Jantar'
+};
+
+// Determina qual refeição mostrar e o estado (aberto, fechado, em breve)
+function getCurrentMealState() {
+    const now = new Date();
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+    
+    const parseTime = (timeStr) => {
+        const [h, m] = timeStr.split(':').map(Number);
+        return h * 60 + m;
+    };
+
+    let meal = 'almoco';
+    let status = 'closed'; // open, closing_soon, future
+    let targetDate = new Date(); // Hoje
+    let timeUntil = 0;
+    let label = '';
+
+    // Definindo os limites em minutos do dia
+    const desjStart = parseTime(MEAL_TIMES.desjejum.start);
+    const desjEnd = parseTime(MEAL_TIMES.desjejum.end);
+    const almocoStart = parseTime(MEAL_TIMES.almoco.start);
+    const almocoEnd = parseTime(MEAL_TIMES.almoco.end);
+    const jantarStart = parseTime(MEAL_TIMES.jantar.start);
+    const jantarEnd = parseTime(MEAL_TIMES.jantar.end);
+
+    // Lógica de seleção
+    if (currentMinutes < desjEnd) {
+        meal = 'desjejum';
+        if (currentMinutes >= desjStart) {
+            status = (desjEnd - currentMinutes) <= 30 ? 'closing_soon' : 'open';
+            timeUntil = desjEnd - currentMinutes;
+        } else {
+            status = 'future';
+            timeUntil = desjStart - currentMinutes;
+        }
+    } else if (currentMinutes < almocoEnd) {
+        meal = 'almoco';
+        if (currentMinutes >= almocoStart) {
+            status = (almocoEnd - currentMinutes) <= 30 ? 'closing_soon' : 'open';
+            timeUntil = almocoEnd - currentMinutes;
+        } else {
+            status = 'future';
+            timeUntil = almocoStart - currentMinutes;
+        }
+    } else if (currentMinutes < jantarEnd) {
+        meal = 'jantar';
+        if (currentMinutes >= jantarStart) {
+            status = (jantarEnd - currentMinutes) <= 30 ? 'closing_soon' : 'open';
+            timeUntil = jantarEnd - currentMinutes;
+        } else {
+            status = 'future';
+            timeUntil = jantarStart - currentMinutes;
+        }
+    } else {
+        // Passou do jantar, mostra desjejum de amanhã
+        meal = 'desjejum';
+        status = 'future';
+        targetDate.setDate(targetDate.getDate() + 1);
+        // Cálculo aproximado para amanhã de manhã
+        const minsInDay = 24 * 60;
+        timeUntil = (minsInDay - currentMinutes) + desjStart;
+    }
+
+    return { meal, status, timeUntil, targetDate };
+}
+
+// Busca dados no Firestore
+async function fetchMenuData(dateObj, mealType) {
+    const yyyy = dateObj.getFullYear();
+    const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const dd = String(dateObj.getDate()).padStart(2, '0');
+    const dateStr = `${yyyy}-${mm}-${dd}`;
+    const docId = `${dateStr}_${mealType}`;
+
+    try {
+        const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'menus', docId);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) return docSnap.data();
+        return null;
+    } catch (e) {
+        console.error("Erro ao buscar cardápio:", e);
+        return null;
+    }
+}
+
+// Atualiza o Widget da Home
+window.updateMenuWidget = async function() {
+    const container = document.getElementById('menu-widget-content');
+    const statusBadge = document.getElementById('menu-status-badge');
+    const timerEl = document.getElementById('menu-timer');
+    
+    if (!container) return;
+
+    const state = getCurrentMealState();
+    
+    // Formata tempo restante
+    let timeText = '';
+    if (state.timeUntil > 60) {
+        const h = Math.floor(state.timeUntil / 60);
+        const m = state.timeUntil % 60;
+        timeText = `${h}h ${m}m`;
+    } else {
+        timeText = `${state.timeUntil} min`;
+    }
+
+    // Atualiza badge de status
+    let badgeHtml = '';
+    if (state.status === 'open') {
+        badgeHtml = `<span class="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-[10px] font-bold px-2 py-0.5 rounded flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span> Aberto</span>`;
+        if (timerEl) timerEl.innerText = `Fecha em ${timeText}`;
+    } else if (state.status === 'closing_soon') {
+        badgeHtml = `<span class="bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 text-[10px] font-bold px-2 py-0.5 rounded flex items-center gap-1"><i class="fas fa-exclamation-triangle text-[8px]"></i> Fecha Logo</span>`;
+        if (timerEl) timerEl.innerText = `Fecha em ${timeText}`;
+    } else {
+        badgeHtml = `<span class="bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400 text-[10px] font-bold px-2 py-0.5 rounded">Abre em ${timeText}</span>`;
+        if (timerEl) timerEl.innerText = `Abre às ${MEAL_TIMES[state.meal].start}`;
+    }
+    
+    if (statusBadge) statusBadge.innerHTML = badgeHtml;
+    document.getElementById('menu-title').innerText = MEAL_LABELS[state.meal];
+
+    // Busca Dados
+    container.innerHTML = `<div class="flex items-center justify-center h-24"><i class="fas fa-circle-notch fa-spin text-indigo-500"></i></div>`;
+    
+    const data = await fetchMenuData(state.targetDate, state.meal);
+
+    if (data) {
+        let content = '';
+        if (state.meal === 'desjejum') {
+            content = `
+                <div class="space-y-2">
+                    <div class="flex items-start gap-2">
+                        <div class="w-6 h-6 rounded bg-orange-100 dark:bg-orange-900/20 flex items-center justify-center text-orange-500 shrink-0"><i class="fas fa-mug-hot text-xs"></i></div>
+                        <div><p class="text-xs text-gray-500 dark:text-gray-400 font-bold uppercase">Proteína/Principal</p><p class="text-sm font-medium text-gray-800 dark:text-white leading-tight">${data.proteina || 'Não informado'}</p></div>
+                    </div>
+                    <div class="flex items-start gap-2">
+                        <div class="w-6 h-6 rounded bg-yellow-100 dark:bg-yellow-900/20 flex items-center justify-center text-yellow-600 shrink-0"><i class="fas fa-bread-slice text-xs"></i></div>
+                        <div><p class="text-xs text-gray-500 dark:text-gray-400 font-bold uppercase">Acompanhamento</p><p class="text-sm font-medium text-gray-800 dark:text-white leading-tight">${data.pao || 'Não informado'}</p></div>
+                    </div>
+                </div>
+            `;
+        } else {
+            // Almoço ou Jantar
+            content = `
+                <div class="space-y-2">
+                    <div class="flex items-start gap-2">
+                        <div class="w-6 h-6 rounded bg-red-100 dark:bg-red-900/20 flex items-center justify-center text-red-500 shrink-0"><i class="fas fa-drumstick-bite text-xs"></i></div>
+                        <div><p class="text-xs text-gray-500 dark:text-gray-400 font-bold uppercase">Principal</p><p class="text-sm font-medium text-gray-800 dark:text-white leading-tight">${data.proteina_01 || data.proteina || 'Não informado'}</p></div>
+                    </div>
+                    <div class="flex items-start gap-2">
+                        <div class="w-6 h-6 rounded bg-green-100 dark:bg-green-900/20 flex items-center justify-center text-green-600 shrink-0"><i class="fas fa-leaf text-xs"></i></div>
+                        <div><p class="text-xs text-gray-500 dark:text-gray-400 font-bold uppercase">Vegetariano</p><p class="text-sm font-medium text-gray-800 dark:text-white leading-tight">${data.vegetariano || 'Não informado'}</p></div>
+                    </div>
+                     <div class="flex items-start gap-2">
+                        <div class="w-6 h-6 rounded bg-yellow-100 dark:bg-yellow-900/20 flex items-center justify-center text-yellow-600 shrink-0"><i class="fas fa-utensils text-xs"></i></div>
+                        <div><p class="text-xs text-gray-500 dark:text-gray-400 font-bold uppercase">Guarnição</p><p class="text-sm font-medium text-gray-800 dark:text-white leading-tight">${data.guarnicao || 'Não informado'}</p></div>
+                    </div>
+                </div>
+            `;
+        }
+        container.innerHTML = content;
+    } else {
+        container.innerHTML = `
+            <div class="flex flex-col items-center justify-center h-full text-center">
+                <i class="fas fa-utensils text-2xl text-gray-300 dark:text-gray-600 mb-2"></i>
+                <p class="text-sm text-gray-500 dark:text-gray-400">Cardápio não disponível.</p>
+            </div>
+        `;
+    }
+};
+
+// Renderiza a Página Completa de Cardápio (Semanal)
+let currentMenuTab = 'almoco';
+
+window.setMenuTab = function(tab) {
+    currentMenuTab = tab;
+    // Atualiza botões
+    ['desjejum', 'almoco', 'jantar'].forEach(t => {
+        const btn = document.getElementById(`menu-tab-${t}`);
+        if (btn) {
+            if (t === tab) {
+                btn.classList.add('bg-indigo-600', 'text-white');
+                btn.classList.remove('bg-white', 'dark:bg-darkcard', 'text-gray-600', 'dark:text-gray-300');
+            } else {
+                btn.classList.remove('bg-indigo-600', 'text-white');
+                btn.classList.add('bg-white', 'dark:bg-darkcard', 'text-gray-600', 'dark:text-gray-300');
+            }
+        }
+    });
+    renderMenuGrid();
+}
+
+window.renderMenuGrid = async function() {
+    const container = document.getElementById('menu-grid-content');
+    if (!container) return;
+
+    container.innerHTML = `<div class="flex justify-center p-10"><i class="fas fa-circle-notch fa-spin text-2xl text-indigo-600"></i></div>`;
+
+    // Determina a segunda-feira da semana atual
+    const curr = new Date();
+    const first = curr.getDate() - curr.getDay() + 1; // Segunda é 1
+    const monday = new Date(curr.setDate(first));
+    
+    const dates = [];
+    const headers = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+    
+    for(let i=0; i<6; i++) {
+        const d = new Date(monday);
+        d.setDate(monday.getDate() + i);
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        dates.push({ str: `${yyyy}-${mm}-${dd}`, display: `${dd}/${mm}`, label: headers[i] });
+    }
+
+    // Define as linhas baseadas no tipo
+    const rowsConfig = {
+        'desjejum': [
+            { key: 'proteina', label: 'Proteína' },
+            { key: 'pao', label: 'Pão/Acomp.' },
+            { key: 'fruta', label: 'Fruta' },
+            { key: 'bebida', label: 'Bebida' }
+        ],
+        'almoco': [
+            { key: 'proteina_01', label: 'Prato Principal 1' },
+            { key: 'proteina_02', label: 'Prato Principal 2' },
+            { key: 'vegetariano', label: 'Vegetariano' },
+            { key: 'guarnicao', label: 'Guarnição' },
+            { key: 'acompanhamento_01', label: 'Acomp. 1' },
+            { key: 'salada_01', label: 'Salada' },
+            { key: 'sobremesa', label: 'Sobremesa' }
+        ],
+        'jantar': [
+            { key: 'proteina', label: 'Prato Principal' },
+            { key: 'vegetariano', label: 'Vegetariano' },
+            { key: 'guarnicao', label: 'Guarnição' },
+            { key: 'sopa', label: 'Sopa' },
+            { key: 'pao', label: 'Pão' }
+        ]
+    };
+
+    const rows = rowsConfig[currentMenuTab];
+
+    // Busca dados de todos os dias em paralelo
+    const promises = dates.map(d => fetchMenuData(new Date(d.str + 'T12:00:00'), currentMenuTab));
+    const results = await Promise.all(promises);
+
+    // Constrói Tabela HTML
+    let html = `<div class="overflow-x-auto"><table class="w-full text-sm text-left border-collapse">`;
+    
+    // Header
+    html += `<thead class="bg-gray-50 dark:bg-neutral-900 text-xs uppercase font-bold text-gray-500 dark:text-gray-400"><tr>`;
+    html += `<th class="p-3 border-b dark:border-darkborder sticky left-0 bg-gray-50 dark:bg-neutral-900 z-10">Item</th>`;
+    dates.forEach(d => {
+        const isToday = new Date().toDateString() === new Date(d.str + 'T12:00:00').toDateString();
+        const highlight = isToday ? 'text-indigo-600 dark:text-indigo-400' : '';
+        html += `<th class="p-3 border-b dark:border-darkborder min-w-[160px] ${highlight}">${d.label} <span class="block text-[10px] opacity-70">${d.display}</span></th>`;
+    });
+    html += `</tr></thead><tbody class="divide-y divide-gray-100 dark:divide-darkborder">`;
+
+    // Body
+    rows.forEach(row => {
+        html += `<tr>`;
+        html += `<td class="p-3 font-bold text-gray-700 dark:text-gray-300 bg-white dark:bg-darkcard sticky left-0 border-r dark:border-darkborder z-10 text-xs uppercase tracking-wide">${row.label}</td>`;
+        
+        results.forEach(dayData => {
+            const val = dayData ? (dayData[row.key] || '-') : '-';
+            html += `<td class="p-3 text-gray-600 dark:text-gray-400 border-r dark:border-darkborder/50">${val}</td>`;
+        });
+        html += `</tr>`;
+    });
+
+    html += `</tbody></table></div>`;
+    container.innerHTML = html;
 }
 
 // ------------------------------------------------
@@ -930,6 +1261,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderReminders();
     if (window.renderSchedule) window.renderSchedule();
     updateNextClassWidget();
+    updateMenuWidget();
     
     // Inicializa o highlight da aba mobile
     const activeMobileLink = document.querySelector(`#mobile-menu nav a[onclick*="'home'"]`);
@@ -938,7 +1270,10 @@ document.addEventListener('DOMContentLoaded', () => {
          activeMobileLink.classList.remove('text-gray-600', 'dark:text-gray-400');
     }
 
-    setInterval(updateNextClassWidget, 60000);
+    setInterval(() => {
+        updateNextClassWidget();
+        updateMenuWidget();
+    }, 60000);
 });
 
 // --- LÓGICA DO BOTÃO VOLTAR (POPSTATE) ---
@@ -1063,28 +1398,26 @@ function switchPage(pageId, addToHistory = true) {
     const activeLink = document.getElementById(`nav-${pageId}`);
     if (activeLink) activeLink.classList.add('active');
 
-    // Atualiza navegação MOBILE (Correção solicitada)
+    // Atualiza navegação MOBILE
     const mobileNavLinks = document.querySelectorAll('#mobile-menu nav a');
     mobileNavLinks.forEach(link => {
-        // Remove estilo ativo de todos
         link.classList.remove('bg-indigo-50', 'text-indigo-600', 'dark:bg-indigo-900/50', 'dark:text-indigo-300');
         link.classList.add('text-gray-600', 'dark:text-gray-400');
 
-        // Verifica se o link é da página atual
         if(link.getAttribute('onclick').includes(`'${pageId}'`)) {
              link.classList.add('bg-indigo-50', 'text-indigo-600', 'dark:bg-indigo-900/50', 'dark:text-indigo-300');
              link.classList.remove('text-gray-600', 'dark:text-gray-400');
         }
     });
 
-    const titles = { home: 'Página Principal', onibus: 'Transporte', calc: 'Calculadora', pomo: 'Modo Foco', todo: 'Tarefas', email: 'Templates', aulas: 'Grade Horária', fluxo: 'Fluxograma' };
+    const titles = { home: 'Página Principal', onibus: 'Transporte', calc: 'Calculadora', pomo: 'Modo Foco', todo: 'Tarefas', email: 'Templates', aulas: 'Grade Horária', cardapio: 'Cardápio RU' };
     const pageTitleEl = document.getElementById('page-title');
     if (pageTitleEl) pageTitleEl.innerText = titles[pageId] || 'Salve-se';
     
-    // Trigger render if switching to schedule
+    // Renderiza grade do cardápio se for a página
+    if(pageId === 'cardapio') window.renderMenuGrid();
     if(pageId === 'aulas' && window.renderSchedule) window.renderSchedule();
 
-    // Adiciona ao histórico para o botão voltar
     if(addToHistory) {
         history.pushState({view: pageId}, null, `#${pageId}`);
     }
@@ -1103,8 +1436,6 @@ function updateClock() {
         const time = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
         timeString = `${date} • ${time}`;
     }
-    
-    // Atualiza o relógio em ambos os locais (Desktop e o novo do cabeçalho se existir)
     const clockEls = document.querySelectorAll('#clock');
     clockEls.forEach(el => el.innerText = timeString);
 }

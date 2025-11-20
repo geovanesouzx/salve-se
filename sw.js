@@ -1,4 +1,4 @@
-const CACHE_NAME = 'salvese-v5.1-final-tasks'; // Versão atualizada para forçar limpeza de cache e carregar novas funcionalidades
+const CACHE_NAME = 'salvese-v6.0-menu'; // Versão atualizada para incluir cardápio
 const URLS_TO_CACHE = [
     './',
     './index.html',
@@ -10,7 +10,10 @@ const URLS_TO_CACHE = [
     'https://files.catbox.moe/pmdtq6.png',
     'https://media.tenor.com/q9CixI3CcrkAAAAj/dance.gif',
     'https://media.tenor.com/IVh7YxGaB_4AAAAM/nerd-emoji.gif',
-    'https://media.tenor.com/qL2ySe3uUgQAAAAj/gatto.gif'
+    'https://media.tenor.com/qL2ySe3uUgQAAAAj/gatto.gif',
+    'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js',
+    'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js',
+    'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js'
 ];
 
 // 1. Instalação: Cacheia o básico imediatamente

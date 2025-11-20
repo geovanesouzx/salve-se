@@ -64,24 +64,29 @@ const svgs = {
 };
 
 // ============================================================
-// --- SISTEMA DE CUSTOM UI (NOVO) ---
-// Substitui Selects e DatePickers nativos por versões bonitas
+// --- SISTEMA DE CUSTOM UI (CORRIGIDO: FIXED POSITION) ---
+// Usa posicionamento fixo anexado ao Body para evitar cortes
 // ============================================================
 
 function initCustomUI() {
-    // Substitui Selects
     document.querySelectorAll('select:not(.custom-init)').forEach(createCustomSelect);
-    // Substitui Date Inputs
     document.querySelectorAll('input[type="date"]:not(.custom-init)').forEach(createCustomDatePicker);
 }
 
+// Fecha menus ao redimensionar tela ou rolar
+function closeAllCustomMenus() {
+    document.querySelectorAll('.custom-floating-menu').forEach(el => el.remove());
+}
+window.addEventListener('resize', closeAllCustomMenus);
+window.addEventListener('scroll', closeAllCustomMenus, true); // Capture phase para scrolls internos
+
 function createCustomSelect(select) {
-    select.classList.add('custom-init', 'hidden'); // Esconde o original
+    select.classList.add('custom-init', 'hidden'); // Esconde original
     
     const wrapper = document.createElement('div');
     wrapper.className = 'relative inline-block w-full';
     
-    // Trigger Button
+    // Botão Gatilho
     const trigger = document.createElement('button');
     trigger.type = 'button';
     trigger.className = 'w-full flex items-center justify-between bg-white dark:bg-neutral-900 border border-gray-300 dark:border-neutral-700 rounded-lg px-3 py-2.5 text-sm text-gray-700 dark:text-gray-300 focus:ring-2 focus:ring-indigo-500 transition';
@@ -92,52 +97,60 @@ function createCustomSelect(select) {
     trigger.appendChild(labelSpan);
     trigger.innerHTML += svgs.chevronDown;
     
-    // Dropdown Menu
-    const menu = document.createElement('div');
-    menu.className = 'absolute z-50 mt-1 w-full bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-lg shadow-xl hidden overflow-hidden';
-    
-    // Options
-    Array.from(select.options).forEach(opt => {
-        const item = document.createElement('div');
-        item.className = 'px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer transition flex items-center gap-2';
-        item.innerText = opt.text;
-        
-        // Adiciona indicador visual se for prioridade (opcional)
-        if(opt.value === 'high') item.classList.add('font-bold', 'text-red-500');
-        if(opt.value === 'medium') item.classList.add('font-medium', 'text-orange-500');
-
-        item.onclick = () => {
-            select.value = opt.value;
-            labelSpan.innerText = opt.text;
-            // Dispara evento change no select original
-            const event = new Event('change');
-            select.dispatchEvent(event);
-            
-            menu.classList.add('hidden');
-        };
-        menu.appendChild(item);
-    });
-
-    // Toggle Logic
+    // Lógica de Abertura (FIXED POSITION)
     trigger.onclick = (e) => {
         e.preventDefault();
         e.stopPropagation();
-        document.querySelectorAll('.custom-select-menu').forEach(m => {
-            if(m !== menu) m.classList.add('hidden');
-        });
-        menu.classList.toggle('hidden');
-    };
-    
-    menu.classList.add('custom-select-menu');
+        
+        // Fecha outros abertos
+        closeAllCustomMenus();
 
-    // Fecha ao clicar fora
-    document.addEventListener('click', (e) => {
-        if (!wrapper.contains(e.target)) menu.classList.add('hidden');
-    });
+        const rect = trigger.getBoundingClientRect();
+        
+        // Cria menu no BODY para não ser cortado por overflow hidden/auto
+        const menu = document.createElement('div');
+        menu.className = 'custom-floating-menu fixed z-[9999] bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-lg shadow-2xl overflow-y-auto animate-scale-in';
+        
+        // Posicionamento
+        menu.style.top = (rect.bottom + 4) + 'px';
+        menu.style.left = rect.left + 'px';
+        menu.style.width = rect.width + 'px';
+        menu.style.maxHeight = '240px'; // Limite de altura
+
+        // Opções
+        Array.from(select.options).forEach(opt => {
+            const item = document.createElement('div');
+            item.className = 'px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer transition flex items-center gap-2';
+            item.innerText = opt.text;
+            
+            if(opt.value === select.value) item.classList.add('bg-gray-50', 'dark:bg-white/5', 'font-bold');
+            if(opt.value === 'high') item.classList.add('text-red-500');
+            if(opt.value === 'medium') item.classList.add('text-orange-500');
+
+            item.onclick = () => {
+                select.value = opt.value;
+                labelSpan.innerText = opt.text;
+                // Dispara change para garantir compatibilidade
+                const event = new Event('change');
+                select.dispatchEvent(event);
+                menu.remove();
+            };
+            menu.appendChild(item);
+        });
+
+        document.body.appendChild(menu);
+
+        // Fecha ao clicar fora
+        const closeHandler = (evt) => {
+            if (!menu.contains(evt.target) && evt.target !== trigger) {
+                menu.remove();
+                document.removeEventListener('click', closeHandler);
+            }
+        };
+        setTimeout(() => document.addEventListener('click', closeHandler), 0);
+    };
 
     wrapper.appendChild(trigger);
-    wrapper.appendChild(menu);
-    
     select.parentNode.insertBefore(wrapper, select);
 }
 
@@ -156,8 +169,6 @@ function createCustomDatePicker(input) {
     iconSpan.innerHTML = svgs.calendar;
     
     const textSpan = document.createElement('span');
-    
-    // Formata data inicial se houver
     const updateDisplay = () => {
         if(input.value) {
             const d = new Date(input.value + 'T00:00:00');
@@ -173,115 +184,130 @@ function createCustomDatePicker(input) {
     trigger.appendChild(iconSpan);
     trigger.appendChild(textSpan);
 
-    // Calendário Container
-    const calendar = document.createElement('div');
-    calendar.className = 'absolute z-50 mt-2 p-4 bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-xl shadow-2xl hidden w-64 left-1/2 transform -translate-x-1/2 md:left-0 md:translate-x-0';
-    
-    let currentMonth = new Date().getMonth();
-    let currentYear = new Date().getFullYear();
-
-    const renderCalendar = (month, year) => {
-        calendar.innerHTML = '';
-        
-        // Header
-        const header = document.createElement('div');
-        header.className = 'flex justify-between items-center mb-3';
-        
-        const prevBtn = document.createElement('button');
-        prevBtn.innerHTML = '&lt;';
-        prevBtn.className = 'p-1 hover:bg-gray-100 dark:hover:bg-neutral-700 rounded text-gray-600 dark:text-gray-300';
-        prevBtn.onclick = (e) => { e.stopPropagation(); renderCalendar(month === 0 ? 11 : month - 1, month === 0 ? year - 1 : year); };
-
-        const title = document.createElement('span');
-        title.className = 'font-bold text-gray-800 dark:text-white text-sm capitalize';
-        title.innerText = new Date(year, month).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
-
-        const nextBtn = document.createElement('button');
-        nextBtn.innerHTML = '&gt;';
-        nextBtn.className = 'p-1 hover:bg-gray-100 dark:hover:bg-neutral-700 rounded text-gray-600 dark:text-gray-300';
-        nextBtn.onclick = (e) => { e.stopPropagation(); renderCalendar(month === 11 ? 0 : month + 1, month === 11 ? year + 1 : year); };
-
-        header.appendChild(prevBtn);
-        header.appendChild(title);
-        header.appendChild(nextBtn);
-        calendar.appendChild(header);
-
-        // Days Grid
-        const grid = document.createElement('div');
-        grid.className = 'grid grid-cols-7 gap-1 text-center text-xs mb-1';
-        ['D','S','T','Q','Q','S','S'].forEach(d => {
-            const el = document.createElement('span');
-            el.className = 'text-gray-400 font-bold';
-            el.innerText = d;
-            grid.appendChild(el);
-        });
-        calendar.appendChild(grid);
-
-        const daysContainer = document.createElement('div');
-        daysContainer.className = 'grid grid-cols-7 gap-1 text-center text-sm';
-
-        const firstDay = new Date(year, month, 1).getDay();
-        const daysInMonth = new Date(year, month + 1, 0).getDate();
-
-        for(let i=0; i<firstDay; i++) daysContainer.appendChild(document.createElement('div'));
-
-        for(let d=1; d<=daysInMonth; d++) {
-            const dayBtn = document.createElement('button');
-            dayBtn.innerText = d;
-            
-            // Estilo base
-            dayBtn.className = 'w-8 h-8 rounded-full flex items-center justify-center hover:bg-indigo-50 dark:hover:bg-neutral-700 text-gray-700 dark:text-gray-300 transition';
-            
-            // Verifica se é hoje
-            const today = new Date();
-            if(d === today.getDate() && month === today.getMonth() && year === today.getFullYear()) {
-                dayBtn.classList.add('border', 'border-indigo-500', 'font-bold', 'text-indigo-500');
-            }
-
-            // Verifica se está selecionado
-            if(input.value) {
-                const sel = new Date(input.value + 'T00:00:00');
-                if(d === sel.getDate() && month === sel.getMonth() && year === sel.getFullYear()) {
-                    dayBtn.className = 'w-8 h-8 rounded-full flex items-center justify-center bg-indigo-600 text-white font-bold shadow-md';
-                }
-            }
-
-            dayBtn.onclick = (e) => {
-                e.stopPropagation();
-                const selectedDate = new Date(year, month, d);
-                const isoDate = selectedDate.toISOString().split('T')[0];
-                input.value = isoDate;
-                updateDisplay();
-                calendar.classList.add('hidden');
-            };
-            daysContainer.appendChild(dayBtn);
-        }
-        calendar.appendChild(daysContainer);
-    };
-
+    // Lógica Calendário (FIXED POSITION)
     trigger.onclick = (e) => {
         e.preventDefault();
         e.stopPropagation();
-        document.querySelectorAll('.custom-datepicker-calendar').forEach(c => c !== calendar && c.classList.add('hidden'));
-        
-        if (calendar.classList.contains('hidden')) {
-            // Abre no mês da data selecionada ou hoje
-            let initDate = input.value ? new Date(input.value + 'T00:00:00') : new Date();
-            renderCalendar(initDate.getMonth(), initDate.getFullYear());
-            calendar.classList.remove('hidden');
-        } else {
-            calendar.classList.add('hidden');
-        }
-    };
-    calendar.classList.add('custom-datepicker-calendar');
+        closeAllCustomMenus();
 
-    document.addEventListener('click', (e) => {
-        if (!wrapper.contains(e.target)) calendar.classList.add('hidden');
-    });
+        const rect = trigger.getBoundingClientRect();
+        
+        // Container Flutuante
+        const calendar = document.createElement('div');
+        calendar.className = 'custom-floating-menu fixed z-[9999] p-4 bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-xl shadow-2xl animate-scale-in w-64';
+        
+        // Posicionamento Inteligente (Se estiver muito embaixo, abre pra cima)
+        const spaceBelow = window.innerHeight - rect.bottom;
+        if(spaceBelow < 300) {
+            calendar.style.bottom = (window.innerHeight - rect.top + 4) + 'px';
+        } else {
+            calendar.style.top = (rect.bottom + 4) + 'px';
+        }
+        
+        // Centraliza horizontalmente em mobile, alinha a esquerda em desktop
+        if(window.innerWidth < 640) {
+            calendar.style.left = '50%';
+            calendar.style.transform = 'translateX(-50%)';
+            calendar.style.top = '50%'; // Centralizado na tela mobile
+            calendar.style.marginTop = '-150px'; // Ajuste manual
+        } else {
+            calendar.style.left = rect.left + 'px';
+        }
+        
+        let currentMonth = input.value ? new Date(input.value + 'T00:00:00').getMonth() : new Date().getMonth();
+        let currentYear = input.value ? new Date(input.value + 'T00:00:00').getFullYear() : new Date().getFullYear();
+
+        const renderCalendar = (month, year) => {
+            calendar.innerHTML = '';
+            
+            // Header
+            const header = document.createElement('div');
+            header.className = 'flex justify-between items-center mb-3';
+            
+            const prevBtn = document.createElement('button');
+            prevBtn.innerHTML = '&lt;';
+            prevBtn.className = 'p-1 hover:bg-gray-100 dark:hover:bg-neutral-700 rounded text-gray-600 dark:text-gray-300';
+            prevBtn.onclick = (e) => { e.stopPropagation(); renderCalendar(month === 0 ? 11 : month - 1, month === 0 ? year - 1 : year); };
+
+            const title = document.createElement('span');
+            title.className = 'font-bold text-gray-800 dark:text-white text-sm capitalize';
+            title.innerText = new Date(year, month).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+
+            const nextBtn = document.createElement('button');
+            nextBtn.innerHTML = '&gt;';
+            nextBtn.className = 'p-1 hover:bg-gray-100 dark:hover:bg-neutral-700 rounded text-gray-600 dark:text-gray-300';
+            nextBtn.onclick = (e) => { e.stopPropagation(); renderCalendar(month === 11 ? 0 : month + 1, month === 11 ? year + 1 : year); };
+
+            header.appendChild(prevBtn);
+            header.appendChild(title);
+            header.appendChild(nextBtn);
+            calendar.appendChild(header);
+
+            // Grid
+            const grid = document.createElement('div');
+            grid.className = 'grid grid-cols-7 gap-1 text-center text-xs mb-1';
+            ['D','S','T','Q','Q','S','S'].forEach(d => {
+                const el = document.createElement('span');
+                el.className = 'text-gray-400 font-bold';
+                el.innerText = d;
+                grid.appendChild(el);
+            });
+            calendar.appendChild(grid);
+
+            const daysContainer = document.createElement('div');
+            daysContainer.className = 'grid grid-cols-7 gap-1 text-center text-sm';
+
+            const firstDay = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+            for(let i=0; i<firstDay; i++) daysContainer.appendChild(document.createElement('div'));
+
+            for(let d=1; d<=daysInMonth; d++) {
+                const dayBtn = document.createElement('button');
+                dayBtn.innerText = d;
+                dayBtn.className = 'w-8 h-8 rounded-full flex items-center justify-center hover:bg-indigo-50 dark:hover:bg-neutral-700 text-gray-700 dark:text-gray-300 transition';
+                
+                const today = new Date();
+                if(d === today.getDate() && month === today.getMonth() && year === today.getFullYear()) {
+                    dayBtn.classList.add('border', 'border-indigo-500', 'text-indigo-500', 'font-bold');
+                }
+
+                if(input.value) {
+                    const sel = new Date(input.value + 'T00:00:00');
+                    if(d === sel.getDate() && month === sel.getMonth() && year === sel.getFullYear()) {
+                        dayBtn.className = 'w-8 h-8 rounded-full flex items-center justify-center bg-indigo-600 text-white font-bold shadow-md';
+                    }
+                }
+
+                dayBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    const selectedDate = new Date(year, month, d);
+                    // Ajuste para fuso horário local
+                    const yearStr = selectedDate.getFullYear();
+                    const monthStr =String(selectedDate.getMonth() + 1).padStart(2, '0');
+                    const dayStr = String(selectedDate.getDate()).padStart(2, '0');
+                    input.value = `${yearStr}-${monthStr}-${dayStr}`;
+                    updateDisplay();
+                    calendar.remove();
+                };
+                daysContainer.appendChild(dayBtn);
+            }
+            calendar.appendChild(daysContainer);
+        };
+
+        renderCalendar(currentMonth, currentYear);
+        document.body.appendChild(calendar);
+
+        const closeHandler = (evt) => {
+            if (!calendar.contains(evt.target) && evt.target !== trigger) {
+                calendar.remove();
+                document.removeEventListener('click', closeHandler);
+            }
+        };
+        setTimeout(() => document.addEventListener('click', closeHandler), 0);
+    };
 
     wrapper.appendChild(trigger);
-    wrapper.appendChild(calendar);
-    
     input.parentNode.insertBefore(wrapper, input);
 }
 
@@ -537,7 +563,6 @@ function refreshAllUI() {
 // --- SISTEMA DE MODAIS CUSTOMIZADOS (Substitui Prompt/Alert) ---
 // ============================================================
 
-// Função para chamar Modal de Input (estilo Prompt bonito)
 function openCustomInputModal(title, placeholder, initialValue, onConfirm) {
     const modal = document.getElementById('custom-input-modal');
     const modalTitle = document.getElementById('custom-modal-title');
@@ -575,7 +600,6 @@ function openCustomInputModal(title, placeholder, initialValue, onConfirm) {
     modalInput.focus();
 }
 
-// Função para chamar Modal de Confirmação (estilo Confirm bonito)
 function openCustomConfirmModal(title, message, onConfirm) {
     const modal = document.getElementById('custom-confirm-modal');
     const modalTitle = document.getElementById('custom-confirm-title');
@@ -819,7 +843,6 @@ window.renderSettings = function() {
 
     const photo = userProfile.photoURL || "https://files.catbox.moe/pmdtq6.png";
 
-    // Helper para criar cards com SVG
     const createActionCard = (onclick, svgIcon, title, subtitle, colorClass = "text-gray-500 group-hover:text-indigo-500") => `
         <button onclick="${onclick}" class="group w-full bg-white dark:bg-darkcard border border-gray-100 dark:border-darkborder p-4 rounded-2xl flex items-center justify-between hover:border-indigo-500 dark:hover:border-indigo-500 hover:shadow-md transition-all duration-200 mb-3 text-left">
             <div class="flex items-center gap-4">
@@ -840,12 +863,10 @@ window.renderSettings = function() {
     container.innerHTML = `
         <div class="max-w-2xl mx-auto w-full pb-24 space-y-6">
             
-            <!-- Header do Perfil -->
             <div class="bg-white dark:bg-darkcard rounded-3xl shadow-sm border border-gray-200 dark:border-darkborder p-6 md:p-8 flex flex-col items-center text-center relative overflow-hidden">
                  <div class="absolute top-0 left-0 w-full h-24 bg-gradient-to-r from-indigo-500 to-purple-600 opacity-10 dark:opacity-20"></div>
                  
                  <div class="relative group mb-4 mt-4">
-                    <!-- REMOVIDO bg-white e dark:bg-neutral-800 para suportar PNG transparente sem fundo -->
                     <div class="w-28 h-28 rounded-full overflow-hidden p-1 border-4 border-white dark:border-darkcard shadow-lg relative z-10">
                         <img src="${photo}" class="w-full h-full object-cover rounded-full" onerror="this.src='https://files.catbox.moe/pmdtq6.png'">
                     </div>
@@ -871,20 +892,16 @@ window.renderSettings = function() {
                 </div>
             </div>
 
-            <!-- Seção de Ações (Usando SVG fino) -->
             <div>
                 <h3 class="px-4 text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Gerenciar Conta</h3>
-                
                 ${createActionCard('changePhoto()', svgs.photo, 'Foto de Perfil', 'Atualize sua imagem de exibição')}
                 ${createActionCard('editName()', svgs.user, 'Nome de Exibição', 'Como seu nome aparece no app')}
                 ${createActionCard('editHandle()', svgs.at, 'Nome de Usuário', 'Seu identificador único @handle')}
                 ${createActionCard('editSemester()', svgs.school, 'Semestre Atual', 'Para organizar suas matérias')}
             </div>
 
-            <!-- Segurança e Dados -->
             <div>
                 <h3 class="px-4 text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Segurança & Dados</h3>
-                
                 ${createActionCard('changePassword()', svgs.lock, 'Redefinir Senha', 'Receba um e-mail para trocar a senha')}
                 ${createActionCard('manualBackup()', svgs.cloud, 'Backup Manual', 'Forçar sincronização com a nuvem')}
                 

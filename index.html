@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Salve-se | Painel Híbrido</title>
+    <title>Salve-se UFRB | Painel Híbrido</title>
     
     <!-- PWA Settings -->
     <link rel="manifest" id="pwa-manifest">
@@ -13,7 +13,7 @@
     <link rel="apple-touch-icon" href="https://files.catbox.moe/pmdtq6.png">
 
     <!-- CSS Externo -->
-    <link rel="stylesheet" href="style.css?v=10">
+    <link rel="stylesheet" href="style.css?v=11">
 
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -66,7 +66,7 @@
         <i class="fas fa-wifi"></i> <span id="network-text">Online</span>
     </div>
 
-    <!-- TELA 0: LOADING (NOVO - Inicialmente visível para evitar piscada) -->
+    <!-- TELA 0: LOADING -->
     <div id="loading-screen" class="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-white dark:bg-darkbg transition-opacity duration-500">
         <div class="relative">
             <div class="w-16 h-16 border-4 border-indigo-100 dark:border-neutral-800 rounded-full"></div>
@@ -74,11 +74,11 @@
         </div>
         <div class="mt-4 flex items-center gap-2 text-indigo-600 dark:text-indigo-400 font-bold text-sm animate-pulse">
             <img src="https://files.catbox.moe/pmdtq6.png" class="w-5 h-5">
-            <span>Carregando...</span>
+            <span>Carregando Salve-se...</span>
         </div>
     </div>
 
-    <!-- TELA 1: LOGIN (Alterado: Adicionado classe 'hidden' para não piscar) -->
+    <!-- TELA 1: LOGIN -->
     <div id="login-screen" class="hidden fixed inset-0 z-50 flex flex-col items-center justify-center bg-white dark:bg-darkbg transition-opacity duration-500">
         <div class="text-center space-y-6 p-8 max-w-md w-full animate-fade-in-up">
             <div class="w-24 h-24 mx-auto bg-indigo-100 dark:bg-indigo-900/20 rounded-3xl flex items-center justify-center shadow-xl shadow-indigo-200 dark:shadow-none mb-6">
@@ -86,7 +86,7 @@
             </div>
             
             <div>
-                <h1 class="text-3xl font-black text-gray-900 dark:text-white tracking-tight mb-2">Bem-vindo ao Salve-se</h1>
+                <h1 class="text-3xl font-black text-gray-900 dark:text-white tracking-tight mb-2">Bem-vindo ao Salve-se UFRB</h1>
                 <p class="text-gray-500 dark:text-gray-400 text-sm">Seu painel acadêmico híbrido e inteligente.</p>
             </div>
 
@@ -99,9 +99,7 @@
         </div>
     </div>
 
-    <!-- ========================================== -->
-    <!-- TELA 2: CONFIGURAÇÃO DE PERFIL (Se novo)   -->
-    <!-- ========================================== -->
+    <!-- TELA 2: CONFIGURAÇÃO DE PERFIL -->
     <div id="profile-setup-screen" class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-white dark:bg-darkbg hidden">
         <div class="max-w-md w-full p-8 space-y-6 animate-scale-in">
             <div class="text-center">
@@ -136,10 +134,7 @@
         </div>
     </div>
 
-    <!-- ========================================== -->
-    <!-- TELA 3: APLICAÇÃO (APP WRAPPER)            -->
-    <!-- ========================================== -->
-    <!-- Adicionamos a classe 'hidden' por padrão. O JS remove quando logado. -->
+    <!-- TELA 3: APLICAÇÃO (APP WRAPPER) -->
     <div class="app-content-wrapper flex w-full h-full hidden">
 
         <!-- SIDEBAR (Desktop) -->
@@ -148,7 +143,7 @@
                 <div class="w-10 h-10 mr-3 flex-shrink-0 rounded-lg overflow-hidden bg-indigo-50">
                     <img src="https://files.catbox.moe/pmdtq6.png" alt="Logo" class="w-full h-full object-contain p-1">
                 </div>
-                <span class="text-lg font-bold tracking-tight text-gray-800 dark:text-white mr-2">Salve-se</span>
+                <span class="text-lg font-bold tracking-tight text-gray-800 dark:text-white mr-2">Salve-se UFRB</span>
             </div>
 
             <nav class="flex-1 overflow-y-auto py-6 px-3 space-y-1">
@@ -196,6 +191,15 @@
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
                     Templates
                 </a>
+
+                <div class="pt-6"></div>
+                <p class="px-3 text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Sistema</p>
+
+                <!-- Botão de Configurações Adicionado -->
+                <a onclick="switchPage('config')" id="nav-config" class="nav-item flex items-center px-3 py-2.5 text-sm font-medium rounded-md cursor-pointer text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-darkhover transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+                    Configurações
+                </a>
             </nav>
             
             <!-- USER INFO FOOTER -->
@@ -226,7 +230,7 @@
                     <button onclick="document.getElementById('mobile-menu').classList.remove('-translate-x-full')" class="text-gray-500 dark:text-gray-300 md:hidden p-1">
                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
                     </button>
-                    <span class="font-bold text-lg md:hidden hidden sm:block">Salve-se</span>
+                    <span class="font-bold text-lg md:hidden hidden sm:block">Salve-se UFRB</span>
                     <button onclick="toggleColorMenu('mobile')" class="md:hidden w-8 h-8 rounded-full bg-gray-100 dark:bg-neutral-800 hover:bg-gray-200 text-gray-500 flex items-center justify-center transition relative">
                           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-indigo-600" id="mobile-palette-icon"><circle cx="13.5" cy="6.5" r=".5"/><circle cx="17.5" cy="10.5" r=".5"/><circle cx="8.5" cy="7.5" r=".5"/><circle cx="6.5" cy="12.5" r=".5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>
                           <div id="color-menu-mobile" class="color-menu hidden absolute top-10 left-0 bg-white dark:bg-neutral-900 border border-gray-200 dark:border-darkborder shadow-xl rounded-xl p-3 z-50 w-48 grid grid-cols-5 gap-2"></div>
@@ -272,7 +276,7 @@
                     </button>
                 </div>
                 <nav class="flex-1 overflow-y-auto p-4 space-y-2">
-                     <a onclick="switchPage('home'); document.getElementById('mobile-menu').classList.add('-translate-x-full')" class="block px-4 py-3 rounded-lg bg-gray-50 dark:bg-neutral-800 text-gray-800 dark:text-gray-200 font-medium">
+                      <a onclick="switchPage('home'); document.getElementById('mobile-menu').classList.add('-translate-x-full')" class="block px-4 py-3 rounded-lg bg-gray-50 dark:bg-neutral-800 text-gray-800 dark:text-gray-200 font-medium">
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3 inline-block"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
                         Principal
                     </a>
@@ -308,6 +312,10 @@
                         Templates
                     </a>
                     <hr class="border-gray-200 dark:border-neutral-800 my-2">
+                    <!-- Configurações no Mobile -->
+                    <a onclick="switchPage('config'); document.getElementById('mobile-menu').classList.add('-translate-x-full')" class="block px-4 py-3 rounded-lg hover:bg-gray-50 dark:hover:bg-neutral-800 text-gray-600 dark:text-gray-400 font-medium transition">
+                        <i class="fas fa-cog mr-3"></i> Configurações
+                    </a>
                     <a onclick="logoutApp()" class="block px-4 py-3 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 font-medium transition">
                         <i class="fas fa-sign-out-alt mr-3"></i> Sair
                     </a>
@@ -383,9 +391,15 @@
                                 <p class="text-indigo-100 text-xs font-bold uppercase tracking-wider mb-2">Acesso Rápido</p>
                                 <h3 class="text-xl font-bold">Hora de focar?</h3>
                             </div>
-                            <button onclick="switchPage('pomo')" class="bg-white text-indigo-700 px-4 py-3 rounded-lg text-sm font-bold hover:bg-indigo-50 transition shadow-sm w-full text-center mt-4">
-                                Abrir Modo Foco
-                            </button>
+                            <div class="space-y-2 mt-4">
+                                <button onclick="switchPage('pomo')" class="bg-white text-indigo-700 px-4 py-3 rounded-lg text-sm font-bold hover:bg-indigo-50 transition shadow-sm w-full text-center">
+                                    Abrir Modo Foco
+                                </button>
+                                <!-- BOTÃO DE BACKUP MANUAL -->
+                                <button id="btn-manual-backup" onclick="manualBackup()" class="bg-indigo-800/50 hover:bg-indigo-800 text-white border border-indigo-400/30 px-4 py-2.5 rounded-lg text-xs font-medium transition w-full flex items-center justify-center gap-2 backdrop-blur-sm">
+                                    <i class="fas fa-cloud-upload-alt"></i> Backup Manual
+                                </button>
+                            </div>
                         </div>
                     </div>
 
@@ -443,25 +457,25 @@
 
                 <!-- DEMAIS VIEWS -->
                 <div id="view-onibus" class="hidden fade-in max-w-4xl mx-auto">
-                     <div class="bg-white dark:bg-darkcard rounded-xl shadow-sm border border-gray-200 dark:border-darkborder overflow-hidden p-6">
-                          <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4 border-b border-gray-100 dark:border-neutral-800 pb-4">
-                              <h2 class="text-xl font-bold text-gray-800 dark:text-white">Grade Completa 2025.1</h2>
-                              <a href="https://www.ufrb.edu.br/cso/images/Hor%C3%A1rio_do_%C3%94nibus_Circular_2025.2.pdf" target="_blank" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-bold transition flex items-center gap-2 shadow-md hover:shadow-lg">
-                                <i class="fas fa-file-pdf"></i> Baixar Horários
-                            </a>
-                          </div>
-                          <div class="overflow-x-auto">
-                            <table class="w-full text-sm text-left">
-                                <thead class="bg-gray-50 dark:bg-neutral-900 text-gray-500 dark:text-gray-300 uppercase text-xs font-bold tracking-wider">
-                                    <tr>
-                                        <th class="px-6 py-4">Horário</th>
-                                        <th class="px-6 py-4">Itinerário (Paradas Estimadas)</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="bus-table-body" class="divide-y divide-gray-200 dark:divide-darkborder text-gray-700 dark:text-gray-300"></tbody>
-                            </table>
-                        </div>
-                     </div>
+                      <div class="bg-white dark:bg-darkcard rounded-xl shadow-sm border border-gray-200 dark:border-darkborder overflow-hidden p-6">
+                           <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4 border-b border-gray-100 dark:border-neutral-800 pb-4">
+                               <h2 class="text-xl font-bold text-gray-800 dark:text-white">Grade Completa 2025.1</h2>
+                               <a href="https://www.ufrb.edu.br/cso/images/Hor%C3%A1rio_do_%C3%94nibus_Circular_2025.2.pdf" target="_blank" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-bold transition flex items-center gap-2 shadow-md hover:shadow-lg">
+                                 <i class="fas fa-file-pdf"></i> Baixar Horários
+                             </a>
+                           </div>
+                           <div class="overflow-x-auto">
+                             <table class="w-full text-sm text-left">
+                                 <thead class="bg-gray-50 dark:bg-neutral-900 text-gray-500 dark:text-gray-300 uppercase text-xs font-bold tracking-wider">
+                                     <tr>
+                                         <th class="px-6 py-4">Horário</th>
+                                         <th class="px-6 py-4">Itinerário (Paradas Estimadas)</th>
+                                     </tr>
+                                 </thead>
+                                 <tbody id="bus-table-body" class="divide-y divide-gray-200 dark:divide-darkborder text-gray-700 dark:text-gray-300"></tbody>
+                             </table>
+                         </div>
+                      </div>
                 </div>
                 
                 <div id="view-calc" class="hidden fade-in max-w-3xl mx-auto pb-10">
@@ -547,7 +561,7 @@
                                         <option value="trabalho">Trabalho</option>
                                         <option value="pessoal">Pessoal</option>
                                     </select>
-                                    
+                                     
                                     <select id="todo-priority" class="bg-white dark:bg-neutral-800 border border-gray-300 dark:border-neutral-700 text-gray-700 dark:text-gray-300 text-xs rounded-lg px-3 py-2 focus:outline-none focus:border-indigo-500">
                                         <option value="normal">Prioridade Normal</option>
                                         <option value="medium">Média</option>
@@ -588,7 +602,13 @@
                     </div>
                 </div>
 
-                <!-- A div view-aulas é deixada propositalmente vazia para ser preenchida pelo script.js -->
+                <!-- NOVA VIEW DE CONFIGURAÇÕES -->
+                <div id="view-config" class="hidden fade-in w-full">
+                    <div id="settings-content" class="w-full">
+                        <!-- Conteúdo injetado via JS -->
+                    </div>
+                </div>
+
                 <div id="view-aulas" class="hidden fade-in"></div>
             </main>
         </div>

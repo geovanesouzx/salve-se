@@ -1,4 +1,4 @@
-const CACHE_NAME = 'salvese-v7.0-offline-fix'; // Nova versão para limpar cache antigo
+const CACHE_NAME = 'salvese-v8.0-backup-fix'; // Nova versão para limpar cache antigo
 const URLS_TO_CACHE = [
     './',
     './index.html',

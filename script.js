@@ -7,7 +7,9 @@ import {
     signInWithPopup, 
     GoogleAuthProvider, 
     onAuthStateChanged, 
-    signOut 
+    signOut,
+    updateProfile,
+    sendPasswordResetEmail
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 import { 
     getFirestore, 
@@ -45,80 +47,70 @@ let userProfile = null;
 let unsubscribeData = null;
 
 // ============================================================
-// --- SISTEMA DE BOOTSTRAP INTELIGENTE (RESOLVE O BUG) ---
+// --- SISTEMA DE BOOTSTRAP INTELIGENTE ---
 // ============================================================
 
 // Verifica se existe uma sessão ativa salva no localStorage (O "Crachá")
 const sessionActive = localStorage.getItem('salvese_session_active');
 
-// Timer de Segurança: Se o Firebase demorar mais que 2s (internet ruim ou offline), força a entrada
+// Timer de Segurança
 const forceLoadTimeout = setTimeout(() => {
     const loadingScreen = document.getElementById('loading-screen');
     if (loadingScreen && !loadingScreen.classList.contains('hidden')) {
         console.warn("Firebase demorou. Verificando modo offline...");
         
         if (sessionActive === 'true') {
-            // Se o usuário já logou antes, deixamos ele entrar com os dados locais
             console.log("Sessão local encontrada. Forçando entrada offline.");
             loadAppOfflineMode(); 
         } else {
-            // Se nunca logou, aí sim mostramos o login
             showLoginScreen();
         }
     }
-}, 2000); // 2 segundos de tolerância
+}, 2000); 
 
 // 1. Monitora Estado do Usuário (Login/Logout)
 onAuthStateChanged(auth, async (user) => {
-    // Cancela o timer de segurança pois o Firebase respondeu
     clearTimeout(forceLoadTimeout);
 
     if (user) {
-        // --- CENÁRIO 1: USUÁRIO LOGADO (Online ou Cache Auth) ---
+        // --- CENÁRIO 1: USUÁRIO LOGADO ---
         console.log("Usuário autenticado pelo Firebase.");
         currentUser = user;
-        
-        // Renova o "Crachá" local
         localStorage.setItem('salvese_session_active', 'true');
 
-        // Tenta buscar perfil (Cache first para velocidade)
         try {
             const docRef = doc(db, "users", user.uid);
-            const docSnap = await getDoc(docRef); // Isso lê do cache se offline
+            const docSnap = await getDoc(docRef); 
 
             if (docSnap.exists()) {
                 userProfile = docSnap.data();
-                // Atualiza dados locais do perfil caso tenham mudado
+                // Garante que campos novos existam
+                if (!userProfile.semester) userProfile.semester = "N/A";
+                
                 localStorage.setItem('salvese_user_profile', JSON.stringify(userProfile));
                 
-                showAppInterface(); // Mostra o App
-                initRealtimeSync(user.uid); // Tenta sincronizar
+                showAppInterface(); 
+                initRealtimeSync(user.uid); 
             } else {
-                // Usuário logado mas sem perfil -> Setup
                 showProfileSetupScreen();
             }
         } catch (e) {
-            console.error("Erro ao buscar perfil (provavelmente offline sem cache):", e);
-            // Se der erro mas tivermos sessão, tenta carregar modo offline
+            console.error("Erro ao buscar perfil:", e);
             if (sessionActive === 'true') loadAppOfflineMode();
             else showProfileSetupScreen();
         }
 
     } else {
-        // --- CENÁRIO 2: SEM USUÁRIO (Logout ou Token Expirado) ---
+        // --- CENÁRIO 2: SEM USUÁRIO ---
         console.log("Sem usuário autenticado.");
         currentUser = null;
         userProfile = null;
         if(unsubscribeData) unsubscribeData();
 
-        // AQUI ESTÁ O PULO DO GATO:
-        // Se o Firebase diz que não tem user, MAS temos o crachá e estamos offline,
-        // assumimos que é um erro de conexão e deixamos entrar.
         if (sessionActive === 'true' && !navigator.onLine) {
             console.log("Offline e com sessão salva. Entrando em modo offline.");
             loadAppOfflineMode();
         } else {
-            // Realmente deslogado ou online sem conta
             localStorage.removeItem('salvese_session_active');
             showLoginScreen();
         }
@@ -138,11 +130,8 @@ function showAppInterface() {
     if(appContent) appContent.classList.remove('hidden');
 
     updateUserInterfaceInfo();
-    
-    // Renderiza dados (já carregados do localStorage no início)
     refreshAllUI();
 
-    // Remove loading suavemente
     if(loadingScreen && !loadingScreen.classList.contains('hidden')) {
         loadingScreen.classList.add('opacity-0');
         setTimeout(() => loadingScreen.classList.add('hidden'), 500);
@@ -179,12 +168,11 @@ function showProfileSetupScreen() {
 }
 
 function loadAppOfflineMode() {
-    // Tenta recuperar perfil salvo localmente
     const savedProfile = localStorage.getItem('salvese_user_profile');
     if (savedProfile) {
         userProfile = JSON.parse(savedProfile);
     } else {
-        userProfile = { displayName: 'Modo Offline', handle: 'offline' };
+        userProfile = { displayName: 'Modo Offline', handle: 'offline', semester: 'N/A' };
     }
     showAppInterface();
 }
@@ -204,11 +192,10 @@ window.loginWithGoogle = async () => {
 window.logoutApp = async () => {
     try {
         await signOut(auth);
-        localStorage.removeItem('salvese_session_active'); // Remove o crachá
+        localStorage.removeItem('salvese_session_active'); 
         location.reload();
     } catch (error) {
         console.error("Erro ao sair:", error);
-        // Força limpeza local mesmo com erro
         localStorage.removeItem('salvese_session_active');
         location.reload();
     }
@@ -247,12 +234,12 @@ window.saveUserProfile = async () => {
             displayName: nameInput,
             email: currentUser.email,
             photoURL: currentUser.photoURL,
-            createdAt: new Date().toISOString()
+            createdAt: new Date().toISOString(),
+            semester: "N/A"
         };
         
         await setDoc(doc(db, "users", currentUser.uid), profileData);
 
-        // Salva dados iniciais vazios ou pega do localStorage
         const initialData = {
             schedule: JSON.parse(localStorage.getItem('salvese_schedule')) || [],
             tasks: JSON.parse(localStorage.getItem('salvese_tasks')) || [],
@@ -277,26 +264,33 @@ window.saveUserProfile = async () => {
 
 // 5. Sincronização Realtime
 function initRealtimeSync(uid) {
+    // Sincroniza dados do app (Tarefas, Aulas)
     const dataRef = doc(db, "users", uid, "data", "appData");
-
     unsubscribeData = onSnapshot(dataRef, (doc) => {
         if (doc.exists()) {
             const cloudData = doc.data();
-            
-            // Atualiza LocalStorage com dados da nuvem
             localStorage.setItem('salvese_schedule', JSON.stringify(cloudData.schedule || []));
             localStorage.setItem('salvese_tasks', JSON.stringify(cloudData.tasks || []));
             localStorage.setItem('salvese_reminders', JSON.stringify(cloudData.reminders || []));
 
-            // Atualiza variáveis globais
             scheduleData = cloudData.schedule || [];
             tasksData = cloudData.tasks || [];
             remindersData = cloudData.reminders || [];
 
             refreshAllUI();
         }
-    }, (error) => {
-        console.log("Modo offline ativo ou erro de permissão:", error.code);
+    }, (error) => console.log("Modo offline ou erro:", error.code));
+
+    // Sincroniza perfil (para pegar atualizações de foto/semestre)
+    onSnapshot(doc(db, "users", uid), (docSnap) => {
+        if(docSnap.exists()) {
+            userProfile = docSnap.data();
+            localStorage.setItem('salvese_user_profile', JSON.stringify(userProfile));
+            updateUserInterfaceInfo();
+            if (document.getElementById('view-config') && !document.getElementById('view-config').classList.contains('hidden')) {
+                window.renderSettings();
+            }
+        }
     });
 }
 
@@ -307,6 +301,8 @@ function updateUserInterfaceInfo() {
     if(userProfile) {
         if(nameDisplay) nameDisplay.innerText = userProfile.displayName;
         if(handleDisplay) handleDisplay.innerText = "@" + userProfile.handle;
+        // Atualiza foto se existir elemento de avatar no menu
+        const avatarImg = document.querySelector('.app-content-wrapper aside img'); // Exemplo se tiver
     }
 }
 
@@ -316,11 +312,141 @@ function refreshAllUI() {
     if (window.renderReminders) window.renderReminders();
     if (window.updateDashboardTasksWidget) window.updateDashboardTasksWidget();
     if (window.updateNextClassWidget) window.updateNextClassWidget();
+    if (window.renderSettings) window.renderSettings();
 }
 
 // ============================================================
-// --- CÓDIGO DA APLICAÇÃO (MANTIDO E OTIMIZADO) ---
+// --- CÓDIGO DA APLICAÇÃO ---
 // ============================================================
+
+// --- FUNÇÕES DE BACKUP MANUAL E CONFIGURAÇÕES ---
+
+window.manualBackup = async function() {
+    const btn = document.getElementById('btn-manual-backup');
+    if(btn) {
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando...';
+        btn.disabled = true;
+    }
+
+    await saveData();
+
+    // Simula delay visual para feedback
+    setTimeout(() => {
+        showModal('Backup', 'Seus dados foram sincronizados com a nuvem com sucesso!');
+        if(btn) {
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        }
+    }, 800);
+}
+
+window.editSemester = async function() {
+    const newSemester = prompt("Digite seu semestre de ingresso (ex: 2025.1):", userProfile.semester || "");
+    if (newSemester !== null && currentUser) {
+        try {
+            await setDoc(doc(db, "users", currentUser.uid), { semester: newSemester }, { merge: true });
+            // O onSnapshot vai atualizar a UI automaticamente
+        } catch (e) {
+            alert("Erro ao salvar semestre: " + e.message);
+        }
+    }
+}
+
+window.changePhoto = async function() {
+    const newUrl = prompt("Cole a URL da sua nova foto de perfil:", userProfile.photoURL || "");
+    if (newUrl && currentUser) {
+        try {
+            // Atualiza no Auth
+            await updateProfile(currentUser, { photoURL: newUrl });
+            // Atualiza no Firestore
+            await setDoc(doc(db, "users", currentUser.uid), { photoURL: newUrl }, { merge: true });
+            showModal("Sucesso", "Foto de perfil atualizada!");
+        } catch (e) {
+            alert("Erro ao atualizar foto: " + e.message);
+        }
+    }
+}
+
+window.changePassword = async function() {
+    if (currentUser && currentUser.email) {
+        if(confirm(`Enviar e-mail de redefinição de senha para ${currentUser.email}?`)) {
+            try {
+                await sendPasswordResetEmail(auth, currentUser.email);
+                showModal("E-mail Enviado", "Verifique sua caixa de entrada para redefinir a senha.");
+            } catch (e) {
+                alert("Erro: " + e.message);
+            }
+        }
+    }
+}
+
+window.renderSettings = function() {
+    const container = document.getElementById('settings-content');
+    if (!container || !userProfile) return;
+
+    // Formata a data de registro
+    let dateStr = "N/A";
+    if (userProfile.createdAt) {
+        const date = new Date(userProfile.createdAt);
+        dateStr = date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
+    }
+
+    // Foto ou placeholder
+    const photo = userProfile.photoURL || "https://files.catbox.moe/pmdtq6.png";
+
+    container.innerHTML = `
+        <div class="bg-white dark:bg-darkcard rounded-2xl shadow-sm border border-gray-200 dark:border-darkborder p-8 max-w-4xl mx-auto">
+            <div class="flex flex-col md:flex-row items-start gap-8">
+                <!-- Avatar -->
+                <div class="w-32 h-32 md:w-40 md:h-40 rounded-2xl overflow-hidden bg-gray-100 shrink-0 relative group">
+                    <img src="${photo}" class="w-full h-full object-cover" onerror="this.src='https://files.catbox.moe/pmdtq6.png'">
+                    <div class="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition flex items-center justify-center cursor-pointer" onclick="changePhoto()">
+                        <i class="fas fa-camera text-white text-2xl"></i>
+                    </div>
+                </div>
+
+                <!-- Info -->
+                <div class="flex-1 w-full">
+                    <div class="flex justify-between items-start mb-6">
+                        <div>
+                            <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-1">${userProfile.displayName}</h2>
+                            <p class="text-gray-500 dark:text-gray-400 text-sm">${userProfile.email}</p>
+                        </div>
+                        <button onclick="changePhoto()" class="px-4 py-2 bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-neutral-700 transition shadow-sm">
+                            <i class="fas fa-upload mr-2"></i> Mudar Foto
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                        <div>
+                            <p class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Data de Registro</p>
+                            <p class="text-gray-800 dark:text-gray-200 font-medium">${dateStr}</p>
+                        </div>
+                        <div>
+                            <p class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Semestre de Ingresso</p>
+                            <p class="text-gray-800 dark:text-gray-200 font-medium">${userProfile.semester || 'N/A'}</p>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-wrap gap-3 pt-4 border-t border-gray-100 dark:border-neutral-800">
+                        <button onclick="editSemester()" class="px-4 py-2 bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-lg text-sm font-medium hover:text-indigo-600 dark:hover:text-indigo-400 transition">
+                            Editar Semestre
+                        </button>
+                        <button onclick="logoutApp()" class="px-4 py-2 bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-lg text-sm font-medium hover:text-red-600 transition">
+                            Trocar de Conta
+                        </button>
+                        <button onclick="changePassword()" class="px-4 py-2 bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-lg text-sm font-medium hover:text-indigo-600 transition">
+                            Trocar Senha
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// --- FIM FUNÇÕES NOVAS ---
 
 function initTheme() {
     if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
@@ -345,7 +471,7 @@ window.toggleTheme = function() {
 
 // --- PWA SETUP ---
 const manifest = {
-    "name": "Salve-se Painel",
+    "name": "Salve-se UFRB",
     "short_name": "Salve-se",
     "start_url": ".",
     "display": "standalone",
@@ -373,7 +499,6 @@ if ('serviceWorker' in navigator) {
             .catch(err => console.log('SW falhou:', err));
     });
 
-    // Prompt de instalação
     let deferredPrompt;
     window.addEventListener('beforeinstallprompt', (e) => {
         e.preventDefault();
@@ -391,7 +516,6 @@ if ('serviceWorker' in navigator) {
         }
     });
 
-    // Monitoramento de Rede
     function updateNetworkStatus() {
         const toast = document.getElementById('network-toast');
         const text = document.getElementById('network-text');
@@ -403,7 +527,7 @@ if ('serviceWorker' in navigator) {
                 text.innerText = 'Online';
                 icon.className = 'fas fa-wifi';
                 setTimeout(() => toast.classList.remove('show'), 3000);
-                if(currentUser) refreshAllUI(); // Sincroniza ao voltar
+                if(currentUser) refreshAllUI(); 
             } else {
                 toast.className = 'network-status offline show';
                 text.innerText = 'Offline';
@@ -415,7 +539,7 @@ if ('serviceWorker' in navigator) {
     window.addEventListener('offline', updateNetworkStatus);
 }
 
-// --- GESTÃO DE DADOS (CARREGA PRIMEIRO DO LOCAL) ---
+// --- GESTÃO DE DADOS ---
 let scheduleData = JSON.parse(localStorage.getItem('salvese_schedule')) || [];
 let tasksData = JSON.parse(localStorage.getItem('salvese_tasks')) || [];
 let remindersData = JSON.parse(localStorage.getItem('salvese_reminders')) || [];
@@ -443,7 +567,6 @@ async function saveData() {
             // setDoc com merge: funciona mesmo offline (entra na fila do IndexedDB)
             await setDoc(doc(db, "users", currentUser.uid, "data", "appData"), dataToSave, { merge: true });
         } catch (e) {
-            // Silencioso: erro de rede é normal
             console.log("Salvamento local ok. Nuvem pendente.");
         }
     }
@@ -1190,7 +1313,6 @@ window.renderReminders = function() {
 
 // Inicialização
 document.addEventListener('DOMContentLoaded', () => {
-    // Renderiza imediatamente o que estiver no localStorage
     window.renderTasks();
     window.renderReminders();
     if (window.renderSchedule) window.renderSchedule();
@@ -1332,11 +1454,12 @@ window.switchPage = function(pageId, addToHistory = true) {
         }
     });
 
-    const titles = { home: 'Página Principal', onibus: 'Transporte', calc: 'Calculadora', pomo: 'Modo Foco', todo: 'Tarefas', email: 'Templates', aulas: 'Grade Horária', fluxo: 'Fluxograma' };
+    const titles = { home: 'Página Principal', onibus: 'Transporte', calc: 'Calculadora', pomo: 'Modo Foco', todo: 'Tarefas', email: 'Templates', aulas: 'Grade Horária', config: 'Configurações' };
     const pageTitleEl = document.getElementById('page-title');
-    if (pageTitleEl) pageTitleEl.innerText = titles[pageId] || 'Salve-se';
+    if (pageTitleEl) pageTitleEl.innerText = titles[pageId] || 'Salve-se UFRB';
     
     if(pageId === 'aulas' && window.renderSchedule) window.renderSchedule();
+    if(pageId === 'config' && window.renderSettings) window.renderSettings();
 
     if(addToHistory) {
         history.pushState({view: pageId}, null, `#${pageId}`);

@@ -35,73 +35,159 @@ const db = getFirestore(app);
 // Tenta habilitar persistência offline do próprio Firestore (cache extra)
 try {
     enableIndexedDbPersistence(db).catch((err) => {
-        if (err.code == 'failed-precondition') {
-            console.log('Múltiplas abas abertas, persistência habilitada em apenas uma.');
-        } else if (err.code == 'unimplemented') {
-            console.log('Navegador não suporta persistência.');
-        }
+        console.log("Persistência Firestore:", err.code);
     });
 } catch (e) { console.log("Persistência já ativa ou não suportada"); }
 
 // Variáveis Globais de Usuário
 let currentUser = null;
 let userProfile = null;
-let unsubscribeData = null; // Para parar de ouvir o banco se deslogar
+let unsubscribeData = null;
 
 // ============================================================
-// --- LÓGICA DE AUTENTICAÇÃO & SINCRONIZAÇÃO ---
+// --- SISTEMA DE BOOTSTRAP INTELIGENTE (RESOLVE O BUG) ---
 // ============================================================
+
+// Verifica se existe uma sessão ativa salva no localStorage (O "Crachá")
+const sessionActive = localStorage.getItem('salvese_session_active');
+
+// Timer de Segurança: Se o Firebase demorar mais que 2s (internet ruim ou offline), força a entrada
+const forceLoadTimeout = setTimeout(() => {
+    const loadingScreen = document.getElementById('loading-screen');
+    if (loadingScreen && !loadingScreen.classList.contains('hidden')) {
+        console.warn("Firebase demorou. Verificando modo offline...");
+        
+        if (sessionActive === 'true') {
+            // Se o usuário já logou antes, deixamos ele entrar com os dados locais
+            console.log("Sessão local encontrada. Forçando entrada offline.");
+            loadAppOfflineMode(); 
+        } else {
+            // Se nunca logou, aí sim mostramos o login
+            showLoginScreen();
+        }
+    }
+}, 2000); // 2 segundos de tolerância
 
 // 1. Monitora Estado do Usuário (Login/Logout)
 onAuthStateChanged(auth, async (user) => {
-    const loginScreen = document.getElementById('login-screen');
-    const profileScreen = document.getElementById('profile-setup-screen');
-    const appContent = document.querySelector('.app-content-wrapper'); 
-    const loadingScreen = document.getElementById('loading-screen'); // Referência ao Loading
+    // Cancela o timer de segurança pois o Firebase respondeu
+    clearTimeout(forceLoadTimeout);
 
     if (user) {
+        // --- CENÁRIO 1: USUÁRIO LOGADO (Online ou Cache Auth) ---
+        console.log("Usuário autenticado pelo Firebase.");
         currentUser = user;
-        // Verifica se já tem perfil criado (handle único)
-        const docRef = doc(db, "users", user.uid);
         
-        // Pequena otimização: tentar ler do cache local primeiro se possível, ou deixar o loading rodar
-        const docSnap = await getDoc(docRef);
+        // Renova o "Crachá" local
+        localStorage.setItem('salvese_session_active', 'true');
 
-        if (docSnap.exists()) {
-            // Usuário logado e com perfil -> Vai para o App
-            userProfile = docSnap.data();
-            
-            if(loginScreen) loginScreen.classList.add('hidden');
-            if(profileScreen) profileScreen.classList.add('hidden');
-            if(appContent) appContent.classList.remove('hidden');
-            
-            updateUserInterfaceInfo();
-            initRealtimeSync(user.uid); // Inicia sincronização
-        } else {
-            // Usuário logado, mas sem handle -> Vai para Setup de Perfil
-            if(loginScreen) loginScreen.classList.add('hidden');
-            if(profileScreen) profileScreen.classList.remove('hidden');
-            if(appContent) appContent.classList.add('hidden');
+        // Tenta buscar perfil (Cache first para velocidade)
+        try {
+            const docRef = doc(db, "users", user.uid);
+            const docSnap = await getDoc(docRef); // Isso lê do cache se offline
+
+            if (docSnap.exists()) {
+                userProfile = docSnap.data();
+                // Atualiza dados locais do perfil caso tenham mudado
+                localStorage.setItem('salvese_user_profile', JSON.stringify(userProfile));
+                
+                showAppInterface(); // Mostra o App
+                initRealtimeSync(user.uid); // Tenta sincronizar
+            } else {
+                // Usuário logado mas sem perfil -> Setup
+                showProfileSetupScreen();
+            }
+        } catch (e) {
+            console.error("Erro ao buscar perfil (provavelmente offline sem cache):", e);
+            // Se der erro mas tivermos sessão, tenta carregar modo offline
+            if (sessionActive === 'true') loadAppOfflineMode();
+            else showProfileSetupScreen();
         }
+
     } else {
-        // Deslogado -> Mostra Login
+        // --- CENÁRIO 2: SEM USUÁRIO (Logout ou Token Expirado) ---
+        console.log("Sem usuário autenticado.");
         currentUser = null;
         userProfile = null;
-        if(unsubscribeData) unsubscribeData(); // Para de ouvir Firebase
+        if(unsubscribeData) unsubscribeData();
 
-        if(loginScreen) loginScreen.classList.remove('hidden'); // Agora mostramos o login explicitamente
-        if(profileScreen) profileScreen.classList.add('hidden');
-        if(appContent) appContent.classList.add('hidden');
-    }
-
-    // Remove a tela de carregamento com uma transição suave
-    if(loadingScreen && !loadingScreen.classList.contains('hidden')) {
-        loadingScreen.classList.add('opacity-0');
-        setTimeout(() => {
-            loadingScreen.classList.add('hidden');
-        }, 500); // Tempo igual ao duration-500 do CSS
+        // AQUI ESTÁ O PULO DO GATO:
+        // Se o Firebase diz que não tem user, MAS temos o crachá e estamos offline,
+        // assumimos que é um erro de conexão e deixamos entrar.
+        if (sessionActive === 'true' && !navigator.onLine) {
+            console.log("Offline e com sessão salva. Entrando em modo offline.");
+            loadAppOfflineMode();
+        } else {
+            // Realmente deslogado ou online sem conta
+            localStorage.removeItem('salvese_session_active');
+            showLoginScreen();
+        }
     }
 });
+
+// --- FUNÇÕES AUXILIARES DE UI ---
+
+function showAppInterface() {
+    const loginScreen = document.getElementById('login-screen');
+    const profileScreen = document.getElementById('profile-setup-screen');
+    const appContent = document.querySelector('.app-content-wrapper');
+    const loadingScreen = document.getElementById('loading-screen');
+
+    if(loginScreen) loginScreen.classList.add('hidden');
+    if(profileScreen) profileScreen.classList.add('hidden');
+    if(appContent) appContent.classList.remove('hidden');
+
+    updateUserInterfaceInfo();
+    
+    // Renderiza dados (já carregados do localStorage no início)
+    refreshAllUI();
+
+    // Remove loading suavemente
+    if(loadingScreen && !loadingScreen.classList.contains('hidden')) {
+        loadingScreen.classList.add('opacity-0');
+        setTimeout(() => loadingScreen.classList.add('hidden'), 500);
+    }
+}
+
+function showLoginScreen() {
+    const loginScreen = document.getElementById('login-screen');
+    const profileScreen = document.getElementById('profile-setup-screen');
+    const appContent = document.querySelector('.app-content-wrapper');
+    const loadingScreen = document.getElementById('loading-screen');
+
+    if(loginScreen) loginScreen.classList.remove('hidden');
+    if(profileScreen) profileScreen.classList.add('hidden');
+    if(appContent) appContent.classList.add('hidden');
+
+    if(loadingScreen && !loadingScreen.classList.contains('hidden')) {
+        loadingScreen.classList.add('opacity-0');
+        setTimeout(() => loadingScreen.classList.add('hidden'), 500);
+    }
+}
+
+function showProfileSetupScreen() {
+    const loginScreen = document.getElementById('login-screen');
+    const profileScreen = document.getElementById('profile-setup-screen');
+    const appContent = document.querySelector('.app-content-wrapper');
+    const loadingScreen = document.getElementById('loading-screen');
+
+    if(loginScreen) loginScreen.classList.add('hidden');
+    if(profileScreen) profileScreen.classList.remove('hidden');
+    if(appContent) appContent.classList.add('hidden');
+    
+    if(loadingScreen) loadingScreen.classList.add('hidden');
+}
+
+function loadAppOfflineMode() {
+    // Tenta recuperar perfil salvo localmente
+    const savedProfile = localStorage.getItem('salvese_user_profile');
+    if (savedProfile) {
+        userProfile = JSON.parse(savedProfile);
+    } else {
+        userProfile = { displayName: 'Modo Offline', handle: 'offline' };
+    }
+    showAppInterface();
+}
 
 // 2. Função de Login Google
 window.loginWithGoogle = async () => {
@@ -118,10 +204,13 @@ window.loginWithGoogle = async () => {
 window.logoutApp = async () => {
     try {
         await signOut(auth);
-        // Limpa dados visuais sensíveis se necessário, mas mantém LocalStorage para uso offline futuro
+        localStorage.removeItem('salvese_session_active'); // Remove o crachá
         location.reload();
     } catch (error) {
         console.error("Erro ao sair:", error);
+        // Força limpeza local mesmo com erro
+        localStorage.removeItem('salvese_session_active');
+        location.reload();
     }
 };
 
@@ -136,7 +225,6 @@ window.saveUserProfile = async () => {
         return;
     }
 
-    // Regex para permitir apenas letras, numeros e underscore
     const handleRegex = /^[a-z0-9_]+$/;
     if (!handleRegex.test(handleInput)) {
         errorMsg.innerText = "Usuário deve conter apenas letras minúsculas, números e _";
@@ -144,22 +232,16 @@ window.saveUserProfile = async () => {
     }
 
     try {
-        // Verifica se o handle já existe na coleção 'usernames'
         const usernameRef = doc(db, "usernames", handleInput);
         const usernameSnap = await getDoc(usernameRef);
 
         if (usernameSnap.exists()) {
-            errorMsg.innerText = "Este nome de usuário já está em uso. Escolha outro.";
+            errorMsg.innerText = "Este nome de usuário já está em uso.";
             return;
         }
 
-        // Se não existe, cria as referências
-        const batch =  // Operação em lote (atômica)
-        
-        // 1. Reserva o username
         await setDoc(doc(db, "usernames", handleInput), { uid: currentUser.uid });
         
-        // 2. Cria o perfil do usuário
         const profileData = {
             handle: handleInput,
             displayName: nameInput,
@@ -170,7 +252,7 @@ window.saveUserProfile = async () => {
         
         await setDoc(doc(db, "users", currentUser.uid), profileData);
 
-        // 3. Salva dados iniciais vazios ou pega do localStorage se o usuário já usava offline
+        // Salva dados iniciais vazios ou pega do localStorage
         const initialData = {
             schedule: JSON.parse(localStorage.getItem('salvese_schedule')) || [],
             tasks: JSON.parse(localStorage.getItem('salvese_tasks')) || [],
@@ -180,46 +262,41 @@ window.saveUserProfile = async () => {
         
         await setDoc(doc(db, "users", currentUser.uid, "data", "appData"), initialData);
 
-        // Atualiza estado local e força recarregamento da UI
         userProfile = profileData;
-        document.getElementById('profile-setup-screen').classList.add('hidden');
-        document.querySelector('.app-content-wrapper').classList.remove('hidden');
-        updateUserInterfaceInfo();
+        localStorage.setItem('salvese_session_active', 'true');
+        localStorage.setItem('salvese_user_profile', JSON.stringify(userProfile));
+
+        showAppInterface();
         initRealtimeSync(currentUser.uid);
 
     } catch (error) {
         console.error("Erro ao criar perfil:", error);
-        errorMsg.innerText = "Erro ao salvar perfil. Tente novamente.";
+        errorMsg.innerText = "Erro ao salvar perfil. Verifique sua conexão.";
     }
 };
 
-// 5. Sincronização Realtime (O Coração do Híbrido)
+// 5. Sincronização Realtime
 function initRealtimeSync(uid) {
     const dataRef = doc(db, "users", uid, "data", "appData");
 
-    // Escuta mudanças no Firebase
     unsubscribeData = onSnapshot(dataRef, (doc) => {
         if (doc.exists()) {
             const cloudData = doc.data();
-            console.log("Dados recebidos da nuvem:", cloudData);
-
-            // LÓGICA DE CONFLITO SIMPLES:
-            // Se a nuvem mudar, atualizamos o LocalStorage e a Tela.
-            // Isso garante que se você usou o celular, o PC atualiza.
             
-            // Salva no LocalStorage
+            // Atualiza LocalStorage com dados da nuvem
             localStorage.setItem('salvese_schedule', JSON.stringify(cloudData.schedule || []));
             localStorage.setItem('salvese_tasks', JSON.stringify(cloudData.tasks || []));
             localStorage.setItem('salvese_reminders', JSON.stringify(cloudData.reminders || []));
 
-            // Atualiza variáveis globais do script antigo
+            // Atualiza variáveis globais
             scheduleData = cloudData.schedule || [];
             tasksData = cloudData.tasks || [];
             remindersData = cloudData.reminders || [];
 
-            // Re-renderiza a interface
             refreshAllUI();
         }
+    }, (error) => {
+        console.log("Modo offline ativo ou erro de permissão:", error.code);
     });
 }
 
@@ -241,12 +318,10 @@ function refreshAllUI() {
     if (window.updateNextClassWidget) window.updateNextClassWidget();
 }
 
-
 // ============================================================
-// --- CÓDIGO ORIGINAL DA APLICAÇÃO (ADAPTADO) ---
+// --- CÓDIGO DA APLICAÇÃO (MANTIDO E OTIMIZADO) ---
 // ============================================================
 
-// --- LÓGICA DE TEMA (INICIALIZAÇÃO) ---
 function initTheme() {
     if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
         document.documentElement.classList.add('dark');
@@ -268,7 +343,7 @@ window.toggleTheme = function() {
     }
 }
 
-// --- LÓGICA PWA E OFFLINE ---
+// --- PWA SETUP ---
 const manifest = {
     "name": "Salve-se Painel",
     "short_name": "Salve-se",
@@ -298,6 +373,7 @@ if ('serviceWorker' in navigator) {
             .catch(err => console.log('SW falhou:', err));
     });
 
+    // Prompt de instalação
     let deferredPrompt;
     window.addEventListener('beforeinstallprompt', (e) => {
         e.preventDefault();
@@ -315,6 +391,7 @@ if ('serviceWorker' in navigator) {
         }
     });
 
+    // Monitoramento de Rede
     function updateNetworkStatus() {
         const toast = document.getElementById('network-toast');
         const text = document.getElementById('network-text');
@@ -326,9 +403,7 @@ if ('serviceWorker' in navigator) {
                 text.innerText = 'Online';
                 icon.className = 'fas fa-wifi';
                 setTimeout(() => toast.classList.remove('show'), 3000);
-                
-                // Se voltar a ficar online, tenta sincronizar dados pendentes (O Firestore faz isso sozinho, mas forçamos atualização da UI)
-                if(currentUser) refreshAllUI();
+                if(currentUser) refreshAllUI(); // Sincroniza ao voltar
             } else {
                 toast.className = 'network-status offline show';
                 text.innerText = 'Offline';
@@ -336,33 +411,27 @@ if ('serviceWorker' in navigator) {
             }
         }
     }
-
     window.addEventListener('online', updateNetworkStatus);
     window.addEventListener('offline', updateNetworkStatus);
 }
 
-// --- GESTÃO DE DADOS (MODIFICADO PARA FIREBASE) ---
-
-// Inicializa com LocalStorage para ser RÁPIDO e OFFLINE FIRST
+// --- GESTÃO DE DADOS (CARREGA PRIMEIRO DO LOCAL) ---
 let scheduleData = JSON.parse(localStorage.getItem('salvese_schedule')) || [];
 let tasksData = JSON.parse(localStorage.getItem('salvese_tasks')) || [];
 let remindersData = JSON.parse(localStorage.getItem('salvese_reminders')) || [];
 let selectedClassIdToDelete = null;
-
 let currentTaskFilter = 'all'; 
 
-// FUNÇÃO SAVEDATA ATUALIZADA
 async function saveData() {
-    // 1. Salva Localmente (Sempre, funciona offline)
+    // 1. Salva Localmente (Imediato)
     localStorage.setItem('salvese_schedule', JSON.stringify(scheduleData));
     localStorage.setItem('salvese_tasks', JSON.stringify(tasksData));
     localStorage.setItem('salvese_reminders', JSON.stringify(remindersData));
 
-    // 2. Atualiza UI Local
+    // 2. Atualiza UI
     refreshAllUI();
 
-    // 3. Salva no Firebase (Se logado)
-    // O Firestore gerencia a fila se estiver offline automaticamente via enableIndexedDbPersistence
+    // 3. Tenta Salvar no Firebase (Se tiver usuário)
     if (currentUser) {
         try {
             const dataToSave = {
@@ -371,17 +440,16 @@ async function saveData() {
                 reminders: remindersData,
                 lastUpdated: new Date().toISOString()
             };
-            // Usamos setDoc com merge para não apagar outros campos se houver
+            // setDoc com merge: funciona mesmo offline (entra na fila do IndexedDB)
             await setDoc(doc(db, "users", currentUser.uid, "data", "appData"), dataToSave, { merge: true });
-            console.log("Dados sincronizados com a nuvem.");
         } catch (e) {
-            console.error("Erro ao sincronizar nuvem (provavelmente offline, será enviado depois):", e);
+            // Silencioso: erro de rede é normal
+            console.log("Salvamento local ok. Nuvem pendente.");
         }
     }
 }
 
-// --- LÓGICA DE TAREFAS (TODO) ---
-
+// --- LÓGICA DE TAREFAS ---
 window.addTask = function () {
     const input = document.getElementById('todo-input');
     const priorityInput = document.getElementById('todo-priority'); 
@@ -571,30 +639,18 @@ window.updateDashboardTasksWidget = function() {
     }
 };
 
-
-// --- CONFIGURAÇÃO DE HORÁRIOS ---
+// --- GRADE HORÁRIA ---
 const timeSlots = [
-    { start: "07:00", end: "08:00" },
-    { start: "08:00", end: "09:00" },
-    { start: "09:00", end: "10:00" },
-    { start: "10:00", end: "11:00" },
-    { start: "11:00", end: "12:00" },
-    { start: "12:00", end: "13:00" },
-    { start: "13:00", end: "14:00" },
-    { start: "14:00", end: "15:00" },
-    { start: "15:00", end: "16:00" },
-    { start: "16:00", end: "17:00" },
-    { start: "17:00", end: "18:00" }, 
-    { start: "18:30", end: "19:30" }, 
-    { start: "19:30", end: "20:30" },
-    { start: "20:30", end: "21:30" },
-    { start: "21:30", end: "22:30" }
+    { start: "07:00", end: "08:00" }, { start: "08:00", end: "09:00" }, { start: "09:00", end: "10:00" },
+    { start: "10:00", end: "11:00" }, { start: "11:00", end: "12:00" }, { start: "12:00", end: "13:00" },
+    { start: "13:00", end: "14:00" }, { start: "14:00", end: "15:00" }, { start: "15:00", end: "16:00" },
+    { start: "16:00", end: "17:00" }, { start: "17:00", end: "18:00" }, { start: "18:30", end: "19:30" },
+    { start: "19:30", end: "20:30" }, { start: "20:30", end: "21:30" }, { start: "21:30", end: "22:30" }
 ];
 
 const daysList = ['seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
 const daysDisplay = {'seg': 'Seg', 'ter': 'Ter', 'qua': 'Qua', 'qui': 'Qui', 'sex': 'Sex', 'sab': 'Sab'};
 
-// --- SISTEMA DE GRADE ---
 window.renderSchedule = function () {
     const viewContainer = document.getElementById('view-aulas');
     if (!viewContainer) return;

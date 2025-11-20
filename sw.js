@@ -1,4 +1,4 @@
-const CACHE_NAME = 'salvese-v6.0-hybrid'; // Atualize a versão se mudar o código
+const CACHE_NAME = 'salvese-v7.0-offline-fix'; // Nova versão para limpar cache antigo
 const URLS_TO_CACHE = [
     './',
     './index.html',
@@ -13,15 +13,14 @@ const URLS_TO_CACHE = [
     'https://www.svgrepo.com/show/475656/google-color.svg'
 ];
 
-// 1. Instalação: Cacheia o básico imediatamente
+// 1. Instalação
 self.addEventListener('install', event => {
-    self.skipWaiting(); // Força ativação
+    self.skipWaiting();
     event.waitUntil(
         caches.open(CACHE_NAME).then(cache => {
-            // Tenta cachear tudo, mas não falha se uma imagem externa falhar (opcional)
             return Promise.all(
                 URLS_TO_CACHE.map(url => {
-                    return fetch(url, { mode: 'no-cors' }) // no-cors para CDNs externos
+                    return fetch(url, { mode: 'no-cors' })
                         .then(response => {
                             if (response) return cache.put(url, response);
                         })
@@ -32,7 +31,7 @@ self.addEventListener('install', event => {
     );
 });
 
-// 2. Ativação: Limpa caches antigos
+// 2. Ativação e Limpeza
 self.addEventListener('activate', event => {
     const cacheWhitelist = [CACHE_NAME];
     event.waitUntil(
@@ -40,7 +39,6 @@ self.addEventListener('activate', event => {
             return Promise.all(
                 cacheNames.map(cacheName => {
                     if (cacheWhitelist.indexOf(cacheName) === -1) {
-                        console.log('Deletando cache antigo:', cacheName);
                         return caches.delete(cacheName);
                     }
                 })
@@ -49,21 +47,20 @@ self.addEventListener('activate', event => {
     );
 });
 
-// 3. Interceptação: ESTRATÉGIA HÍBRIDA (Stale-While-Revalidate para App Shell)
-// Isso carrega o cache instantaneamente, mas busca atualização em segundo plano.
+// 3. Interceptação (AGORA INCLUINDO FIREBASE JS)
 self.addEventListener('fetch', event => {
-    // Ignora requisições para o Firebase/Firestore (deixe o SDK lidar com isso)
-    if (event.request.url.includes('firestore.googleapis.com') || 
-        event.request.url.includes('googleapis.com/auth') ||
-        event.request.url.includes('firebase')) {
+    // Ignora APENAS chamadas de dados (Firestore/Auth API), mas permite os SCRIPTS JS
+    const url = event.request.url;
+    if (url.includes('firestore.googleapis.com') || 
+        url.includes('googleapis.com/auth') || 
+        (url.includes('firebase') && !url.endsWith('.js'))) {
         return; 
     }
 
     event.respondWith(
         caches.match(event.request).then(cachedResponse => {
-            // Se tem cache, retorna ele
             const fetchPromise = fetch(event.request).then(networkResponse => {
-                // E atualiza o cache em segundo plano para a próxima vez
+                // Atualiza cache em background se tiver internet
                 if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
                      const responseToCache = networkResponse.clone();
                      caches.open(CACHE_NAME).then(cache => {
@@ -72,7 +69,7 @@ self.addEventListener('fetch', event => {
                 }
                 return networkResponse;
             }).catch(() => {
-                // Se falhar a rede, tudo bem, já retornamos o cache se existir
+                // Falha silenciosa se offline
             });
 
             return cachedResponse || fetchPromise;

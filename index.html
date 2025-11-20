@@ -13,9 +13,9 @@
     <link rel="apple-touch-icon" href="https://files.catbox.moe/pmdtq6.png">
 
     <!-- CSS Externo -->
-    <link rel="stylesheet" href="style.css?v=13">
+    <link rel="stylesheet" href="style.css?v=14">
 
-    <!-- Tailwind CSS (Configurado para Variáveis Dinâmicas) -->
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -27,8 +27,6 @@
                         darkcard: '#18181b',
                         darkborder: '#27272a',
                         darkhover: '#27272a',
-                        // Truque: Mapeamos 'indigo' para as variáveis CSS.
-                        // Assim, bg-indigo-500 muda de cor conforme o tema escolhido (Rosa, Preto, etc).
                         indigo: {
                             50: 'rgb(var(--theme-50) / <alpha-value>)',
                             100: 'rgb(var(--theme-100) / <alpha-value>)',
@@ -560,6 +558,7 @@
                                     <button onclick="addTask()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 rounded-lg transition font-bold shadow-md flex items-center justify-center"><i class="fas fa-plus"></i></button>
                                 </div>
                                 
+                                <!-- SELETORES QUE SERÃO HIDRATADOS PELO SCRIPT.JS -->
                                 <div class="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
                                     <select id="todo-category" class="bg-white dark:bg-neutral-800 border border-gray-300 dark:border-neutral-700 text-gray-700 dark:text-gray-300 text-xs rounded-lg px-3 py-2 focus:outline-none focus:border-indigo-500">
                                         <option value="geral">Geral</option>
@@ -692,11 +691,13 @@
             <button onclick="showReminderForm()" id="btn-add-reminder" class="w-full py-3 border border-gray-200 dark:border-neutral-700 rounded-lg flex items-center justify-center gap-2 hover:bg-gray-50 dark:hover:bg-neutral-800 transition text-gray-700 dark:text-gray-300 font-medium mb-4">
                 <i class="fas fa-plus text-sm"></i> Adicionar Novo Lembrete
             </button>
+            
+            <!-- FORMULÁRIO DE LEMBRETE (HIDRATADO PELO SCRIPT.JS) -->
             <div id="reminder-form" class="hidden mb-6 bg-gray-50 dark:bg-neutral-800/50 p-4 rounded-xl border border-gray-200 dark:border-neutral-700 space-y-3">
                 <input type="text" id="rem-desc" class="w-full bg-white dark:bg-neutral-900 border border-gray-300 dark:border-neutral-700 rounded-lg px-3 py-2.5 outline-none text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 transition placeholder-gray-400" placeholder="Descrição do lembrete...">
-                <div class="flex gap-2">
+                <div class="flex gap-2 flex-col sm:flex-row">
                     <input type="date" id="rem-date" class="flex-1 bg-white dark:bg-neutral-900 border border-gray-300 dark:border-neutral-700 rounded-lg px-3 py-2.5 outline-none text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 transition text-sm">
-                    <select id="rem-prio" class="w-32 bg-white dark:bg-neutral-900 border border-gray-300 dark:border-neutral-700 rounded-lg px-3 py-2.5 outline-none text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 transition text-sm">
+                    <select id="rem-prio" class="w-full sm:w-32 bg-white dark:bg-neutral-900 border border-gray-300 dark:border-neutral-700 rounded-lg px-3 py-2.5 outline-none text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 transition text-sm">
                         <option value="low">Baixa</option>
                         <option value="medium" selected>Média</option>
                         <option value="high">Alta</option>
@@ -707,6 +708,7 @@
                     <button onclick="addReminder()" class="px-4 py-2 text-sm font-bold text-white bg-gray-900 dark:bg-white dark:text-black hover:opacity-90 rounded-lg transition shadow-sm">Salvar</button>
                 </div>
             </div>
+            
             <div id="reminders-list-modal" class="flex-1 overflow-y-auto space-y-2 pr-1">
                 <div class="flex flex-col items-center justify-center h-32 text-gray-400">
                     <i class="fas fa-exclamation-circle text-2xl mb-2 opacity-50"></i>

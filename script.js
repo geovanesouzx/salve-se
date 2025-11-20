@@ -48,7 +48,7 @@ let userProfile = null;
 let unsubscribeData = null;
 
 // ============================================================
-// --- ÍCONES SVG (Estilo Fino/Outline) ---
+// --- ÍCONES SVG ---
 // ============================================================
 const svgs = {
     photo: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>`,
@@ -56,10 +56,234 @@ const svgs = {
     at: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-3.92 7.94"/></svg>`,
     school: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>`,
     lock: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`,
-    cloud: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19c0-3.037-2.463-5.5-5.5-5.5S6.5 15.963 6.5 19"/><path d="M12 13.5V4"/><path d="M7 9l5-5 5 5"/></svg>`, // Upload icon adaptado
+    cloud: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19c0-3.037-2.463-5.5-5.5-5.5S6.5 15.963 6.5 19"/><path d="M12 13.5V4"/><path d="M7 9l5-5 5 5"/></svg>`,
     logout: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>`,
-    chevron: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`
+    chevron: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`,
+    chevronDown: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>`,
+    calendar: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`
 };
+
+// ============================================================
+// --- SISTEMA DE CUSTOM UI (NOVO) ---
+// Substitui Selects e DatePickers nativos por versões bonitas
+// ============================================================
+
+function initCustomUI() {
+    // Substitui Selects
+    document.querySelectorAll('select:not(.custom-init)').forEach(createCustomSelect);
+    // Substitui Date Inputs
+    document.querySelectorAll('input[type="date"]:not(.custom-init)').forEach(createCustomDatePicker);
+}
+
+function createCustomSelect(select) {
+    select.classList.add('custom-init', 'hidden'); // Esconde o original
+    
+    const wrapper = document.createElement('div');
+    wrapper.className = 'relative inline-block w-full';
+    
+    // Trigger Button
+    const trigger = document.createElement('button');
+    trigger.type = 'button';
+    trigger.className = 'w-full flex items-center justify-between bg-white dark:bg-neutral-900 border border-gray-300 dark:border-neutral-700 rounded-lg px-3 py-2.5 text-sm text-gray-700 dark:text-gray-300 focus:ring-2 focus:ring-indigo-500 transition';
+    
+    const labelSpan = document.createElement('span');
+    labelSpan.innerText = select.options[select.selectedIndex]?.text || 'Selecione';
+    
+    trigger.appendChild(labelSpan);
+    trigger.innerHTML += svgs.chevronDown;
+    
+    // Dropdown Menu
+    const menu = document.createElement('div');
+    menu.className = 'absolute z-50 mt-1 w-full bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-lg shadow-xl hidden overflow-hidden';
+    
+    // Options
+    Array.from(select.options).forEach(opt => {
+        const item = document.createElement('div');
+        item.className = 'px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer transition flex items-center gap-2';
+        item.innerText = opt.text;
+        
+        // Adiciona indicador visual se for prioridade (opcional)
+        if(opt.value === 'high') item.classList.add('font-bold', 'text-red-500');
+        if(opt.value === 'medium') item.classList.add('font-medium', 'text-orange-500');
+
+        item.onclick = () => {
+            select.value = opt.value;
+            labelSpan.innerText = opt.text;
+            // Dispara evento change no select original
+            const event = new Event('change');
+            select.dispatchEvent(event);
+            
+            menu.classList.add('hidden');
+        };
+        menu.appendChild(item);
+    });
+
+    // Toggle Logic
+    trigger.onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        document.querySelectorAll('.custom-select-menu').forEach(m => {
+            if(m !== menu) m.classList.add('hidden');
+        });
+        menu.classList.toggle('hidden');
+    };
+    
+    menu.classList.add('custom-select-menu');
+
+    // Fecha ao clicar fora
+    document.addEventListener('click', (e) => {
+        if (!wrapper.contains(e.target)) menu.classList.add('hidden');
+    });
+
+    wrapper.appendChild(trigger);
+    wrapper.appendChild(menu);
+    
+    select.parentNode.insertBefore(wrapper, select);
+}
+
+function createCustomDatePicker(input) {
+    input.classList.add('custom-init', 'hidden');
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'relative w-full';
+
+    const trigger = document.createElement('button');
+    trigger.type = 'button';
+    trigger.className = 'w-full flex items-center gap-2 bg-white dark:bg-neutral-900 border border-gray-300 dark:border-neutral-700 rounded-lg px-3 py-2.5 text-sm text-gray-700 dark:text-gray-300 focus:ring-2 focus:ring-indigo-500 transition';
+    
+    const iconSpan = document.createElement('span');
+    iconSpan.className = "text-gray-400";
+    iconSpan.innerHTML = svgs.calendar;
+    
+    const textSpan = document.createElement('span');
+    
+    // Formata data inicial se houver
+    const updateDisplay = () => {
+        if(input.value) {
+            const d = new Date(input.value + 'T00:00:00');
+            textSpan.innerText = d.toLocaleDateString('pt-BR');
+            textSpan.classList.remove('text-gray-400');
+        } else {
+            textSpan.innerText = 'Selecione uma data';
+            textSpan.classList.add('text-gray-400');
+        }
+    };
+    updateDisplay();
+
+    trigger.appendChild(iconSpan);
+    trigger.appendChild(textSpan);
+
+    // Calendário Container
+    const calendar = document.createElement('div');
+    calendar.className = 'absolute z-50 mt-2 p-4 bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-xl shadow-2xl hidden w-64 left-1/2 transform -translate-x-1/2 md:left-0 md:translate-x-0';
+    
+    let currentMonth = new Date().getMonth();
+    let currentYear = new Date().getFullYear();
+
+    const renderCalendar = (month, year) => {
+        calendar.innerHTML = '';
+        
+        // Header
+        const header = document.createElement('div');
+        header.className = 'flex justify-between items-center mb-3';
+        
+        const prevBtn = document.createElement('button');
+        prevBtn.innerHTML = '&lt;';
+        prevBtn.className = 'p-1 hover:bg-gray-100 dark:hover:bg-neutral-700 rounded text-gray-600 dark:text-gray-300';
+        prevBtn.onclick = (e) => { e.stopPropagation(); renderCalendar(month === 0 ? 11 : month - 1, month === 0 ? year - 1 : year); };
+
+        const title = document.createElement('span');
+        title.className = 'font-bold text-gray-800 dark:text-white text-sm capitalize';
+        title.innerText = new Date(year, month).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+
+        const nextBtn = document.createElement('button');
+        nextBtn.innerHTML = '&gt;';
+        nextBtn.className = 'p-1 hover:bg-gray-100 dark:hover:bg-neutral-700 rounded text-gray-600 dark:text-gray-300';
+        nextBtn.onclick = (e) => { e.stopPropagation(); renderCalendar(month === 11 ? 0 : month + 1, month === 11 ? year + 1 : year); };
+
+        header.appendChild(prevBtn);
+        header.appendChild(title);
+        header.appendChild(nextBtn);
+        calendar.appendChild(header);
+
+        // Days Grid
+        const grid = document.createElement('div');
+        grid.className = 'grid grid-cols-7 gap-1 text-center text-xs mb-1';
+        ['D','S','T','Q','Q','S','S'].forEach(d => {
+            const el = document.createElement('span');
+            el.className = 'text-gray-400 font-bold';
+            el.innerText = d;
+            grid.appendChild(el);
+        });
+        calendar.appendChild(grid);
+
+        const daysContainer = document.createElement('div');
+        daysContainer.className = 'grid grid-cols-7 gap-1 text-center text-sm';
+
+        const firstDay = new Date(year, month, 1).getDay();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+        for(let i=0; i<firstDay; i++) daysContainer.appendChild(document.createElement('div'));
+
+        for(let d=1; d<=daysInMonth; d++) {
+            const dayBtn = document.createElement('button');
+            dayBtn.innerText = d;
+            
+            // Estilo base
+            dayBtn.className = 'w-8 h-8 rounded-full flex items-center justify-center hover:bg-indigo-50 dark:hover:bg-neutral-700 text-gray-700 dark:text-gray-300 transition';
+            
+            // Verifica se é hoje
+            const today = new Date();
+            if(d === today.getDate() && month === today.getMonth() && year === today.getFullYear()) {
+                dayBtn.classList.add('border', 'border-indigo-500', 'font-bold', 'text-indigo-500');
+            }
+
+            // Verifica se está selecionado
+            if(input.value) {
+                const sel = new Date(input.value + 'T00:00:00');
+                if(d === sel.getDate() && month === sel.getMonth() && year === sel.getFullYear()) {
+                    dayBtn.className = 'w-8 h-8 rounded-full flex items-center justify-center bg-indigo-600 text-white font-bold shadow-md';
+                }
+            }
+
+            dayBtn.onclick = (e) => {
+                e.stopPropagation();
+                const selectedDate = new Date(year, month, d);
+                const isoDate = selectedDate.toISOString().split('T')[0];
+                input.value = isoDate;
+                updateDisplay();
+                calendar.classList.add('hidden');
+            };
+            daysContainer.appendChild(dayBtn);
+        }
+        calendar.appendChild(daysContainer);
+    };
+
+    trigger.onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        document.querySelectorAll('.custom-datepicker-calendar').forEach(c => c !== calendar && c.classList.add('hidden'));
+        
+        if (calendar.classList.contains('hidden')) {
+            // Abre no mês da data selecionada ou hoje
+            let initDate = input.value ? new Date(input.value + 'T00:00:00') : new Date();
+            renderCalendar(initDate.getMonth(), initDate.getFullYear());
+            calendar.classList.remove('hidden');
+        } else {
+            calendar.classList.add('hidden');
+        }
+    };
+    calendar.classList.add('custom-datepicker-calendar');
+
+    document.addEventListener('click', (e) => {
+        if (!wrapper.contains(e.target)) calendar.classList.add('hidden');
+    });
+
+    wrapper.appendChild(trigger);
+    wrapper.appendChild(calendar);
+    
+    input.parentNode.insertBefore(wrapper, input);
+}
 
 // ============================================================
 // --- SISTEMA DE BOOTSTRAP INTELIGENTE ---
@@ -132,6 +356,9 @@ function showAppInterface() {
 
     updateUserInterfaceInfo();
     refreshAllUI();
+
+    // INICIALIZA OS COMPONENTES CUSTOMIZADOS
+    setTimeout(initCustomUI, 100); 
 
     if(loadingScreen && !loadingScreen.classList.contains('hidden')) {
         loadingScreen.classList.add('opacity-0');
@@ -312,7 +539,6 @@ function refreshAllUI() {
 
 // Função para chamar Modal de Input (estilo Prompt bonito)
 function openCustomInputModal(title, placeholder, initialValue, onConfirm) {
-    // Procura os elementos do modal (serão criados no index.html)
     const modal = document.getElementById('custom-input-modal');
     const modalTitle = document.getElementById('custom-modal-title');
     const modalInput = document.getElementById('custom-modal-input');
@@ -325,38 +551,33 @@ function openCustomInputModal(title, placeholder, initialValue, onConfirm) {
     modalInput.placeholder = placeholder || "";
     modalInput.value = initialValue || "";
     
-    // Limpa eventos anteriores
     const newBtnConfirm = btnConfirm.cloneNode(true);
     btnConfirm.parentNode.replaceChild(newBtnConfirm, btnConfirm);
     
     const newBtnCancel = btnCancel.cloneNode(true);
     btnCancel.parentNode.replaceChild(newBtnCancel, btnCancel);
 
-    // Evento Confirmar
     newBtnConfirm.addEventListener('click', () => {
         const val = modalInput.value;
         modal.classList.add('hidden');
         if(onConfirm) onConfirm(val);
     });
 
-    // Evento Cancelar
     newBtnCancel.addEventListener('click', () => {
         modal.classList.add('hidden');
     });
 
-    // Enter para confirmar
     modalInput.onkeypress = (e) => {
         if(e.key === 'Enter') newBtnConfirm.click();
     };
 
-    // Mostrar modal
     modal.classList.remove('hidden');
     modalInput.focus();
 }
 
 // Função para chamar Modal de Confirmação (estilo Confirm bonito)
 function openCustomConfirmModal(title, message, onConfirm) {
-    const modal = document.getElementById('custom-confirm-modal'); // Novo ID
+    const modal = document.getElementById('custom-confirm-modal');
     const modalTitle = document.getElementById('custom-confirm-title');
     const modalMsg = document.getElementById('custom-confirm-msg');
     const btnYes = document.getElementById('custom-confirm-yes');
@@ -408,7 +629,7 @@ window.manualBackup = async function() {
     }, 800);
 }
 
-// --- GESTÃO DE PERFIL E CONFIGURAÇÕES (ATUALIZADO SEM PROMPTS) ---
+// --- GESTÃO DE PERFIL E CONFIGURAÇÕES ---
 
 window.editName = function() {
     openCustomInputModal(
@@ -585,7 +806,7 @@ window.changePassword = function() {
     }
 }
 
-// === RENDERIZAÇÃO DA TELA DE CONFIGURAÇÕES (Com ícones SVG finos e sem fundo branco na foto) ===
+// === RENDERIZAÇÃO DA TELA DE CONFIGURAÇÕES ===
 window.renderSettings = function() {
     const container = document.getElementById('settings-content');
     if (!container || !userProfile) return;
@@ -1442,6 +1663,9 @@ window.toggleRemindersModal = function() {
         renderReminders();
         modal.classList.remove('hidden');
         setTimeout(() => { modal.classList.remove('opacity-0'); if(content) { content.classList.remove('scale-95'); content.classList.add('scale-100'); } }, 10);
+        
+        // REINICIALIZA COMPONENTES CUSTOM AO ABRIR MODAL
+        setTimeout(initCustomUI, 100);
     } else {
         modal.classList.add('opacity-0'); if(content) { content.classList.remove('scale-100'); content.classList.add('scale-95'); }
         setTimeout(() => modal.classList.add('hidden'), 300);
@@ -1452,6 +1676,8 @@ window.showReminderForm = function() {
     document.getElementById('btn-add-reminder').classList.add('hidden');
     document.getElementById('reminder-form').classList.remove('hidden');
     document.getElementById('rem-date').valueAsDate = new Date();
+    // REINICIALIZA OS CAMPOS DO FORMULÁRIO DE LEMBRETE
+    setTimeout(initCustomUI, 50);
 }
 
 window.hideReminderForm = function() {

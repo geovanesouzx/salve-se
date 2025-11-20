@@ -754,82 +754,109 @@ window.editSemester = function () {
     );
 }
 
-window.changePhoto = function () {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
+// ... (Cole logo após o fechamento da função changePassword)
 
-    input.onchange = async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
+window.renderSettings = function () {
+    const container = document.getElementById('settings-content');
+    if (!container || !userProfile) return;
 
-        const loadingBtn = document.getElementById('btn-change-photo-settings');
-        let originalBtnContent = "";
-        if (loadingBtn) {
-            originalBtnContent = loadingBtn.innerHTML;
-            loadingBtn.innerHTML = '<i class="fas fa-circle-notch fa-spin mr-2"></i> Enviando...';
-            loadingBtn.disabled = true;
-        } else {
-            showModal("Aguarde", "Enviando sua foto para o servidor...");
-        }
-
-        const formData = new FormData();
-        formData.append('image', file);
-
-        try {
-            const response = await fetch('https://api.imgur.com/3/image', {
-                method: 'POST',
-                headers: { 'Authorization': 'Client-ID 513bb727cecf9ac' },
-                body: formData
-            });
-
-            const data = await response.json();
-
-            if (data.success && currentUser) {
-                const newUrl = data.data.link;
-
-                await updateProfile(currentUser, { photoURL: newUrl });
-                await setDoc(doc(db, "users", currentUser.uid), { photoURL: newUrl }, { merge: true });
-
-                const genericModal = document.getElementById('generic-modal');
-                if (genericModal && !genericModal.classList.contains('hidden')) closeGenericModal();
-
-                showModal("Sucesso", "Foto de perfil atualizada com sucesso!");
-            } else {
-                throw new Error('Falha no upload: ' + (data.data.error || 'Erro desconhecido'));
-            }
-
-        } catch (error) {
-            console.error("Erro ao atualizar foto:", error);
-            showModal("Erro", "Erro ao enviar foto: " + error.message);
-        } finally {
-            if (loadingBtn) {
-                loadingBtn.innerHTML = originalBtnContent;
-                loadingBtn.disabled = false;
-            }
-        }
-    };
-
-    input.click();
-}
-
-window.changePassword = function () {
-    if (currentUser && currentUser.email) {
-        openCustomConfirmModal(
-            "Redefinir Senha",
-            `Enviar e-mail de redefinição de senha para ${currentUser.email}?`,
-            async () => {
-                try {
-                    await sendPasswordResetEmail(auth, currentUser.email);
-                    showModal("E-mail Enviado", "Verifique sua caixa de entrada para redefinir a senha.");
-                } catch (e) {
-                    showModal("Erro", "Erro: " + e.message);
-                }
-            }
-        );
+    let dateStr = "N/A";
+    if (userProfile.createdAt) {
+        const date = new Date(userProfile.createdAt);
+        dateStr = date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
     }
-}
 
+    const photo = userProfile.photoURL || "";
+
+    const createActionCard = (onclick, svgIcon, title, subtitle, colorClass = "text-gray-500 group-hover:text-indigo-500") => `
+        <button onclick="${onclick}" class="group w-full bg-white dark:bg-darkcard border border-gray-100 dark:border-darkborder p-4 rounded-2xl flex items-center justify-between hover:border-indigo-500 dark:hover:border-indigo-500 hover:shadow-md transition-all duration-200 mb-3 text-left">
+            <div class="flex items-center gap-4">
+                <div class="w-10 h-10 rounded-full bg-gray-50 dark:bg-neutral-800 flex items-center justify-center ${colorClass} transition-colors">
+                    ${svgIcon}
+                </div>
+                <div>
+                    <p class="font-bold text-gray-800 dark:text-gray-200 text-sm">${title}</p>
+                    <p class="text-xs text-gray-400 dark:text-gray-500">${subtitle}</p>
+                </div>
+            </div>
+            <div class="text-gray-300 dark:text-neutral-700 group-hover:text-indigo-500 transition-colors">
+                ${svgs.chevron}
+            </div>
+        </button>
+    `;
+
+    container.innerHTML = `
+        <div class="max-w-2xl mx-auto w-full pb-24 space-y-6">
+            
+            <div class="bg-white dark:bg-darkcard rounded-3xl shadow-sm border border-gray-200 dark:border-darkborder p-6 md:p-8 flex flex-col items-center text-center relative overflow-hidden">
+                 <div class="absolute top-0 left-0 w-full h-24 bg-gradient-to-r from-indigo-500 to-purple-600 opacity-10 dark:opacity-20"></div>
+                 
+                 <div class="relative group mb-4 mt-4">
+                    <div id="settings-avatar-big" class="w-28 h-28 rounded-full overflow-hidden p-1 border-4 border-white dark:border-darkcard shadow-lg relative z-10 bg-gray-100 dark:bg-neutral-800 flex items-center justify-center">
+                        </div>
+                    <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition rounded-full flex items-center justify-center cursor-pointer m-1 z-20" onclick="changePhoto()">
+                        <i class="fas fa-camera text-white text-2xl"></i>
+                    </div>
+                </div>
+
+                <h2 class="text-2xl font-black text-gray-900 dark:text-white mb-0.5 tracking-tight">
+                    ${userProfile.displayName}
+                </h2>
+                <p class="text-indigo-600 dark:text-indigo-400 font-bold text-sm mb-4 bg-indigo-50 dark:bg-indigo-900/20 px-3 py-1 rounded-full">@${userProfile.handle}</p>
+                
+                <div class="grid grid-cols-2 gap-4 w-full max-w-sm mt-2">
+                    <div class="bg-gray-50 dark:bg-neutral-800/50 p-3 rounded-xl">
+                         <p class="text-xs text-gray-400 uppercase font-bold mb-1">Semestre</p>
+                         <p class="font-bold text-gray-800 dark:text-white">${userProfile.semester || 'N/A'}</p>
+                    </div>
+                    <div class="bg-gray-50 dark:bg-neutral-800/50 p-3 rounded-xl">
+                         <p class="text-xs text-gray-400 uppercase font-bold mb-1">Membro Desde</p>
+                         <p class="font-bold text-gray-800 dark:text-white">${dateStr.split(' de ')[2] || dateStr}</p>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <h3 class="px-4 text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Gerenciar Conta</h3>
+                ${createActionCard('changePhoto()', svgs.photo, 'Foto de Perfil', 'Atualize sua imagem ou vídeo')}
+                ${createActionCard('editName()', svgs.user, 'Nome de Exibição', 'Como seu nome aparece no app')}
+                ${createActionCard('editHandle()', svgs.at, 'Nome de Usuário', 'Seu identificador único @handle')}
+                ${createActionCard('editSemester()', svgs.school, 'Semestre Atual', 'Para organizar suas matérias')}
+            </div>
+
+            <div>
+                <h3 class="px-4 text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Segurança & Dados</h3>
+                ${createActionCard('changePassword()', svgs.lock, 'Redefinir Senha', 'Receba um e-mail para trocar a senha')}
+                ${createActionCard('manualBackup()', svgs.cloud, 'Backup Manual', 'Forçar sincronização com a nuvem')}
+                
+                <button onclick="logoutApp()" class="group w-full bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/30 p-4 rounded-2xl flex items-center justify-between hover:bg-red-100 dark:hover:bg-red-900/20 transition-all duration-200 text-left mt-4">
+                    <div class="flex items-center gap-4">
+                        <div class="w-10 h-10 rounded-full bg-white dark:bg-red-900/20 flex items-center justify-center text-red-500">
+                            ${svgs.logout}
+                        </div>
+                        <div>
+                            <p class="font-bold text-red-600 dark:text-red-400 text-sm">Sair da Conta</p>
+                            <p class="text-xs text-red-400 dark:text-red-500/70">Encerrar sessão neste dispositivo</p>
+                        </div>
+                    </div>
+                    <div class="text-red-300 dark:text-red-800">
+                        ${svgs.chevron}
+                    </div>
+                </button>
+            </div>
+
+            <div class="text-center pt-4 pb-8">
+                 <p class="text-xs text-gray-300 dark:text-gray-600 font-mono">ID: ${currentUser.uid.substring(0, 8)}...</p>
+                 <p class="text-xs text-gray-300 dark:text-gray-600 mt-1">Salve-se UFRB v2.2 (Video Enabled)</p>
+            </div>
+        </div>
+    `;
+
+    // Injeta a mídia (foto ou vídeo) usando a função auxiliar
+    setTimeout(() => {
+        renderAvatarMedia('settings-avatar-big', photo || "https://files.catbox.moe/pmdtq6.png");
+    }, 0);
+};
 // === RENDERIZAÇÃO DA TELA DE CONFIGURAÇÕES ===
 window.renderSettings = function () {
     const container = document.getElementById('settings-content');
@@ -1997,6 +2024,27 @@ const busSchedule = [
     createTrip('15:35', '16:00', 'saida-garagem'), createTrip('16:00', '16:25', 'volta-e-recolhe'), createTrip('17:30', '17:55', 'saida-garagem'), createTrip('17:55', '18:15', 'volta-campus'), createTrip('18:15', '18:40', 'volta-e-recolhe'),
     createTrip('20:40', '21:00', 'volta-e-recolhe', 'fast'), createTrip('21:40', '22:00', 'volta-e-recolhe', 'fast'), createTrip('22:30', '22:50', 'volta-e-recolhe', 'fast')
 ];
+function renderAvatarMedia(containerId, url) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    if (!url) { container.innerHTML = '<i class="fas fa-user text-gray-400"></i>'; return; }
+
+    const isVideo = url.match(/\.(mp4|webm|mov|gifv)$/i);
+    container.innerHTML = '';
+
+    if (isVideo) {
+        const videoUrl = url.replace('.gifv', '.mp4');
+        const video = document.createElement('video');
+        video.src = videoUrl; video.autoplay = true; video.loop = true; video.muted = true; video.playsInline = true;
+        video.className = "w-full h-full object-cover";
+        container.appendChild(video);
+    } else {
+        const img = document.createElement('img');
+        img.src = url; img.className = "w-full h-full object-cover";
+        img.onerror = function () { this.style.display = 'none'; };
+        container.appendChild(img);
+    }
+}
 function renderBusTable() {
     const tbody = document.getElementById('bus-table-body');
     if (!tbody) return;

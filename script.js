@@ -1,7 +1,7 @@
 // ============================================================
 // --- CONFIGURAÇÃO FIREBASE & IMPORTAÇÕES ---
 // ============================================================
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
 import {
     getAuth,
     signInWithPopup,
@@ -10,7 +10,7 @@ import {
     signOut,
     updateProfile,
     sendPasswordResetEmail
-} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+} from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 import {
     getFirestore,
     doc,
@@ -19,7 +19,7 @@ import {
     deleteDoc,
     onSnapshot,
     enableIndexedDbPersistence
-} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+} from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyD5Ggqw9FpMS98CHcfXKnghMQNMV5WIVTw",
@@ -38,14 +38,25 @@ const db = getFirestore(app);
 // Tenta habilitar persistência offline
 try {
     enableIndexedDbPersistence(db).catch((err) => {
-        console.log("Persistência Firestore:", err.code);
+        if (err.code === 'failed-precondition') {
+            console.log('Persistência falhou: Múltiplas abas abertas.');
+        } else if (err.code === 'unimplemented') {
+            console.log('Persistência não suportada neste navegador.');
+        }
     });
 } catch (e) { console.log("Persistência já ativa ou não suportada"); }
 
-// Variáveis Globais
+// ============================================================
+// --- VARIÁVEIS GLOBAIS (Movidas para o topo para segurança) ---
+// ============================================================
 let currentUser = null;
 let userProfile = null;
 let unsubscribeData = null;
+let scheduleData = JSON.parse(localStorage.getItem('salvese_schedule')) || [];
+let tasksData = JSON.parse(localStorage.getItem('salvese_tasks')) || [];
+let remindersData = JSON.parse(localStorage.getItem('salvese_reminders')) || [];
+let selectedClassIdToDelete = null;
+let currentTaskFilter = 'all';
 
 // ============================================================
 // --- ÍCONES SVG ---
@@ -64,8 +75,7 @@ const svgs = {
 };
 
 // ============================================================
-// --- SISTEMA DE CUSTOM UI (CORRIGIDO: FIXED POSITION) ---
-// Usa posicionamento fixo anexado ao Body para evitar cortes
+// --- SISTEMA DE CUSTOM UI (FIXED POSITION) ---
 // ============================================================
 
 function initCustomUI() {
@@ -73,93 +83,223 @@ function initCustomUI() {
     document.querySelectorAll('input[type="date"]:not(.custom-init)').forEach(createCustomDatePicker);
 }
 
-// VERSÃO CORRIGIDA E BLINDADA
+function closeAllCustomMenus() {
+    document.querySelectorAll('.custom-floating-menu').forEach(el => el.remove());
+}
+
 function createCustomSelect(select) {
-    // Evita recriar se já existe
-    if (select.classList.contains('custom-init')) return;
     select.classList.add('custom-init', 'hidden');
 
     const wrapper = document.createElement('div');
     wrapper.className = 'relative inline-block w-full';
 
-    // Botão Gatilho
     const trigger = document.createElement('button');
     trigger.type = 'button';
     trigger.className = 'w-full flex items-center justify-between bg-white dark:bg-neutral-900 border border-gray-300 dark:border-neutral-700 rounded-lg px-3 py-2.5 text-sm text-gray-700 dark:text-gray-300 focus:ring-2 focus:ring-indigo-500 transition';
 
-    // Span para o texto (com ID para atualizarmos via código se precisar)
     const labelSpan = document.createElement('span');
     labelSpan.innerText = select.options[select.selectedIndex]?.text || 'Selecione';
-    labelSpan.id = 'label-' + select.id;
 
     trigger.appendChild(labelSpan);
-    // Ícone simples direto no HTML para garantir visualização
-    trigger.insertAdjacentHTML('beforeend', '<span class="text-gray-400 text-xs">▼</span>');
+    trigger.innerHTML += svgs.chevronDown;
 
-    // AÇÃO DE CLIQUE
     trigger.onclick = (e) => {
         e.preventDefault();
         e.stopPropagation();
-
-        // Fecha outros menus
         closeAllCustomMenus();
 
         const rect = trigger.getBoundingClientRect();
-
-        // CRIA O MENU
         const menu = document.createElement('div');
-        menu.className = 'custom-floating-menu bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-lg shadow-2xl animate-scale-in';
-
-        // --- ESTILOS OBRIGATÓRIOS (FIXED + Z-INDEX ALTÍSSIMO) ---
-        // Isso garante que o menu apareça por cima do modal e role corretamente
-        menu.style.position = 'fixed';
-        menu.style.zIndex = '99999';
+        menu.className = 'custom-floating-menu fixed z-[9999] bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-lg shadow-2xl animate-scale-in';
+        
+        menu.style.maxHeight = '250px';
+        menu.style.overflowY = 'auto';
         menu.style.top = (rect.bottom + 4) + 'px';
         menu.style.left = rect.left + 'px';
         menu.style.width = rect.width + 'px';
-        menu.style.maxHeight = '250px';
-        menu.style.overflowY = 'auto';
 
-        // Opções
         Array.from(select.options).forEach(opt => {
             const item = document.createElement('div');
-            item.className = 'px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer transition border-b border-gray-50 dark:border-neutral-700/50 last:border-0';
+            item.className = 'px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer transition flex items-center gap-2 border-b border-gray-50 dark:border-neutral-700/50 last:border-0';
             item.innerText = opt.text;
 
             if (opt.value === select.value) {
-                item.classList.add('bg-indigo-50', 'dark:bg-indigo-900/20', 'font-bold', 'text-indigo-600');
+                item.classList.add('bg-indigo-50', 'dark:bg-indigo-900/20', 'font-bold', 'text-indigo-600', 'dark:text-indigo-400');
             }
 
-            item.onclick = (evtClick) => {
-                evtClick.stopPropagation();
+            item.onclick = () => {
                 select.value = opt.value;
                 labelSpan.innerText = opt.text;
-
-                // Dispara evento para o sistema salvar
-                const event = new Event('change', { bubbles: true });
+                const event = new Event('change');
                 select.dispatchEvent(event);
-
                 menu.remove();
             };
             menu.appendChild(item);
         });
 
-        // Adiciona direto ao body
         document.body.appendChild(menu);
 
-        // Fecha ao clicar fora
         const closeHandler = (evt) => {
-            if (!menu.contains(evt.target) && evt.target !== trigger && !trigger.contains(evt.target)) {
+            if (!menu.contains(evt.target) && evt.target !== trigger) {
                 menu.remove();
                 document.removeEventListener('click', closeHandler);
             }
         };
-        setTimeout(() => document.addEventListener('click', closeHandler), 10);
+        setTimeout(() => document.addEventListener('click', closeHandler), 0);
     };
 
     wrapper.appendChild(trigger);
     select.parentNode.insertBefore(wrapper, select);
 }
+
+function createCustomDatePicker(input) {
+    input.classList.add('custom-init', 'hidden');
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'relative w-full';
+
+    const trigger = document.createElement('button');
+    trigger.type = 'button';
+    trigger.className = 'w-full flex items-center gap-2 bg-white dark:bg-neutral-900 border border-gray-300 dark:border-neutral-700 rounded-lg px-3 py-2.5 text-sm text-gray-700 dark:text-gray-300 focus:ring-2 focus:ring-indigo-500 transition';
+
+    const iconSpan = document.createElement('span');
+    iconSpan.className = "text-gray-400";
+    iconSpan.innerHTML = svgs.calendar;
+
+    const textSpan = document.createElement('span');
+    const updateDisplay = () => {
+        if (input.value) {
+            const d = new Date(input.value + 'T00:00:00');
+            textSpan.innerText = d.toLocaleDateString('pt-BR');
+            textSpan.classList.remove('text-gray-400');
+        } else {
+            textSpan.innerText = 'Selecione uma data';
+            textSpan.classList.add('text-gray-400');
+        }
+    };
+    updateDisplay();
+
+    trigger.appendChild(iconSpan);
+    trigger.appendChild(textSpan);
+
+    trigger.onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        closeAllCustomMenus();
+
+        const rect = trigger.getBoundingClientRect();
+        const calendar = document.createElement('div');
+        calendar.className = 'custom-floating-menu fixed z-[9999] p-4 bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-xl shadow-2xl animate-scale-in w-64';
+
+        const spaceBelow = window.innerHeight - rect.bottom;
+        if (spaceBelow < 300) {
+            calendar.style.bottom = (window.innerHeight - rect.top + 4) + 'px';
+        } else {
+            calendar.style.top = (rect.bottom + 4) + 'px';
+        }
+
+        if (window.innerWidth < 640) {
+            calendar.style.left = '50%';
+            calendar.style.transform = 'translateX(-50%)';
+            calendar.style.top = '50%';
+            calendar.style.marginTop = '-150px';
+        } else {
+            calendar.style.left = rect.left + 'px';
+        }
+
+        let currentMonth = input.value ? new Date(input.value + 'T00:00:00').getMonth() : new Date().getMonth();
+        let currentYear = input.value ? new Date(input.value + 'T00:00:00').getFullYear() : new Date().getFullYear();
+
+        const renderCalendar = (month, year) => {
+            calendar.innerHTML = '';
+            const header = document.createElement('div');
+            header.className = 'flex justify-between items-center mb-3';
+
+            const prevBtn = document.createElement('button');
+            prevBtn.innerHTML = '&lt;';
+            prevBtn.className = 'p-1 hover:bg-gray-100 dark:hover:bg-neutral-700 rounded text-gray-600 dark:text-gray-300';
+            prevBtn.onclick = (e) => { e.stopPropagation(); renderCalendar(month === 0 ? 11 : month - 1, month === 0 ? year - 1 : year); };
+
+            const title = document.createElement('span');
+            title.className = 'font-bold text-gray-800 dark:text-white text-sm capitalize';
+            title.innerText = new Date(year, month).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+
+            const nextBtn = document.createElement('button');
+            nextBtn.innerHTML = '&gt;';
+            nextBtn.className = 'p-1 hover:bg-gray-100 dark:hover:bg-neutral-700 rounded text-gray-600 dark:text-gray-300';
+            nextBtn.onclick = (e) => { e.stopPropagation(); renderCalendar(month === 11 ? 0 : month + 1, month === 11 ? year + 1 : year); };
+
+            header.appendChild(prevBtn);
+            header.appendChild(title);
+            header.appendChild(nextBtn);
+            calendar.appendChild(header);
+
+            const grid = document.createElement('div');
+            grid.className = 'grid grid-cols-7 gap-1 text-center text-xs mb-1';
+            ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].forEach(d => {
+                const el = document.createElement('span');
+                el.className = 'text-gray-400 font-bold';
+                el.innerText = d;
+                grid.appendChild(el);
+            });
+            calendar.appendChild(grid);
+
+            const daysContainer = document.createElement('div');
+            daysContainer.className = 'grid grid-cols-7 gap-1 text-center text-sm';
+
+            const firstDay = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+            for (let i = 0; i < firstDay; i++) daysContainer.appendChild(document.createElement('div'));
+
+            for (let d = 1; d <= daysInMonth; d++) {
+                const dayBtn = document.createElement('button');
+                dayBtn.innerText = d;
+                dayBtn.className = 'w-8 h-8 rounded-full flex items-center justify-center hover:bg-indigo-50 dark:hover:bg-neutral-700 text-gray-700 dark:text-gray-300 transition';
+
+                const today = new Date();
+                if (d === today.getDate() && month === today.getMonth() && year === today.getFullYear()) {
+                    dayBtn.classList.add('border', 'border-indigo-500', 'text-indigo-500', 'font-bold');
+                }
+
+                if (input.value) {
+                    const sel = new Date(input.value + 'T00:00:00');
+                    if (d === sel.getDate() && month === sel.getMonth() && year === sel.getFullYear()) {
+                        dayBtn.className = 'w-8 h-8 rounded-full flex items-center justify-center bg-indigo-600 text-white font-bold shadow-md';
+                    }
+                }
+
+                dayBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    const selectedDate = new Date(year, month, d);
+                    const yearStr = selectedDate.getFullYear();
+                    const monthStr = String(selectedDate.getMonth() + 1).padStart(2, '0');
+                    const dayStr = String(selectedDate.getDate()).padStart(2, '0');
+                    input.value = `${yearStr}-${monthStr}-${dayStr}`;
+                    updateDisplay();
+                    calendar.remove();
+                };
+                daysContainer.appendChild(dayBtn);
+            }
+            calendar.appendChild(daysContainer);
+        };
+
+        renderCalendar(currentMonth, currentYear);
+        document.body.appendChild(calendar);
+
+        const closeHandler = (evt) => {
+            if (!calendar.contains(evt.target) && evt.target !== trigger) {
+                calendar.remove();
+                document.removeEventListener('click', closeHandler);
+            }
+        };
+        setTimeout(() => document.addEventListener('click', closeHandler), 0);
+    };
+
+    wrapper.appendChild(trigger);
+    input.parentNode.insertBefore(wrapper, input);
+}
+
 // ============================================================
 // --- SISTEMA DE BOOTSTRAP INTELIGENTE ---
 // ============================================================
@@ -232,7 +372,6 @@ function showAppInterface() {
     updateUserInterfaceInfo();
     refreshAllUI();
 
-    // INICIALIZA OS COMPONENTES CUSTOMIZADOS
     setTimeout(initCustomUI, 100);
 
     if (loadingScreen && !loadingScreen.classList.contains('hidden')) {
@@ -409,7 +548,7 @@ function refreshAllUI() {
 }
 
 // ============================================================
-// --- SISTEMA DE MODAIS CUSTOMIZADOS (Substitui Prompt/Alert) ---
+// --- SISTEMA DE MODAIS CUSTOMIZADOS ---
 // ============================================================
 
 function openCustomInputModal(title, placeholder, initialValue, onConfirm) {
@@ -501,8 +640,6 @@ window.manualBackup = async function () {
         }
     }, 800);
 }
-
-// --- GESTÃO DE PERFIL E CONFIGURAÇÕES ---
 
 window.editName = function () {
     openCustomInputModal(
@@ -603,110 +740,23 @@ window.editSemester = function () {
     );
 }
 
-// ... (Cole logo após o fechamento da função changePassword)
+window.changePassword = function() {
+    openCustomConfirmModal(
+        "Redefinir Senha",
+        "Você receberá um e-mail para criar uma nova senha.",
+        async () => {
+            if (!currentUser || !currentUser.email) return showModal("Erro", "E-mail não disponível.");
+            try {
+                await sendPasswordResetEmail(auth, currentUser.email);
+                showModal("Enviado", "Verifique sua caixa de entrada (e spam) para redefinir sua senha.");
+            } catch (e) {
+                showModal("Erro", "Não foi possível enviar o e-mail: " + e.message);
+            }
+        }
+    );
+}
 
-window.renderSettings = function () {
-    const container = document.getElementById('settings-content');
-    if (!container || !userProfile) return;
-
-    let dateStr = "N/A";
-    if (userProfile.createdAt) {
-        const date = new Date(userProfile.createdAt);
-        dateStr = date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
-    }
-
-    const photo = userProfile.photoURL || "";
-
-    const createActionCard = (onclick, svgIcon, title, subtitle, colorClass = "text-gray-500 group-hover:text-indigo-500") => `
-        <button onclick="${onclick}" class="group w-full bg-white dark:bg-darkcard border border-gray-100 dark:border-darkborder p-4 rounded-2xl flex items-center justify-between hover:border-indigo-500 dark:hover:border-indigo-500 hover:shadow-md transition-all duration-200 mb-3 text-left">
-            <div class="flex items-center gap-4">
-                <div class="w-10 h-10 rounded-full bg-gray-50 dark:bg-neutral-800 flex items-center justify-center ${colorClass} transition-colors">
-                    ${svgIcon}
-                </div>
-                <div>
-                    <p class="font-bold text-gray-800 dark:text-gray-200 text-sm">${title}</p>
-                    <p class="text-xs text-gray-400 dark:text-gray-500">${subtitle}</p>
-                </div>
-            </div>
-            <div class="text-gray-300 dark:text-neutral-700 group-hover:text-indigo-500 transition-colors">
-                ${svgs.chevron}
-            </div>
-        </button>
-    `;
-
-    container.innerHTML = `
-        <div class="max-w-2xl mx-auto w-full pb-24 space-y-6">
-            
-            <div class="bg-white dark:bg-darkcard rounded-3xl shadow-sm border border-gray-200 dark:border-darkborder p-6 md:p-8 flex flex-col items-center text-center relative overflow-hidden">
-                 <div class="absolute top-0 left-0 w-full h-24 bg-gradient-to-r from-indigo-500 to-purple-600 opacity-10 dark:opacity-20"></div>
-                 
-                 <div class="relative group mb-4 mt-4">
-                    <div id="settings-avatar-big" class="w-28 h-28 rounded-full overflow-hidden p-1 border-4 border-white dark:border-darkcard shadow-lg relative z-10 bg-gray-100 dark:bg-neutral-800 flex items-center justify-center">
-                        </div>
-                    <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition rounded-full flex items-center justify-center cursor-pointer m-1 z-20" onclick="changePhoto()">
-                        <i class="fas fa-camera text-white text-2xl"></i>
-                    </div>
-                </div>
-
-                <h2 class="text-2xl font-black text-gray-900 dark:text-white mb-0.5 tracking-tight">
-                    ${userProfile.displayName}
-                </h2>
-                <p class="text-indigo-600 dark:text-indigo-400 font-bold text-sm mb-4 bg-indigo-50 dark:bg-indigo-900/20 px-3 py-1 rounded-full">@${userProfile.handle}</p>
-                
-                <div class="grid grid-cols-2 gap-4 w-full max-w-sm mt-2">
-                    <div class="bg-gray-50 dark:bg-neutral-800/50 p-3 rounded-xl">
-                         <p class="text-xs text-gray-400 uppercase font-bold mb-1">Semestre</p>
-                         <p class="font-bold text-gray-800 dark:text-white">${userProfile.semester || 'N/A'}</p>
-                    </div>
-                    <div class="bg-gray-50 dark:bg-neutral-800/50 p-3 rounded-xl">
-                         <p class="text-xs text-gray-400 uppercase font-bold mb-1">Membro Desde</p>
-                         <p class="font-bold text-gray-800 dark:text-white">${dateStr.split(' de ')[2] || dateStr}</p>
-                    </div>
-                </div>
-            </div>
-
-            <div>
-                <h3 class="px-4 text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Gerenciar Conta</h3>
-                ${createActionCard('changePhoto()', svgs.photo, 'Foto de Perfil', 'Atualize sua imagem ou vídeo')}
-                ${createActionCard('editName()', svgs.user, 'Nome de Exibição', 'Como seu nome aparece no app')}
-                ${createActionCard('editHandle()', svgs.at, 'Nome de Usuário', 'Seu identificador único @handle')}
-                ${createActionCard('editSemester()', svgs.school, 'Semestre Atual', 'Para organizar suas matérias')}
-            </div>
-
-            <div>
-                <h3 class="px-4 text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Segurança & Dados</h3>
-                ${createActionCard('changePassword()', svgs.lock, 'Redefinir Senha', 'Receba um e-mail para trocar a senha')}
-                ${createActionCard('manualBackup()', svgs.cloud, 'Backup Manual', 'Forçar sincronização com a nuvem')}
-                
-                <button onclick="logoutApp()" class="group w-full bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/30 p-4 rounded-2xl flex items-center justify-between hover:bg-red-100 dark:hover:bg-red-900/20 transition-all duration-200 text-left mt-4">
-                    <div class="flex items-center gap-4">
-                        <div class="w-10 h-10 rounded-full bg-white dark:bg-red-900/20 flex items-center justify-center text-red-500">
-                            ${svgs.logout}
-                        </div>
-                        <div>
-                            <p class="font-bold text-red-600 dark:text-red-400 text-sm">Sair da Conta</p>
-                            <p class="text-xs text-red-400 dark:text-red-500/70">Encerrar sessão neste dispositivo</p>
-                        </div>
-                    </div>
-                    <div class="text-red-300 dark:text-red-800">
-                        ${svgs.chevron}
-                    </div>
-                </button>
-            </div>
-
-            <div class="text-center pt-4 pb-8">
-                 <p class="text-xs text-gray-300 dark:text-gray-600 font-mono">ID: ${currentUser.uid.substring(0, 8)}...</p>
-                 <p class="text-xs text-gray-300 dark:text-gray-600 mt-1">Salve-se UFRB v2.2 (Video Enabled)</p>
-            </div>
-        </div>
-    `;
-
-    // Injeta a mídia (foto ou vídeo) usando a função auxiliar
-    setTimeout(() => {
-        renderAvatarMedia('settings-avatar-big', photo || "https://files.catbox.moe/pmdtq6.png");
-    }, 0);
-};
-// === RENDERIZAÇÃO DA TELA DE CONFIGURAÇÕES ===
+// === RENDERIZAÇÃO DA TELA DE CONFIGURAÇÕES (VERSÃO UNIFICADA) ===
 window.renderSettings = function () {
     const container = document.getElementById('settings-content');
     if (!container || !userProfile) return;
@@ -743,7 +793,7 @@ window.renderSettings = function () {
                  <div class="absolute top-0 left-0 w-full h-24 bg-gradient-to-r from-indigo-500 to-purple-600 opacity-10 dark:opacity-20"></div>
                  
                  <div class="relative group mb-4 mt-4">
-                    <div class="w-28 h-28 rounded-full overflow-hidden p-1 border-4 border-white dark:border-darkcard shadow-lg relative z-10">
+                    <div class="w-28 h-28 rounded-full overflow-hidden p-1 border-4 border-white dark:border-darkcard shadow-lg relative z-10 bg-white dark:bg-neutral-800">
                         <img src="${photo}" class="w-full h-full object-cover rounded-full" onerror="this.src='https://files.catbox.moe/pmdtq6.png'">
                     </div>
                     <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition rounded-full flex items-center justify-center cursor-pointer m-1 z-20" onclick="changePhoto()">
@@ -894,12 +944,6 @@ if ('serviceWorker' in navigator) {
     window.addEventListener('online', updateNetworkStatus);
     window.addEventListener('offline', updateNetworkStatus);
 }
-
-let scheduleData = JSON.parse(localStorage.getItem('salvese_schedule')) || [];
-let tasksData = JSON.parse(localStorage.getItem('salvese_tasks')) || [];
-let remindersData = JSON.parse(localStorage.getItem('salvese_reminders')) || [];
-let selectedClassIdToDelete = null;
-let currentTaskFilter = 'all';
 
 async function saveData() {
     localStorage.setItem('salvese_schedule', JSON.stringify(scheduleData));
@@ -1117,9 +1161,9 @@ const timeSlots = [
     { start: "10:00", end: "11:00" }, { start: "11:00", end: "12:00" }, { start: "12:00", end: "13:00" },
     { start: "13:00", end: "14:00" }, { start: "14:00", end: "15:00" }, { start: "15:00", end: "16:00" },
     { start: "16:00", end: "17:00" }, { start: "17:00", end: "18:00" },
-    { start: "18:00", end: "19:00" }, // Adicionado
+    { start: "18:00", end: "19:00" },
     { start: "18:30", end: "19:30" },
-    { start: "19:00", end: "20:00" }, // Adicionado
+    { start: "19:00", end: "20:00" },
     { start: "19:30", end: "20:30" }, { start: "20:30", end: "21:30" }, { start: "21:30", end: "22:30" }
 ];
 
@@ -1402,10 +1446,6 @@ function resetModalFields() {
     startSel.value = "07:00";
     updateEndTime(2);
     renderColorPicker();
-    const startLabel = document.getElementById('label-class-start');
-    const endLabel = document.getElementById('label-class-end');
-    if (startLabel) startLabel.innerText = "07:00";
-    if (endLabel) endLabel.innerText = document.getElementById('class-end').options[document.getElementById('class-end').selectedIndex]?.text;
 }
 
 window.updateEndTime = function (slotsToAdd = 2) {
@@ -1564,7 +1604,6 @@ window.toggleRemindersModal = function () {
         modal.classList.remove('hidden');
         setTimeout(() => { modal.classList.remove('opacity-0'); if (content) { content.classList.remove('scale-95'); content.classList.add('scale-100'); } }, 10);
 
-        // REINICIALIZA COMPONENTES CUSTOM AO ABRIR MODAL
         setTimeout(initCustomUI, 100);
     } else {
         modal.classList.add('opacity-0'); if (content) { content.classList.remove('scale-100'); content.classList.add('scale-95'); }
@@ -1576,7 +1615,6 @@ window.showReminderForm = function () {
     document.getElementById('btn-add-reminder').classList.add('hidden');
     document.getElementById('reminder-form').classList.remove('hidden');
     document.getElementById('rem-date').valueAsDate = new Date();
-    // REINICIALIZA OS CAMPOS DO FORMULÁRIO DE LEMBRETE
     setTimeout(initCustomUI, 50);
 }
 
@@ -1753,7 +1791,6 @@ window.toggleColorMenu = function (device) {
 }
 
 const colorPalettes = {
-    // --- CORES ORIGINAIS (13) ---
     cyan: { 50: '236 254 255', 100: '207 250 254', 200: '165 243 252', 300: '103 232 249', 400: '34 211 238', 500: '6 182 212', 600: '8 145 178', 700: '14 116 144', 800: '21 94 117', 900: '22 78 99' },
     red: { 50: '254 242 242', 100: '254 226 226', 200: '254 202 202', 300: '252 165 165', 400: '248 113 113', 500: '239 68 68', 600: '220 38 38', 700: '185 28 28', 800: '153 27 27', 900: '127 29 29' },
     green: { 50: '240 253 244', 100: '220 252 231', 200: '187 247 208', 300: '134 239 172', 400: '74 222 128', 500: '34 197 94', 600: '22 163 74', 700: '21 128 61', 800: '22 101 52', 900: '20 83 45' },
@@ -1767,8 +1804,6 @@ const colorPalettes = {
     lime: { 50: '247 254 231', 100: '236 252 203', 200: '217 249 157', 300: '190 242 100', 400: '163 230 53', 500: '132 204 22', 600: '101 163 13', 700: '77 124 15', 800: '63 98 18', 900: '54 83 20' },
     violet: { 50: '245 243 255', 100: '237 233 254', 200: '221 214 254', 300: '196 181 253', 400: '167 139 250', 500: '139 92 246', 600: '124 58 237', 700: '109 40 217', 800: '91 33 182', 900: '76 29 149' },
     black: { 50: '250 250 250', 100: '244 244 245', 200: '228 228 231', 300: '212 212 216', 400: '161 161 170', 500: '113 113 122', 600: '82 82 91', 700: '63 63 70', 800: '39 39 42', 900: '24 24 27' },
-
-    // --- NOVAS CORES (10) ---
     blue: { 50: '239 246 255', 100: '219 234 254', 200: '191 219 254', 300: '147 197 253', 400: '96 165 250', 500: '59 130 246', 600: '37 99 235', 700: '29 78 216', 800: '30 64 175', 900: '30 58 138' },
     emerald: { 50: '236 253 245', 100: '209 250 229', 200: '167 243 208', 300: '110 231 183', 400: '52 211 153', 500: '16 185 129', 600: '5 150 105', 700: '4 120 87', 800: '6 95 70', 900: '6 78 59' },
     fuchsia: { 50: '253 244 255', 100: '250 232 255', 200: '245 208 254', 300: '240 171 252', 400: '232 121 249', 500: '217 70 239', 600: '192 38 211', 700: '162 28 175', 800: '134 25 143', 900: '112 26 117' },
@@ -2093,39 +2128,24 @@ window.openPortal = function () { window.open('https://sistemas.ufrb.edu.br/siga
 window.changePhoto = function () {
     console.log("Abrindo seletor de arquivos...");
 
-    // Cria o input na memória
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = 'image/*,video/mp4,video/x-m4v,video/*'; // Aceita Imagem e Vídeo
+    input.accept = 'image/*,video/mp4,video/x-m4v,video/*';
     input.style.display = 'none';
 
-    // TRUQUE: Adiciona ao corpo do site (body) temporariamente para o clique funcionar
     document.body.appendChild(input);
 
     input.onchange = async (e) => {
         const file = e.target.files[0];
-
-        // Remove o input do site pois já escolheu o arquivo
         document.body.removeChild(input);
 
         if (!file) return;
 
-        // Limite de 10MB
         if (file.size > 10 * 1024 * 1024) {
             return showModal("Arquivo Grande", "O arquivo deve ter menos de 10MB.");
         }
 
-        // Mostra que está carregando
-        const loadingBtn = document.getElementById('btn-change-photo-settings');
-        let originalBtnContent = "";
-
-        if (loadingBtn) {
-            originalBtnContent = loadingBtn.innerHTML;
-            loadingBtn.innerHTML = '<i class="fas fa-circle-notch fa-spin mr-2"></i> Enviando...';
-            loadingBtn.disabled = true;
-        } else {
-            showModal("Aguarde", "Enviando mídia para o servidor...");
-        }
+        showModal("Aguarde", "Enviando mídia para o servidor...");
 
         const formData = new FormData();
         formData.append('image', file);
@@ -2142,20 +2162,16 @@ window.changePhoto = function () {
             if (data.success && currentUser) {
                 const newUrl = data.data.link;
 
-                // Salva no Firebase
                 await updateProfile(currentUser, { photoURL: newUrl });
                 await setDoc(doc(db, "users", currentUser.uid), { photoURL: newUrl }, { merge: true });
 
-                // Atualiza na tela agora mesmo
                 userProfile.photoURL = newUrl;
                 updateUserInterfaceInfo();
 
-                // Se estiver na tela de configurações, recarrega ela para mostrar a foto nova
                 if (!document.getElementById('view-config').classList.contains('hidden')) {
                     renderSettings();
                 }
 
-                // Fecha modal de aviso
                 const genericModal = document.getElementById('generic-modal');
                 if (genericModal && !genericModal.classList.contains('hidden')) {
                     closeGenericModal();
@@ -2169,15 +2185,9 @@ window.changePhoto = function () {
         } catch (error) {
             console.error("Erro:", error);
             showModal("Erro", "Falha no envio: " + error.message);
-        } finally {
-            if (loadingBtn) {
-                loadingBtn.innerHTML = originalBtnContent;
-                loadingBtn.disabled = false;
-            }
         }
     };
 
-    // Força o clique
     setTimeout(() => {
         input.click();
     }, 10);

@@ -75,7 +75,7 @@ const svgs = {
 };
 
 // ============================================================
-// --- SISTEMA DE CUSTOM UI (FIXED POSITION) ---
+// --- SISTEMA DE CUSTOM UI (FIXED POSITION & ROBUST FIX) ---
 // ============================================================
 
 function initCustomUI() {
@@ -98,7 +98,19 @@ function createCustomSelect(select) {
     trigger.className = 'w-full flex items-center justify-between bg-white dark:bg-neutral-900 border border-gray-300 dark:border-neutral-700 rounded-lg px-3 py-2.5 text-sm text-gray-700 dark:text-gray-300 focus:ring-2 focus:ring-indigo-500 transition';
 
     const labelSpan = document.createElement('span');
-    labelSpan.innerText = select.options[select.selectedIndex]?.text || 'Selecione';
+    // Função auxiliar para atualizar o texto
+    const updateLabel = () => {
+        labelSpan.innerText = select.options[select.selectedIndex]?.text || 'Selecione';
+    };
+    
+    // Inicializa o label
+    updateLabel();
+
+    // Escuta mudanças no select original (para atualizar o label se mudado via JS)
+    select.addEventListener('change', updateLabel);
+    
+    // Adiciona método ao elemento DOM para atualização forçada
+    select.refreshCustomUI = updateLabel;
 
     trigger.appendChild(labelSpan);
     trigger.innerHTML += svgs.chevronDown;
@@ -127,13 +139,18 @@ function createCustomSelect(select) {
                 item.classList.add('bg-indigo-50', 'dark:bg-indigo-900/20', 'font-bold', 'text-indigo-600', 'dark:text-indigo-400');
             }
 
-            item.onclick = () => {
+            // CORREÇÃO AQUI: Usando addEventListener e stopPropagation
+            item.addEventListener('click', (ev) => {
+                ev.stopPropagation(); // Impede que o evento feche o menu antes de processar
                 select.value = opt.value;
-                labelSpan.innerText = opt.text;
+                
+                // Dispara evento de mudança
                 const event = new Event('change');
                 select.dispatchEvent(event);
+                
                 menu.remove();
-            };
+            });
+            
             menu.appendChild(item);
         });
 
@@ -178,6 +195,21 @@ function createCustomDatePicker(input) {
         }
     };
     updateDisplay();
+
+    // Bind para atualização externa
+    input.addEventListener('change', updateDisplay); // Escuta mudanças diretas no input
+    
+    // Override do valueAsDate para disparar atualização visual
+    const descriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'valueAsDate');
+    Object.defineProperty(input, 'valueAsDate', {
+        set: function(val) {
+            descriptor.set.call(this, val);
+            updateDisplay();
+        },
+        get: function() {
+            return descriptor.get.call(this);
+        }
+    });
 
     trigger.appendChild(iconSpan);
     trigger.appendChild(textSpan);
@@ -276,7 +308,11 @@ function createCustomDatePicker(input) {
                     const monthStr = String(selectedDate.getMonth() + 1).padStart(2, '0');
                     const dayStr = String(selectedDate.getDate()).padStart(2, '0');
                     input.value = `${yearStr}-${monthStr}-${dayStr}`;
-                    updateDisplay();
+                    
+                    // Dispara evento de mudança
+                    const event = new Event('change');
+                    input.dispatchEvent(event);
+                    
                     calendar.remove();
                 };
                 daysContainer.appendChild(dayBtn);
@@ -1615,6 +1651,12 @@ window.showReminderForm = function () {
     document.getElementById('btn-add-reminder').classList.add('hidden');
     document.getElementById('reminder-form').classList.remove('hidden');
     document.getElementById('rem-date').valueAsDate = new Date();
+    
+    // CORREÇÃO: Reseta o seletor de prioridade visualmente para 'medium' (padrão)
+    const prioSelect = document.getElementById('rem-prio');
+    prioSelect.value = 'medium';
+    if (prioSelect.refreshCustomUI) prioSelect.refreshCustomUI();
+
     setTimeout(initCustomUI, 50);
 }
 

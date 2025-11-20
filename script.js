@@ -16,6 +16,7 @@ import {
     doc, 
     setDoc, 
     getDoc, 
+    deleteDoc,
     onSnapshot,
     enableIndexedDbPersistence 
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
@@ -235,7 +236,8 @@ window.saveUserProfile = async () => {
             email: currentUser.email,
             photoURL: currentUser.photoURL,
             createdAt: new Date().toISOString(),
-            semester: "N/A"
+            semester: "N/A",
+            lastHandleChange: Date.now() // Marca data inicial
         };
         
         await setDoc(doc(db, "users", currentUser.uid), profileData);
@@ -281,7 +283,7 @@ function initRealtimeSync(uid) {
         }
     }, (error) => console.log("Modo offline ou erro:", error.code));
 
-    // Sincroniza perfil (para pegar atualizações de foto/semestre)
+    // Sincroniza perfil (para pegar atualizações de foto/semestre/handle)
     onSnapshot(doc(db, "users", uid), (docSnap) => {
         if(docSnap.exists()) {
             userProfile = docSnap.data();
@@ -341,21 +343,95 @@ window.manualBackup = async function() {
     }, 800);
 }
 
+// --- GESTÃO DE PERFIL E CONFIGURAÇÕES (ATUALIZADO) ---
+
+window.editName = async function() {
+    const newName = prompt("Digite seu novo nome de exibição:", userProfile.displayName || "");
+    if (newName && newName.trim() !== "" && newName !== userProfile.displayName) {
+        if(!currentUser) return showModal("Erro", "Você precisa estar online.");
+        
+        try {
+            await setDoc(doc(db, "users", currentUser.uid), { displayName: newName.trim() }, { merge: true });
+            await updateProfile(currentUser, { displayName: newName.trim() });
+            showModal("Sucesso", "Nome alterado com sucesso!");
+        } catch (e) {
+            showModal("Erro", "Falha ao alterar nome: " + e.message);
+        }
+    }
+}
+
+window.editHandle = async function() {
+    if (!userProfile || !currentUser) return;
+
+    // 1. Verificar regra dos 7 dias
+    const lastChange = userProfile.lastHandleChange || 0;
+    const now = Date.now();
+    const daysSinceLastChange = (now - lastChange) / (1000 * 60 * 60 * 24);
+    
+    if (daysSinceLastChange < 7 && userProfile.createdAt !== userProfile.lastHandleChange) {
+        // Se não for a criação da conta e tiver menos de 7 dias
+        const daysLeft = Math.ceil(7 - daysSinceLastChange);
+        return showModal("Aguarde", `Você só pode alterar seu usuário a cada 7 dias. Aguarde mais ${daysLeft} dia(s).`);
+    }
+
+    const newHandle = prompt("Digite seu novo @usuário (sem o @):", userProfile.handle || "");
+    
+    if (!newHandle || newHandle.trim() === "" || newHandle === userProfile.handle) return;
+
+    const cleanHandle = newHandle.toLowerCase().trim();
+    const handleRegex = /^[a-z0-9_]+$/;
+    
+    if (!handleRegex.test(cleanHandle)) {
+        return showModal("Inválido", "Use apenas letras minúsculas, números e _.");
+    }
+
+    if(!confirm(`Deseja alterar seu usuário para @${cleanHandle}? Esta ação não poderá ser desfeita por 7 dias.`)) return;
+
+    try {
+        // 2. Verificar disponibilidade
+        const newHandleRef = doc(db, "usernames", cleanHandle);
+        const docSnap = await getDoc(newHandleRef);
+        
+        if (docSnap.exists()) {
+            return showModal("Indisponível", "Este usuário já está em uso.");
+        }
+
+        // 3. Executar troca (Exige passos sequenciais pois não estamos usando Cloud Functions aqui)
+        // A. Reservar novo handle
+        await setDoc(newHandleRef, { uid: currentUser.uid });
+        
+        // B. Remover handle antigo (se existir e for diferente)
+        if (userProfile.handle) {
+            await deleteDoc(doc(db, "usernames", userProfile.handle));
+        }
+
+        // C. Atualizar perfil do usuário
+        await setDoc(doc(db, "users", currentUser.uid), { 
+            handle: cleanHandle,
+            lastHandleChange: Date.now()
+        }, { merge: true });
+
+        showModal("Sucesso", `Seu usuário agora é @${cleanHandle}`);
+
+    } catch (e) {
+        console.error(e);
+        showModal("Erro", "Erro ao atualizar usuário. Tente novamente.");
+    }
+}
+
 window.editSemester = async function() {
     const newSemester = prompt("Digite seu semestre de ingresso (ex: 2025.1):", userProfile.semester || "");
     if (newSemester !== null && currentUser) {
         try {
             await setDoc(doc(db, "users", currentUser.uid), { semester: newSemester }, { merge: true });
-            // O onSnapshot vai atualizar a UI automaticamente
         } catch (e) {
             alert("Erro ao salvar semestre: " + e.message);
         }
     }
 }
 
-// === NOVA FUNÇÃO DE UPLOAD PARA O IMGUR ===
+// === FUNÇÃO DE UPLOAD PARA O IMGUR ===
 window.changePhoto = function() {
-    // Cria um input de arquivo invisível
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/*';
@@ -364,7 +440,6 @@ window.changePhoto = function() {
         const file = e.target.files[0];
         if (!file) return;
 
-        // Feedback visual
         const loadingBtn = document.getElementById('btn-change-photo-settings');
         let originalBtnContent = "";
         if(loadingBtn) {
@@ -372,7 +447,6 @@ window.changePhoto = function() {
              loadingBtn.innerHTML = '<i class="fas fa-circle-notch fa-spin mr-2"></i> Enviando...';
              loadingBtn.disabled = true;
         } else {
-             // Fallback se o clique veio do avatar
              showModal("Aguarde", "Enviando sua foto para o servidor...");
         }
 
@@ -384,7 +458,7 @@ window.changePhoto = function() {
             const response = await fetch('https://api.imgur.com/3/image', {
                 method: 'POST',
                 headers: {
-                    'Authorization': 'Client-ID 513bb727cecf9ac' // Seu Client ID
+                    'Authorization': 'Client-ID 513bb727cecf9ac' // Client ID Público
                 },
                 body: formData
             });
@@ -394,12 +468,9 @@ window.changePhoto = function() {
             if (data.success && currentUser) {
                 const newUrl = data.data.link;
 
-                // Atualiza no Auth do Firebase
                 await updateProfile(currentUser, { photoURL: newUrl });
-                // Atualiza no Firestore
                 await setDoc(doc(db, "users", currentUser.uid), { photoURL: newUrl }, { merge: true });
                 
-                // Fecha modal de carregamento se estiver aberto
                 const genericModal = document.getElementById('generic-modal');
                 if(genericModal && !genericModal.classList.contains('hidden')) closeGenericModal();
 
@@ -412,7 +483,6 @@ window.changePhoto = function() {
             console.error("Erro ao atualizar foto:", error);
             alert("Erro ao enviar foto: " + error.message);
         } finally {
-            // Restaura o botão
             if(loadingBtn) {
                 loadingBtn.innerHTML = originalBtnContent;
                 loadingBtn.disabled = false;
@@ -420,7 +490,6 @@ window.changePhoto = function() {
         }
     };
 
-    // Abre o seletor de arquivos
     input.click();
 }
 
@@ -437,6 +506,7 @@ window.changePassword = async function() {
     }
 }
 
+// === RENDERIZAÇÃO DA TELA DE CONFIGURAÇÕES (LAYOUT TIPO CARTÃO VERTICAL) ===
 window.renderSettings = function() {
     const container = document.getElementById('settings-content');
     if (!container || !userProfile) return;
@@ -452,53 +522,64 @@ window.renderSettings = function() {
     const photo = userProfile.photoURL || "https://files.catbox.moe/pmdtq6.png";
 
     container.innerHTML = `
-        <div class="bg-white dark:bg-darkcard rounded-2xl shadow-sm border border-gray-200 dark:border-darkborder p-8 max-w-4xl mx-auto">
-            <div class="flex flex-col md:flex-row items-start gap-8">
-                <!-- Avatar -->
-                <div class="w-32 h-32 md:w-40 md:h-40 rounded-2xl overflow-hidden bg-gray-100 shrink-0 relative group">
-                    <img src="${photo}" class="w-full h-full object-cover" onerror="this.src='https://files.catbox.moe/pmdtq6.png'">
-                    <div class="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition flex items-center justify-center cursor-pointer" onclick="changePhoto()">
+        <div class="max-w-md mx-auto w-full pb-20">
+            <div class="bg-white dark:bg-darkcard rounded-3xl shadow-sm border border-gray-200 dark:border-darkborder p-6 md:p-8 flex flex-col items-center text-center">
+                
+                <!-- Avatar Section -->
+                <div class="relative group mb-4">
+                    <div class="w-28 h-28 rounded-2xl overflow-hidden bg-indigo-50 dark:bg-neutral-800 shadow-inner">
+                        <img src="${photo}" class="w-full h-full object-cover" onerror="this.src='https://files.catbox.moe/pmdtq6.png'">
+                    </div>
+                    <div class="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition rounded-2xl flex items-center justify-center cursor-pointer" onclick="changePhoto()">
                         <i class="fas fa-camera text-white text-2xl"></i>
                     </div>
                 </div>
 
-                <!-- Info -->
-                <div class="flex-1 w-full">
-                    <div class="flex justify-between items-start mb-6">
-                        <div>
-                            <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-1">${userProfile.displayName}</h2>
-                            <p class="text-gray-500 dark:text-gray-400 text-sm">${userProfile.email}</p>
-                        </div>
-                        <!-- Adicionei ID aqui para feedback de carregamento -->
-                        <button id="btn-change-photo-settings" onclick="changePhoto()" class="px-4 py-2 bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-neutral-700 transition shadow-sm">
-                            <i class="fas fa-upload mr-2"></i> Mudar Foto
-                        </button>
-                    </div>
+                <!-- Basic Info -->
+                <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-1 flex items-center gap-2 justify-center">
+                    ${userProfile.displayName}
+                </h2>
+                <p class="text-gray-500 dark:text-gray-400 text-sm mb-4">@${userProfile.handle}</p>
+                <p class="text-gray-400 dark:text-gray-500 text-xs mb-6 break-all">${userProfile.email}</p>
 
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                        <div>
-                            <p class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Data de Registro</p>
-                            <p class="text-gray-800 dark:text-gray-200 font-medium">${dateStr}</p>
-                        </div>
-                        <div>
-                            <p class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Semestre de Ingresso</p>
-                            <p class="text-gray-800 dark:text-gray-200 font-medium">${userProfile.semester || 'N/A'}</p>
-                        </div>
-                    </div>
+                <!-- Action Button: Photo -->
+                <button id="btn-change-photo-settings" onclick="changePhoto()" class="w-full py-2.5 bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-xl text-sm font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-neutral-700 transition shadow-sm mb-8 flex items-center justify-center gap-2">
+                    <i class="fas fa-upload"></i> Mudar Foto
+                </button>
 
-                    <div class="flex flex-wrap gap-3 pt-4 border-t border-gray-100 dark:border-neutral-800">
-                        <button onclick="editSemester()" class="px-4 py-2 bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-lg text-sm font-medium hover:text-indigo-600 dark:hover:text-indigo-400 transition">
-                            Editar Semestre
-                        </button>
-                        <button onclick="logoutApp()" class="px-4 py-2 bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-lg text-sm font-medium hover:text-red-600 transition">
-                            Trocar de Conta
-                        </button>
-                        <button onclick="changePassword()" class="px-4 py-2 bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-lg text-sm font-medium hover:text-indigo-600 transition">
-                            Trocar Senha
-                        </button>
+                <!-- Details List -->
+                <div class="w-full space-y-4 text-left mb-8">
+                    <div>
+                        <p class="text-xs font-bold text-gray-900 dark:text-white mb-1">Data de Registro:</p>
+                        <p class="text-gray-500 dark:text-gray-400 text-sm">${dateStr}</p>
+                    </div>
+                    <div>
+                        <p class="text-xs font-bold text-gray-900 dark:text-white mb-1">Semestre de Ingresso:</p>
+                        <p class="text-gray-500 dark:text-gray-400 text-sm">${userProfile.semester || 'N/A'}</p>
                     </div>
                 </div>
+
+                <!-- Actions Stack -->
+                <div class="w-full space-y-3">
+                    <button onclick="editName()" class="w-full py-3 bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-200 hover:border-indigo-500 hover:text-indigo-600 transition">
+                        Alterar Nome
+                    </button>
+                     <button onclick="editHandle()" class="w-full py-3 bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-200 hover:border-indigo-500 hover:text-indigo-600 transition">
+                        Alterar Usuário (@)
+                    </button>
+                    <button onclick="editSemester()" class="w-full py-3 bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-200 hover:border-indigo-500 hover:text-indigo-600 transition">
+                        Editar Semestre
+                    </button>
+                    <button onclick="changePassword()" class="w-full py-3 bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-200 hover:border-indigo-500 hover:text-indigo-600 transition">
+                        Trocar Senha
+                    </button>
+                    <button onclick="logoutApp()" class="w-full py-3 bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-red-50 hover:text-red-600 hover:border-red-200 dark:hover:bg-red-900/20 transition">
+                        Trocar de Conta / Sair
+                    </button>
+                </div>
+
             </div>
+            <p class="text-center text-xs text-gray-300 dark:text-gray-600 mt-6">Salve-se UFRB v2.0</p>
         </div>
     `;
 }

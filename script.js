@@ -2232,3 +2232,97 @@ const templates = {
 window.loadTemplate = function (k) { document.getElementById('email-content').value = templates[k]; }
 window.copyEmail = function () { const e = document.getElementById('email-content'); e.select(); document.execCommand('copy'); }
 window.openPortal = function () { window.open('https://sistemas.ufrb.edu.br/sigaa/verTelaLogin.do', '_blank'); }
+
+// --- CORREÇÃO DO UPLOAD DE FOTO/VÍDEO ---
+window.changePhoto = function () {
+    console.log("Abrindo seletor de arquivos...");
+
+    // Cria o input na memória
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*,video/mp4,video/x-m4v,video/*'; // Aceita Imagem e Vídeo
+    input.style.display = 'none';
+
+    // TRUQUE: Adiciona ao corpo do site (body) temporariamente para o clique funcionar
+    document.body.appendChild(input);
+
+    input.onchange = async (e) => {
+        const file = e.target.files[0];
+
+        // Remove o input do site pois já escolheu o arquivo
+        document.body.removeChild(input);
+
+        if (!file) return;
+
+        // Limite de 10MB
+        if (file.size > 10 * 1024 * 1024) {
+            return showModal("Arquivo Grande", "O arquivo deve ter menos de 10MB.");
+        }
+
+        // Mostra que está carregando
+        const loadingBtn = document.getElementById('btn-change-photo-settings');
+        let originalBtnContent = "";
+
+        if (loadingBtn) {
+            originalBtnContent = loadingBtn.innerHTML;
+            loadingBtn.innerHTML = '<i class="fas fa-circle-notch fa-spin mr-2"></i> Enviando...';
+            loadingBtn.disabled = true;
+        } else {
+            showModal("Aguarde", "Enviando mídia para o servidor...");
+        }
+
+        const formData = new FormData();
+        formData.append('image', file);
+
+        try {
+            const response = await fetch('https://api.imgur.com/3/image', {
+                method: 'POST',
+                headers: { 'Authorization': 'Client-ID 513bb727cecf9ac' },
+                body: formData
+            });
+
+            const data = await response.json();
+
+            if (data.success && currentUser) {
+                const newUrl = data.data.link;
+
+                // Salva no Firebase
+                await updateProfile(currentUser, { photoURL: newUrl });
+                await setDoc(doc(db, "users", currentUser.uid), { photoURL: newUrl }, { merge: true });
+
+                // Atualiza na tela agora mesmo
+                userProfile.photoURL = newUrl;
+                updateUserInterfaceInfo();
+
+                // Se estiver na tela de configurações, recarrega ela para mostrar a foto nova
+                if (!document.getElementById('view-config').classList.contains('hidden')) {
+                    renderSettings();
+                }
+
+                // Fecha modal de aviso
+                const genericModal = document.getElementById('generic-modal');
+                if (genericModal && !genericModal.classList.contains('hidden')) {
+                    closeGenericModal();
+                }
+
+                showModal("Sucesso", "Perfil atualizado com sucesso!");
+            } else {
+                throw new Error('O servidor não aceitou o arquivo.');
+            }
+
+        } catch (error) {
+            console.error("Erro:", error);
+            showModal("Erro", "Falha no envio: " + error.message);
+        } finally {
+            if (loadingBtn) {
+                loadingBtn.innerHTML = originalBtnContent;
+                loadingBtn.disabled = false;
+            }
+        }
+    };
+
+    // Força o clique
+    setTimeout(() => {
+        input.click();
+    }, 10);
+};

@@ -47,7 +47,7 @@ try {
 } catch (e) { console.log("Persistência já ativa ou não suportada"); }
 
 // ============================================================
-// --- VARIÁVEIS GLOBAIS (Movidas para o topo para segurança) ---
+// --- VARIÁVEIS GLOBAIS ---
 // ============================================================
 let currentUser = null;
 let userProfile = null;
@@ -75,7 +75,7 @@ const svgs = {
 };
 
 // ============================================================
-// --- SISTEMA DE CUSTOM UI (FIXED POSITION & ROBUST FIX) ---
+// --- SISTEMA DE CUSTOM UI (CORRIGIDO) ---
 // ============================================================
 
 function initCustomUI() {
@@ -98,18 +98,21 @@ function createCustomSelect(select) {
     trigger.className = 'w-full flex items-center justify-between bg-white dark:bg-neutral-900 border border-gray-300 dark:border-neutral-700 rounded-lg px-3 py-2.5 text-sm text-gray-700 dark:text-gray-300 focus:ring-2 focus:ring-indigo-500 transition';
 
     const labelSpan = document.createElement('span');
-    // Função auxiliar para atualizar o texto
+    
     const updateLabel = () => {
-        labelSpan.innerText = select.options[select.selectedIndex]?.text || 'Selecione';
+        if (select.options.length > 0 && select.selectedIndex >= 0) {
+            labelSpan.innerText = select.options[select.selectedIndex].text;
+        } else {
+            labelSpan.innerText = 'Selecione';
+        }
     };
     
-    // Inicializa o label
     updateLabel();
 
-    // Escuta mudanças no select original (para atualizar o label se mudado via JS)
+    // Listener para atualizações via código (JS)
     select.addEventListener('change', updateLabel);
     
-    // Adiciona método ao elemento DOM para atualização forçada
+    // Método acessível externamente para forçar atualização (útil quando options mudam dinamicamente)
     select.refreshCustomUI = updateLabel;
 
     trigger.appendChild(labelSpan);
@@ -139,12 +142,16 @@ function createCustomSelect(select) {
                 item.classList.add('bg-indigo-50', 'dark:bg-indigo-900/20', 'font-bold', 'text-indigo-600', 'dark:text-indigo-400');
             }
 
-            // CORREÇÃO AQUI: Usando addEventListener e stopPropagation
             item.addEventListener('click', (ev) => {
-                ev.stopPropagation(); // Impede que o evento feche o menu antes de processar
+                ev.stopPropagation();
+                
+                // 1. Atualiza valor
                 select.value = opt.value;
                 
-                // Dispara evento de mudança
+                // 2. Atualiza visual IMEDIATAMENTE (Correção do bug "não muda")
+                labelSpan.innerText = opt.text;
+                
+                // 3. Dispara evento change para listeners externos
                 const event = new Event('change');
                 select.dispatchEvent(event);
                 
@@ -196,10 +203,8 @@ function createCustomDatePicker(input) {
     };
     updateDisplay();
 
-    // Bind para atualização externa
-    input.addEventListener('change', updateDisplay); // Escuta mudanças diretas no input
+    input.addEventListener('change', updateDisplay);
     
-    // Override do valueAsDate para disparar atualização visual
     const descriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'valueAsDate');
     Object.defineProperty(input, 'valueAsDate', {
         set: function(val) {
@@ -309,7 +314,6 @@ function createCustomDatePicker(input) {
                     const dayStr = String(selectedDate.getDate()).padStart(2, '0');
                     input.value = `${yearStr}-${monthStr}-${dayStr}`;
                     
-                    // Dispara evento de mudança
                     const event = new Event('change');
                     input.dispatchEvent(event);
                     
@@ -583,10 +587,6 @@ function refreshAllUI() {
     if (window.renderSettings) window.renderSettings();
 }
 
-// ============================================================
-// --- SISTEMA DE MODAIS CUSTOMIZADOS ---
-// ============================================================
-
 function openCustomInputModal(title, placeholder, initialValue, onConfirm) {
     const modal = document.getElementById('custom-input-modal');
     const modalTitle = document.getElementById('custom-modal-title');
@@ -653,10 +653,6 @@ function openCustomConfirmModal(title, message, onConfirm) {
 
     modal.classList.remove('hidden');
 }
-
-// ============================================================
-// --- LÓGICA DA APLICAÇÃO ---
-// ============================================================
 
 window.manualBackup = async function () {
     const btn = document.getElementById('btn-manual-backup');
@@ -1480,6 +1476,8 @@ function resetModalFields() {
     });
 
     startSel.value = "07:00";
+    if (startSel.refreshCustomUI) startSel.refreshCustomUI();
+    
     updateEndTime(2);
     renderColorPicker();
 }
@@ -1495,6 +1493,7 @@ window.updateEndTime = function (slotsToAdd = 2) {
         let targetIdx = idx + (slotsToAdd - 1);
         if (targetIdx >= timeSlots.length) targetIdx = timeSlots.length - 1;
         endSel.value = timeSlots[targetIdx].end;
+        if (endSel.refreshCustomUI) endSel.refreshCustomUI();
     }
 }
 
@@ -1652,7 +1651,6 @@ window.showReminderForm = function () {
     document.getElementById('reminder-form').classList.remove('hidden');
     document.getElementById('rem-date').valueAsDate = new Date();
     
-    // CORREÇÃO: Reseta o seletor de prioridade visualmente para 'medium' (padrão)
     const prioSelect = document.getElementById('rem-prio');
     prioSelect.value = 'medium';
     if (prioSelect.refreshCustomUI) prioSelect.refreshCustomUI();

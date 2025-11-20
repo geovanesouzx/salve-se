@@ -353,19 +353,75 @@ window.editSemester = async function() {
     }
 }
 
-window.changePhoto = async function() {
-    const newUrl = prompt("Cole a URL da sua nova foto de perfil:", userProfile.photoURL || "");
-    if (newUrl && currentUser) {
-        try {
-            // Atualiza no Auth
-            await updateProfile(currentUser, { photoURL: newUrl });
-            // Atualiza no Firestore
-            await setDoc(doc(db, "users", currentUser.uid), { photoURL: newUrl }, { merge: true });
-            showModal("Sucesso", "Foto de perfil atualizada!");
-        } catch (e) {
-            alert("Erro ao atualizar foto: " + e.message);
+// === NOVA FUNÇÃO DE UPLOAD PARA O IMGUR ===
+window.changePhoto = function() {
+    // Cria um input de arquivo invisível
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    
+    input.onchange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        // Feedback visual
+        const loadingBtn = document.getElementById('btn-change-photo-settings');
+        let originalBtnContent = "";
+        if(loadingBtn) {
+             originalBtnContent = loadingBtn.innerHTML;
+             loadingBtn.innerHTML = '<i class="fas fa-circle-notch fa-spin mr-2"></i> Enviando...';
+             loadingBtn.disabled = true;
+        } else {
+             // Fallback se o clique veio do avatar
+             showModal("Aguarde", "Enviando sua foto para o servidor...");
         }
-    }
+
+        const formData = new FormData();
+        formData.append('image', file);
+
+        try {
+            // Faz o upload para a API do Imgur
+            const response = await fetch('https://api.imgur.com/3/image', {
+                method: 'POST',
+                headers: {
+                    'Authorization': 'Client-ID 513bb727cecf9ac' // Seu Client ID
+                },
+                body: formData
+            });
+
+            const data = await response.json();
+
+            if (data.success && currentUser) {
+                const newUrl = data.data.link;
+
+                // Atualiza no Auth do Firebase
+                await updateProfile(currentUser, { photoURL: newUrl });
+                // Atualiza no Firestore
+                await setDoc(doc(db, "users", currentUser.uid), { photoURL: newUrl }, { merge: true });
+                
+                // Fecha modal de carregamento se estiver aberto
+                const genericModal = document.getElementById('generic-modal');
+                if(genericModal && !genericModal.classList.contains('hidden')) closeGenericModal();
+
+                showModal("Sucesso", "Foto de perfil atualizada com sucesso!");
+            } else {
+                throw new Error('Falha no upload: ' + (data.data.error || 'Erro desconhecido'));
+            }
+
+        } catch (error) {
+            console.error("Erro ao atualizar foto:", error);
+            alert("Erro ao enviar foto: " + error.message);
+        } finally {
+            // Restaura o botão
+            if(loadingBtn) {
+                loadingBtn.innerHTML = originalBtnContent;
+                loadingBtn.disabled = false;
+            }
+        }
+    };
+
+    // Abre o seletor de arquivos
+    input.click();
 }
 
 window.changePassword = async function() {
@@ -413,7 +469,8 @@ window.renderSettings = function() {
                             <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-1">${userProfile.displayName}</h2>
                             <p class="text-gray-500 dark:text-gray-400 text-sm">${userProfile.email}</p>
                         </div>
-                        <button onclick="changePhoto()" class="px-4 py-2 bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-neutral-700 transition shadow-sm">
+                        <!-- Adicionei ID aqui para feedback de carregamento -->
+                        <button id="btn-change-photo-settings" onclick="changePhoto()" class="px-4 py-2 bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-neutral-700 transition shadow-sm">
                             <i class="fas fa-upload mr-2"></i> Mudar Foto
                         </button>
                     </div>

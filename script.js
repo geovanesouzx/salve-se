@@ -69,25 +69,19 @@ const svgs = {
 // ============================================================
 
 function initCustomUI() {
-    // VOLTAMOS AO ORIGINAL: Aplica o visual bonito em TODOS os selects
     document.querySelectorAll('select:not(.custom-init)').forEach(createCustomSelect);
     document.querySelectorAll('input[type="date"]:not(.custom-init)').forEach(createCustomDatePicker);
 }
 
 // Fecha menus ao redimensionar tela ou rolar
-function closeAllCustomMenus() {
-    document.querySelectorAll('.custom-floating-menu').forEach(el => el.remove());
-}
-window.addEventListener('resize', closeAllCustomMenus);
-window.addEventListener('scroll', closeAllCustomMenus, true); // Capture phase para scrolls internos
-
 function createCustomSelect(select) {
-    select.classList.add('custom-init', 'hidden'); // Esconde original
+    // Esconde o select original
+    select.classList.add('custom-init', 'hidden');
 
     const wrapper = document.createElement('div');
     wrapper.className = 'relative inline-block w-full';
 
-    // Botão Gatilho
+    // Botão que aparece na tela (o "Gatilho")
     const trigger = document.createElement('button');
     trigger.type = 'button';
     trigger.className = 'w-full flex items-center justify-between bg-white dark:bg-neutral-900 border border-gray-300 dark:border-neutral-700 rounded-lg px-3 py-2.5 text-sm text-gray-700 dark:text-gray-300 focus:ring-2 focus:ring-indigo-500 transition';
@@ -98,40 +92,45 @@ function createCustomSelect(select) {
     trigger.appendChild(labelSpan);
     trigger.innerHTML += svgs.chevronDown;
 
-    // Lógica de Abertura (FIXED POSITION)
+    // Ação de Clicar
     trigger.onclick = (e) => {
         e.preventDefault();
         e.stopPropagation();
 
-        // Fecha outros abertos
+        // Fecha outros menus abertos
         closeAllCustomMenus();
 
         const rect = trigger.getBoundingClientRect();
 
-        // Cria menu no BODY para não ser cortado por overflow hidden/auto
+        // CRIA O MENU FLUTUANTE
         const menu = document.createElement('div');
-        menu.className = 'custom-floating-menu fixed z-[9999] bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-lg shadow-2xl overflow-y-auto animate-scale-in';
+        menu.className = 'custom-floating-menu fixed z-[9999] bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-lg shadow-2xl animate-scale-in';
+
+        // --- CORREÇÃO DE ROLAGEM AQUI ---
+        // Forçamos via estilo direto para garantir que funcione
+        menu.style.maxHeight = '250px'; // Altura máxima fixa
+        menu.style.overflowY = 'auto';  // Barra de rolagem vertical obrigatória
+        // --------------------------------
 
         // Posicionamento
         menu.style.top = (rect.bottom + 4) + 'px';
         menu.style.left = rect.left + 'px';
         menu.style.width = rect.width + 'px';
-        menu.style.maxHeight = '240px'; // Limite de altura
 
-        // Opções
+        // Cria as opções
         Array.from(select.options).forEach(opt => {
             const item = document.createElement('div');
-            item.className = 'px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer transition flex items-center gap-2';
+            item.className = 'px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer transition flex items-center gap-2 border-b border-gray-50 dark:border-neutral-700/50 last:border-0';
             item.innerText = opt.text;
 
-            if (opt.value === select.value) item.classList.add('bg-gray-50', 'dark:bg-white/5', 'font-bold');
-            if (opt.value === 'high') item.classList.add('text-red-500');
-            if (opt.value === 'medium') item.classList.add('text-orange-500');
+            if (opt.value === select.value) {
+                item.classList.add('bg-indigo-50', 'dark:bg-indigo-900/20', 'font-bold', 'text-indigo-600', 'dark:text-indigo-400');
+            }
 
             item.onclick = () => {
                 select.value = opt.value;
                 labelSpan.innerText = opt.text;
-                // Dispara change para garantir compatibilidade
+                // Avisa o sistema que mudou
                 const event = new Event('change');
                 select.dispatchEvent(event);
                 menu.remove();
@@ -139,9 +138,10 @@ function createCustomSelect(select) {
             menu.appendChild(item);
         });
 
+        // Adiciona ao corpo do site
         document.body.appendChild(menu);
 
-        // Fecha ao clicar fora
+        // Fecha se clicar fora
         const closeHandler = (evt) => {
             if (!menu.contains(evt.target) && evt.target !== trigger) {
                 menu.remove();
@@ -154,7 +154,6 @@ function createCustomSelect(select) {
     wrapper.appendChild(trigger);
     select.parentNode.insertBefore(wrapper, select);
 }
-
 function createCustomDatePicker(input) {
     input.classList.add('custom-init', 'hidden');
 
@@ -1269,9 +1268,9 @@ const timeSlots = [
     { start: "10:00", end: "11:00" }, { start: "11:00", end: "12:00" }, { start: "12:00", end: "13:00" },
     { start: "13:00", end: "14:00" }, { start: "14:00", end: "15:00" }, { start: "15:00", end: "16:00" },
     { start: "16:00", end: "17:00" }, { start: "17:00", end: "18:00" },
-    { start: "18:00", end: "19:00" },
+    { start: "18:00", end: "19:00" }, // Adicionado
     { start: "18:30", end: "19:30" },
-    { start: "19:00", end: "20:00" },
+    { start: "19:00", end: "20:00" }, // Adicionado
     { start: "19:30", end: "20:30" }, { start: "20:30", end: "21:30" }, { start: "21:30", end: "22:30" }
 ];
 

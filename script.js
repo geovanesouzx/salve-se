@@ -73,244 +73,93 @@ function initCustomUI() {
     document.querySelectorAll('input[type="date"]:not(.custom-init)').forEach(createCustomDatePicker);
 }
 
-// Fecha menus ao redimensionar tela ou rolar
+// VERSÃO CORRIGIDA E BLINDADA
 function createCustomSelect(select) {
-    // Esconde o select original
+    // Evita recriar se já existe
+    if (select.classList.contains('custom-init')) return;
     select.classList.add('custom-init', 'hidden');
 
     const wrapper = document.createElement('div');
     wrapper.className = 'relative inline-block w-full';
 
-    // Botão que aparece na tela (o "Gatilho")
+    // Botão Gatilho
     const trigger = document.createElement('button');
     trigger.type = 'button';
     trigger.className = 'w-full flex items-center justify-between bg-white dark:bg-neutral-900 border border-gray-300 dark:border-neutral-700 rounded-lg px-3 py-2.5 text-sm text-gray-700 dark:text-gray-300 focus:ring-2 focus:ring-indigo-500 transition';
 
+    // Span para o texto (com ID para atualizarmos via código se precisar)
     const labelSpan = document.createElement('span');
     labelSpan.innerText = select.options[select.selectedIndex]?.text || 'Selecione';
+    labelSpan.id = 'label-' + select.id;
 
     trigger.appendChild(labelSpan);
-    trigger.innerHTML += svgs.chevronDown;
+    // Ícone simples direto no HTML para garantir visualização
+    trigger.insertAdjacentHTML('beforeend', '<span class="text-gray-400 text-xs">▼</span>');
 
-    // Ação de Clicar
+    // AÇÃO DE CLIQUE
     trigger.onclick = (e) => {
         e.preventDefault();
         e.stopPropagation();
 
-        // Fecha outros menus abertos
+        // Fecha outros menus
         closeAllCustomMenus();
 
         const rect = trigger.getBoundingClientRect();
 
-        // CRIA O MENU FLUTUANTE
+        // CRIA O MENU
         const menu = document.createElement('div');
-        menu.className = 'custom-floating-menu fixed z-[9999] bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-lg shadow-2xl animate-scale-in';
+        menu.className = 'custom-floating-menu bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-lg shadow-2xl animate-scale-in';
 
-        // --- CORREÇÃO DE ROLAGEM AQUI ---
-        // Forçamos via estilo direto para garantir que funcione
-        menu.style.maxHeight = '250px'; // Altura máxima fixa
-        menu.style.overflowY = 'auto';  // Barra de rolagem vertical obrigatória
-        // --------------------------------
-
-        // Posicionamento
+        // --- ESTILOS OBRIGATÓRIOS (FIXED + Z-INDEX ALTÍSSIMO) ---
+        // Isso garante que o menu apareça por cima do modal e role corretamente
+        menu.style.position = 'fixed';
+        menu.style.zIndex = '99999';
         menu.style.top = (rect.bottom + 4) + 'px';
         menu.style.left = rect.left + 'px';
         menu.style.width = rect.width + 'px';
+        menu.style.maxHeight = '250px';
+        menu.style.overflowY = 'auto';
 
-        // Cria as opções
+        // Opções
         Array.from(select.options).forEach(opt => {
             const item = document.createElement('div');
-            item.className = 'px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer transition flex items-center gap-2 border-b border-gray-50 dark:border-neutral-700/50 last:border-0';
+            item.className = 'px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer transition border-b border-gray-50 dark:border-neutral-700/50 last:border-0';
             item.innerText = opt.text;
 
             if (opt.value === select.value) {
-                item.classList.add('bg-indigo-50', 'dark:bg-indigo-900/20', 'font-bold', 'text-indigo-600', 'dark:text-indigo-400');
+                item.classList.add('bg-indigo-50', 'dark:bg-indigo-900/20', 'font-bold', 'text-indigo-600');
             }
 
-            item.onclick = () => {
+            item.onclick = (evtClick) => {
+                evtClick.stopPropagation();
                 select.value = opt.value;
                 labelSpan.innerText = opt.text;
-                // Avisa o sistema que mudou
-                const event = new Event('change');
+
+                // Dispara evento para o sistema salvar
+                const event = new Event('change', { bubbles: true });
                 select.dispatchEvent(event);
+
                 menu.remove();
             };
             menu.appendChild(item);
         });
 
-        // Adiciona ao corpo do site
+        // Adiciona direto ao body
         document.body.appendChild(menu);
 
-        // Fecha se clicar fora
+        // Fecha ao clicar fora
         const closeHandler = (evt) => {
-            if (!menu.contains(evt.target) && evt.target !== trigger) {
+            if (!menu.contains(evt.target) && evt.target !== trigger && !trigger.contains(evt.target)) {
                 menu.remove();
                 document.removeEventListener('click', closeHandler);
             }
         };
-        setTimeout(() => document.addEventListener('click', closeHandler), 0);
+        setTimeout(() => document.addEventListener('click', closeHandler), 10);
     };
 
     wrapper.appendChild(trigger);
     select.parentNode.insertBefore(wrapper, select);
 }
-function createCustomDatePicker(input) {
-    input.classList.add('custom-init', 'hidden');
-
-    const wrapper = document.createElement('div');
-    wrapper.className = 'relative w-full';
-
-    const trigger = document.createElement('button');
-    trigger.type = 'button';
-    trigger.className = 'w-full flex items-center gap-2 bg-white dark:bg-neutral-900 border border-gray-300 dark:border-neutral-700 rounded-lg px-3 py-2.5 text-sm text-gray-700 dark:text-gray-300 focus:ring-2 focus:ring-indigo-500 transition';
-
-    const iconSpan = document.createElement('span');
-    iconSpan.className = "text-gray-400";
-    iconSpan.innerHTML = svgs.calendar;
-
-    const textSpan = document.createElement('span');
-    const updateDisplay = () => {
-        if (input.value) {
-            const d = new Date(input.value + 'T00:00:00');
-            textSpan.innerText = d.toLocaleDateString('pt-BR');
-            textSpan.classList.remove('text-gray-400');
-        } else {
-            textSpan.innerText = 'Selecione uma data';
-            textSpan.classList.add('text-gray-400');
-        }
-    };
-    updateDisplay();
-
-    trigger.appendChild(iconSpan);
-    trigger.appendChild(textSpan);
-
-    // Lógica Calendário (FIXED POSITION)
-    trigger.onclick = (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        closeAllCustomMenus();
-
-        const rect = trigger.getBoundingClientRect();
-
-        // Container Flutuante
-        const calendar = document.createElement('div');
-        calendar.className = 'custom-floating-menu fixed z-[9999] p-4 bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-xl shadow-2xl animate-scale-in w-64';
-
-        // Posicionamento Inteligente (Se estiver muito embaixo, abre pra cima)
-        const spaceBelow = window.innerHeight - rect.bottom;
-        if (spaceBelow < 300) {
-            calendar.style.bottom = (window.innerHeight - rect.top + 4) + 'px';
-        } else {
-            calendar.style.top = (rect.bottom + 4) + 'px';
-        }
-
-        // Centraliza horizontalmente em mobile, alinha a esquerda em desktop
-        if (window.innerWidth < 640) {
-            calendar.style.left = '50%';
-            calendar.style.transform = 'translateX(-50%)';
-            calendar.style.top = '50%'; // Centralizado na tela mobile
-            calendar.style.marginTop = '-150px'; // Ajuste manual
-        } else {
-            calendar.style.left = rect.left + 'px';
-        }
-
-        let currentMonth = input.value ? new Date(input.value + 'T00:00:00').getMonth() : new Date().getMonth();
-        let currentYear = input.value ? new Date(input.value + 'T00:00:00').getFullYear() : new Date().getFullYear();
-
-        const renderCalendar = (month, year) => {
-            calendar.innerHTML = '';
-
-            // Header
-            const header = document.createElement('div');
-            header.className = 'flex justify-between items-center mb-3';
-
-            const prevBtn = document.createElement('button');
-            prevBtn.innerHTML = '&lt;';
-            prevBtn.className = 'p-1 hover:bg-gray-100 dark:hover:bg-neutral-700 rounded text-gray-600 dark:text-gray-300';
-            prevBtn.onclick = (e) => { e.stopPropagation(); renderCalendar(month === 0 ? 11 : month - 1, month === 0 ? year - 1 : year); };
-
-            const title = document.createElement('span');
-            title.className = 'font-bold text-gray-800 dark:text-white text-sm capitalize';
-            title.innerText = new Date(year, month).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
-
-            const nextBtn = document.createElement('button');
-            nextBtn.innerHTML = '&gt;';
-            nextBtn.className = 'p-1 hover:bg-gray-100 dark:hover:bg-neutral-700 rounded text-gray-600 dark:text-gray-300';
-            nextBtn.onclick = (e) => { e.stopPropagation(); renderCalendar(month === 11 ? 0 : month + 1, month === 11 ? year + 1 : year); };
-
-            header.appendChild(prevBtn);
-            header.appendChild(title);
-            header.appendChild(nextBtn);
-            calendar.appendChild(header);
-
-            // Grid
-            const grid = document.createElement('div');
-            grid.className = 'grid grid-cols-7 gap-1 text-center text-xs mb-1';
-            ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].forEach(d => {
-                const el = document.createElement('span');
-                el.className = 'text-gray-400 font-bold';
-                el.innerText = d;
-                grid.appendChild(el);
-            });
-            calendar.appendChild(grid);
-
-            const daysContainer = document.createElement('div');
-            daysContainer.className = 'grid grid-cols-7 gap-1 text-center text-sm';
-
-            const firstDay = new Date(year, month, 1).getDay();
-            const daysInMonth = new Date(year, month + 1, 0).getDate();
-
-            for (let i = 0; i < firstDay; i++) daysContainer.appendChild(document.createElement('div'));
-
-            for (let d = 1; d <= daysInMonth; d++) {
-                const dayBtn = document.createElement('button');
-                dayBtn.innerText = d;
-                dayBtn.className = 'w-8 h-8 rounded-full flex items-center justify-center hover:bg-indigo-50 dark:hover:bg-neutral-700 text-gray-700 dark:text-gray-300 transition';
-
-                const today = new Date();
-                if (d === today.getDate() && month === today.getMonth() && year === today.getFullYear()) {
-                    dayBtn.classList.add('border', 'border-indigo-500', 'text-indigo-500', 'font-bold');
-                }
-
-                if (input.value) {
-                    const sel = new Date(input.value + 'T00:00:00');
-                    if (d === sel.getDate() && month === sel.getMonth() && year === sel.getFullYear()) {
-                        dayBtn.className = 'w-8 h-8 rounded-full flex items-center justify-center bg-indigo-600 text-white font-bold shadow-md';
-                    }
-                }
-
-                dayBtn.onclick = (e) => {
-                    e.stopPropagation();
-                    const selectedDate = new Date(year, month, d);
-                    // Ajuste para fuso horário local
-                    const yearStr = selectedDate.getFullYear();
-                    const monthStr = String(selectedDate.getMonth() + 1).padStart(2, '0');
-                    const dayStr = String(selectedDate.getDate()).padStart(2, '0');
-                    input.value = `${yearStr}-${monthStr}-${dayStr}`;
-                    updateDisplay();
-                    calendar.remove();
-                };
-                daysContainer.appendChild(dayBtn);
-            }
-            calendar.appendChild(daysContainer);
-        };
-
-        renderCalendar(currentMonth, currentYear);
-        document.body.appendChild(calendar);
-
-        const closeHandler = (evt) => {
-            if (!calendar.contains(evt.target) && evt.target !== trigger) {
-                calendar.remove();
-                document.removeEventListener('click', closeHandler);
-            }
-        };
-        setTimeout(() => document.addEventListener('click', closeHandler), 0);
-    };
-
-    wrapper.appendChild(trigger);
-    input.parentNode.insertBefore(wrapper, input);
-}
-
 // ============================================================
 // --- SISTEMA DE BOOTSTRAP INTELIGENTE ---
 // ============================================================
@@ -1553,6 +1402,10 @@ function resetModalFields() {
     startSel.value = "07:00";
     updateEndTime(2);
     renderColorPicker();
+    const startLabel = document.getElementById('label-class-start');
+    const endLabel = document.getElementById('label-class-end');
+    if (startLabel) startLabel.innerText = "07:00";
+    if (endLabel) endLabel.innerText = document.getElementById('class-end').options[document.getElementById('class-end').selectedIndex]?.text;
 }
 
 window.updateEndTime = function (slotsToAdd = 2) {

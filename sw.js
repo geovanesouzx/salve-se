@@ -1,4 +1,4 @@
-const CACHE_NAME = 'salvese-v6.0-menu'; // Versão atualizada para forçar limpeza de cache
+const CACHE_NAME = 'salvese-v5.1-final-tasks'; // Versão atualizada para forçar limpeza de cache e carregar novas funcionalidades
 const URLS_TO_CACHE = [
     './',
     './index.html',
@@ -10,8 +10,7 @@ const URLS_TO_CACHE = [
     'https://files.catbox.moe/pmdtq6.png',
     'https://media.tenor.com/q9CixI3CcrkAAAAj/dance.gif',
     'https://media.tenor.com/IVh7YxGaB_4AAAAM/nerd-emoji.gif',
-    'https://media.tenor.com/qL2ySe3uUgQAAAAj/gatto.gif',
-    'https://www.imagensanimadas.com/data/media/425/onibus-imagem-animada-0001.gif'
+    'https://media.tenor.com/qL2ySe3uUgQAAAAj/gatto.gif'
 ];
 
 // 1. Instalação: Cacheia o básico imediatamente
@@ -50,15 +49,12 @@ self.addEventListener('activate', event => {
 });
 
 // 3. Interceptação: ESTRATÉGIA NETWORK FIRST (Rede Primeiro)
+// Prioriza a internet para sempre mostrar a versão mais recente.
 self.addEventListener('fetch', event => {
-    // Ignora requisições para o Firebase/Google APIs para não quebrar auth/firestore
-    if (event.request.url.includes('googleapis') || event.request.url.includes('firebase')) {
-        return;
-    }
-
     event.respondWith(
         fetch(event.request)
             .then(networkResponse => {
+                // Se a resposta da rede for válida, atualiza o cache
                 if (networkResponse && networkResponse.status === 200) {
                     const responseToCache = networkResponse.clone();
                     caches.open(CACHE_NAME).then(cache => {
@@ -68,10 +64,12 @@ self.addEventListener('fetch', event => {
                 return networkResponse;
             })
             .catch(() => {
+                // Se falhar (offline), usa o cache
                 return caches.match(event.request).then(cachedResponse => {
                     if (cachedResponse) {
                         return cachedResponse;
                     }
+                    // Fallback para navegação
                     if (event.request.mode === 'navigate') {
                         return caches.match('./index.html');
                     }

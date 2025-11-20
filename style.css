@@ -21,11 +21,6 @@ body { font-family: 'Inter', sans-serif; transition: background-color 0.3s, colo
 .dark ::-webkit-scrollbar-thumb { background: #333; }
 .dark ::-webkit-scrollbar-thumb:hover { background: #555; }
 
-/* Custom scrollbar for card body */
-.custom-scrollbar::-webkit-scrollbar { width: 4px; }
-.custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; }
-.dark .custom-scrollbar::-webkit-scrollbar-thumb { background: #27272a; }
-
 /* Utility to hide scrollbar for horizontal tabs */
 .no-scrollbar::-webkit-scrollbar {
     display: none;

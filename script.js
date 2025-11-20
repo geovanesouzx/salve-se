@@ -2,32 +2,32 @@
 // --- CONFIGURAÇÃO FIREBASE & IMPORTAÇÕES ---
 // ============================================================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { 
-    getAuth, 
-    signInWithPopup, 
-    GoogleAuthProvider, 
-    onAuthStateChanged, 
+import {
+    getAuth,
+    signInWithPopup,
+    GoogleAuthProvider,
+    onAuthStateChanged,
     signOut,
     updateProfile,
     sendPasswordResetEmail
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-import { 
-    getFirestore, 
-    doc, 
-    setDoc, 
-    getDoc, 
+import {
+    getFirestore,
+    doc,
+    setDoc,
+    getDoc,
     deleteDoc,
     onSnapshot,
-    enableIndexedDbPersistence 
+    enableIndexedDbPersistence
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyD5Ggqw9FpMS98CHcfXKnghMQNMV5WIVTw",
-  authDomain: "salvee-se.firebaseapp.com",
-  projectId: "salvee-se",
-  storageBucket: "salvee-se.firebasestorage.app",
-  messagingSenderId: "132544174908",
-  appId: "1:132544174908:web:00c6aa4855cc18ed2cdc39"
+    apiKey: "AIzaSyD5Ggqw9FpMS98CHcfXKnghMQNMV5WIVTw",
+    authDomain: "salvee-se.firebaseapp.com",
+    projectId: "salvee-se",
+    storageBucket: "salvee-se.firebasestorage.app",
+    messagingSenderId: "132544174908",
+    appId: "1:132544174908:web:00c6aa4855cc18ed2cdc39"
 };
 
 // Inicializa Firebase
@@ -82,35 +82,35 @@ window.addEventListener('scroll', closeAllCustomMenus, true); // Capture phase p
 
 function createCustomSelect(select) {
     select.classList.add('custom-init', 'hidden'); // Esconde original
-    
+
     const wrapper = document.createElement('div');
     wrapper.className = 'relative inline-block w-full';
-    
+
     // Botão Gatilho
     const trigger = document.createElement('button');
     trigger.type = 'button';
     trigger.className = 'w-full flex items-center justify-between bg-white dark:bg-neutral-900 border border-gray-300 dark:border-neutral-700 rounded-lg px-3 py-2.5 text-sm text-gray-700 dark:text-gray-300 focus:ring-2 focus:ring-indigo-500 transition';
-    
+
     const labelSpan = document.createElement('span');
     labelSpan.innerText = select.options[select.selectedIndex]?.text || 'Selecione';
-    
+
     trigger.appendChild(labelSpan);
     trigger.innerHTML += svgs.chevronDown;
-    
+
     // Lógica de Abertura (FIXED POSITION)
     trigger.onclick = (e) => {
         e.preventDefault();
         e.stopPropagation();
-        
+
         // Fecha outros abertos
         closeAllCustomMenus();
 
         const rect = trigger.getBoundingClientRect();
-        
+
         // Cria menu no BODY para não ser cortado por overflow hidden/auto
         const menu = document.createElement('div');
         menu.className = 'custom-floating-menu fixed z-[9999] bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-lg shadow-2xl overflow-y-auto animate-scale-in';
-        
+
         // Posicionamento
         menu.style.top = (rect.bottom + 4) + 'px';
         menu.style.left = rect.left + 'px';
@@ -122,10 +122,10 @@ function createCustomSelect(select) {
             const item = document.createElement('div');
             item.className = 'px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer transition flex items-center gap-2';
             item.innerText = opt.text;
-            
-            if(opt.value === select.value) item.classList.add('bg-gray-50', 'dark:bg-white/5', 'font-bold');
-            if(opt.value === 'high') item.classList.add('text-red-500');
-            if(opt.value === 'medium') item.classList.add('text-orange-500');
+
+            if (opt.value === select.value) item.classList.add('bg-gray-50', 'dark:bg-white/5', 'font-bold');
+            if (opt.value === 'high') item.classList.add('text-red-500');
+            if (opt.value === 'medium') item.classList.add('text-orange-500');
 
             item.onclick = () => {
                 select.value = opt.value;
@@ -163,14 +163,14 @@ function createCustomDatePicker(input) {
     const trigger = document.createElement('button');
     trigger.type = 'button';
     trigger.className = 'w-full flex items-center gap-2 bg-white dark:bg-neutral-900 border border-gray-300 dark:border-neutral-700 rounded-lg px-3 py-2.5 text-sm text-gray-700 dark:text-gray-300 focus:ring-2 focus:ring-indigo-500 transition';
-    
+
     const iconSpan = document.createElement('span');
     iconSpan.className = "text-gray-400";
     iconSpan.innerHTML = svgs.calendar;
-    
+
     const textSpan = document.createElement('span');
     const updateDisplay = () => {
-        if(input.value) {
+        if (input.value) {
             const d = new Date(input.value + 'T00:00:00');
             textSpan.innerText = d.toLocaleDateString('pt-BR');
             textSpan.classList.remove('text-gray-400');
@@ -191,21 +191,21 @@ function createCustomDatePicker(input) {
         closeAllCustomMenus();
 
         const rect = trigger.getBoundingClientRect();
-        
+
         // Container Flutuante
         const calendar = document.createElement('div');
         calendar.className = 'custom-floating-menu fixed z-[9999] p-4 bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-xl shadow-2xl animate-scale-in w-64';
-        
+
         // Posicionamento Inteligente (Se estiver muito embaixo, abre pra cima)
         const spaceBelow = window.innerHeight - rect.bottom;
-        if(spaceBelow < 300) {
+        if (spaceBelow < 300) {
             calendar.style.bottom = (window.innerHeight - rect.top + 4) + 'px';
         } else {
             calendar.style.top = (rect.bottom + 4) + 'px';
         }
-        
+
         // Centraliza horizontalmente em mobile, alinha a esquerda em desktop
-        if(window.innerWidth < 640) {
+        if (window.innerWidth < 640) {
             calendar.style.left = '50%';
             calendar.style.transform = 'translateX(-50%)';
             calendar.style.top = '50%'; // Centralizado na tela mobile
@@ -213,17 +213,17 @@ function createCustomDatePicker(input) {
         } else {
             calendar.style.left = rect.left + 'px';
         }
-        
+
         let currentMonth = input.value ? new Date(input.value + 'T00:00:00').getMonth() : new Date().getMonth();
         let currentYear = input.value ? new Date(input.value + 'T00:00:00').getFullYear() : new Date().getFullYear();
 
         const renderCalendar = (month, year) => {
             calendar.innerHTML = '';
-            
+
             // Header
             const header = document.createElement('div');
             header.className = 'flex justify-between items-center mb-3';
-            
+
             const prevBtn = document.createElement('button');
             prevBtn.innerHTML = '&lt;';
             prevBtn.className = 'p-1 hover:bg-gray-100 dark:hover:bg-neutral-700 rounded text-gray-600 dark:text-gray-300';
@@ -246,7 +246,7 @@ function createCustomDatePicker(input) {
             // Grid
             const grid = document.createElement('div');
             grid.className = 'grid grid-cols-7 gap-1 text-center text-xs mb-1';
-            ['D','S','T','Q','Q','S','S'].forEach(d => {
+            ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].forEach(d => {
                 const el = document.createElement('span');
                 el.className = 'text-gray-400 font-bold';
                 el.innerText = d;
@@ -260,21 +260,21 @@ function createCustomDatePicker(input) {
             const firstDay = new Date(year, month, 1).getDay();
             const daysInMonth = new Date(year, month + 1, 0).getDate();
 
-            for(let i=0; i<firstDay; i++) daysContainer.appendChild(document.createElement('div'));
+            for (let i = 0; i < firstDay; i++) daysContainer.appendChild(document.createElement('div'));
 
-            for(let d=1; d<=daysInMonth; d++) {
+            for (let d = 1; d <= daysInMonth; d++) {
                 const dayBtn = document.createElement('button');
                 dayBtn.innerText = d;
                 dayBtn.className = 'w-8 h-8 rounded-full flex items-center justify-center hover:bg-indigo-50 dark:hover:bg-neutral-700 text-gray-700 dark:text-gray-300 transition';
-                
+
                 const today = new Date();
-                if(d === today.getDate() && month === today.getMonth() && year === today.getFullYear()) {
+                if (d === today.getDate() && month === today.getMonth() && year === today.getFullYear()) {
                     dayBtn.classList.add('border', 'border-indigo-500', 'text-indigo-500', 'font-bold');
                 }
 
-                if(input.value) {
+                if (input.value) {
                     const sel = new Date(input.value + 'T00:00:00');
-                    if(d === sel.getDate() && month === sel.getMonth() && year === sel.getFullYear()) {
+                    if (d === sel.getDate() && month === sel.getMonth() && year === sel.getFullYear()) {
                         dayBtn.className = 'w-8 h-8 rounded-full flex items-center justify-center bg-indigo-600 text-white font-bold shadow-md';
                     }
                 }
@@ -284,7 +284,7 @@ function createCustomDatePicker(input) {
                     const selectedDate = new Date(year, month, d);
                     // Ajuste para fuso horário local
                     const yearStr = selectedDate.getFullYear();
-                    const monthStr =String(selectedDate.getMonth() + 1).padStart(2, '0');
+                    const monthStr = String(selectedDate.getMonth() + 1).padStart(2, '0');
                     const dayStr = String(selectedDate.getDate()).padStart(2, '0');
                     input.value = `${yearStr}-${monthStr}-${dayStr}`;
                     updateDisplay();
@@ -322,12 +322,12 @@ const forceLoadTimeout = setTimeout(() => {
     if (loadingScreen && !loadingScreen.classList.contains('hidden')) {
         console.warn("Firebase demorou. Verificando modo offline...");
         if (sessionActive === 'true') {
-            loadAppOfflineMode(); 
+            loadAppOfflineMode();
         } else {
             showLoginScreen();
         }
     }
-}, 2000); 
+}, 2000);
 
 onAuthStateChanged(auth, async (user) => {
     clearTimeout(forceLoadTimeout);
@@ -339,14 +339,14 @@ onAuthStateChanged(auth, async (user) => {
 
         try {
             const docRef = doc(db, "users", user.uid);
-            const docSnap = await getDoc(docRef); 
+            const docSnap = await getDoc(docRef);
 
             if (docSnap.exists()) {
                 userProfile = docSnap.data();
                 if (!userProfile.semester) userProfile.semester = "N/A";
                 localStorage.setItem('salvese_user_profile', JSON.stringify(userProfile));
-                showAppInterface(); 
-                initRealtimeSync(user.uid); 
+                showAppInterface();
+                initRealtimeSync(user.uid);
             } else {
                 showProfileSetupScreen();
             }
@@ -359,7 +359,7 @@ onAuthStateChanged(auth, async (user) => {
     } else {
         currentUser = null;
         userProfile = null;
-        if(unsubscribeData) unsubscribeData();
+        if (unsubscribeData) unsubscribeData();
 
         if (sessionActive === 'true' && !navigator.onLine) {
             loadAppOfflineMode();
@@ -376,17 +376,17 @@ function showAppInterface() {
     const appContent = document.querySelector('.app-content-wrapper');
     const loadingScreen = document.getElementById('loading-screen');
 
-    if(loginScreen) loginScreen.classList.add('hidden');
-    if(profileScreen) profileScreen.classList.add('hidden');
-    if(appContent) appContent.classList.remove('hidden');
+    if (loginScreen) loginScreen.classList.add('hidden');
+    if (profileScreen) profileScreen.classList.add('hidden');
+    if (appContent) appContent.classList.remove('hidden');
 
     updateUserInterfaceInfo();
     refreshAllUI();
 
     // INICIALIZA OS COMPONENTES CUSTOMIZADOS
-    setTimeout(initCustomUI, 100); 
+    setTimeout(initCustomUI, 100);
 
-    if(loadingScreen && !loadingScreen.classList.contains('hidden')) {
+    if (loadingScreen && !loadingScreen.classList.contains('hidden')) {
         loadingScreen.classList.add('opacity-0');
         setTimeout(() => loadingScreen.classList.add('hidden'), 500);
     }
@@ -398,11 +398,11 @@ function showLoginScreen() {
     const appContent = document.querySelector('.app-content-wrapper');
     const loadingScreen = document.getElementById('loading-screen');
 
-    if(loginScreen) loginScreen.classList.remove('hidden');
-    if(profileScreen) profileScreen.classList.add('hidden');
-    if(appContent) appContent.classList.add('hidden');
+    if (loginScreen) loginScreen.classList.remove('hidden');
+    if (profileScreen) profileScreen.classList.add('hidden');
+    if (appContent) appContent.classList.add('hidden');
 
-    if(loadingScreen && !loadingScreen.classList.contains('hidden')) {
+    if (loadingScreen && !loadingScreen.classList.contains('hidden')) {
         loadingScreen.classList.add('opacity-0');
         setTimeout(() => loadingScreen.classList.add('hidden'), 500);
     }
@@ -414,10 +414,10 @@ function showProfileSetupScreen() {
     const appContent = document.querySelector('.app-content-wrapper');
     const loadingScreen = document.getElementById('loading-screen');
 
-    if(loginScreen) loginScreen.classList.add('hidden');
-    if(profileScreen) profileScreen.classList.remove('hidden');
-    if(appContent) appContent.classList.add('hidden');
-    if(loadingScreen) loadingScreen.classList.add('hidden');
+    if (loginScreen) loginScreen.classList.add('hidden');
+    if (profileScreen) profileScreen.classList.remove('hidden');
+    if (appContent) appContent.classList.add('hidden');
+    if (loadingScreen) loadingScreen.classList.add('hidden');
 }
 
 function loadAppOfflineMode() {
@@ -442,7 +442,7 @@ window.loginWithGoogle = async () => {
 window.logoutApp = async () => {
     try {
         await signOut(auth);
-        localStorage.removeItem('salvese_session_active'); 
+        localStorage.removeItem('salvese_session_active');
         location.reload();
     } catch (error) {
         localStorage.removeItem('salvese_session_active');
@@ -476,7 +476,7 @@ window.saveUserProfile = async () => {
         }
 
         await setDoc(doc(db, "usernames", handleInput), { uid: currentUser.uid });
-        
+
         const profileData = {
             handle: handleInput,
             displayName: nameInput,
@@ -486,7 +486,7 @@ window.saveUserProfile = async () => {
             semester: "N/A",
             lastHandleChange: Date.now()
         };
-        
+
         await setDoc(doc(db, "users", currentUser.uid), profileData);
 
         const initialData = {
@@ -495,7 +495,7 @@ window.saveUserProfile = async () => {
             reminders: JSON.parse(localStorage.getItem('salvese_reminders')) || [],
             lastUpdated: new Date().toISOString()
         };
-        
+
         await setDoc(doc(db, "users", currentUser.uid, "data", "appData"), initialData);
 
         userProfile = profileData;
@@ -529,7 +529,7 @@ function initRealtimeSync(uid) {
     }, (error) => console.log("Modo offline ou erro:", error.code));
 
     onSnapshot(doc(db, "users", uid), (docSnap) => {
-        if(docSnap.exists()) {
+        if (docSnap.exists()) {
             userProfile = docSnap.data();
             localStorage.setItem('salvese_user_profile', JSON.stringify(userProfile));
             updateUserInterfaceInfo();
@@ -543,10 +543,10 @@ function initRealtimeSync(uid) {
 function updateUserInterfaceInfo() {
     const nameDisplay = document.getElementById('user-display-name');
     const handleDisplay = document.getElementById('user-display-id');
-    
-    if(userProfile) {
-        if(nameDisplay) nameDisplay.innerText = userProfile.displayName;
-        if(handleDisplay) handleDisplay.innerText = "@" + userProfile.handle;
+
+    if (userProfile) {
+        if (nameDisplay) nameDisplay.innerText = userProfile.displayName;
+        if (handleDisplay) handleDisplay.innerText = "@" + userProfile.handle;
     }
 }
 
@@ -570,22 +570,22 @@ function openCustomInputModal(title, placeholder, initialValue, onConfirm) {
     const btnConfirm = document.getElementById('custom-modal-confirm');
     const btnCancel = document.getElementById('custom-modal-cancel');
 
-    if(!modal) return console.error("Modal não encontrado no HTML");
+    if (!modal) return console.error("Modal não encontrado no HTML");
 
     modalTitle.innerText = title;
     modalInput.placeholder = placeholder || "";
     modalInput.value = initialValue || "";
-    
+
     const newBtnConfirm = btnConfirm.cloneNode(true);
     btnConfirm.parentNode.replaceChild(newBtnConfirm, btnConfirm);
-    
+
     const newBtnCancel = btnCancel.cloneNode(true);
     btnCancel.parentNode.replaceChild(newBtnCancel, btnCancel);
 
     newBtnConfirm.addEventListener('click', () => {
         const val = modalInput.value;
         modal.classList.add('hidden');
-        if(onConfirm) onConfirm(val);
+        if (onConfirm) onConfirm(val);
     });
 
     newBtnCancel.addEventListener('click', () => {
@@ -593,7 +593,7 @@ function openCustomInputModal(title, placeholder, initialValue, onConfirm) {
     });
 
     modalInput.onkeypress = (e) => {
-        if(e.key === 'Enter') newBtnConfirm.click();
+        if (e.key === 'Enter') newBtnConfirm.click();
     };
 
     modal.classList.remove('hidden');
@@ -607,20 +607,20 @@ function openCustomConfirmModal(title, message, onConfirm) {
     const btnYes = document.getElementById('custom-confirm-yes');
     const btnNo = document.getElementById('custom-confirm-no');
 
-    if(!modal) return;
+    if (!modal) return;
 
     modalTitle.innerText = title;
     modalMsg.innerText = message;
 
     const newBtnYes = btnYes.cloneNode(true);
     btnYes.parentNode.replaceChild(newBtnYes, btnYes);
-    
+
     const newBtnNo = btnNo.cloneNode(true);
     btnNo.parentNode.replaceChild(newBtnNo, btnNo);
 
     newBtnYes.addEventListener('click', () => {
         modal.classList.add('hidden');
-        if(onConfirm) onConfirm();
+        if (onConfirm) onConfirm();
     });
 
     newBtnNo.addEventListener('click', () => {
@@ -634,9 +634,9 @@ function openCustomConfirmModal(title, message, onConfirm) {
 // --- LÓGICA DA APLICAÇÃO ---
 // ============================================================
 
-window.manualBackup = async function() {
+window.manualBackup = async function () {
     const btn = document.getElementById('btn-manual-backup');
-    if(btn) {
+    if (btn) {
         const originalText = btn.innerHTML;
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando...';
         btn.disabled = true;
@@ -646,7 +646,7 @@ window.manualBackup = async function() {
 
     setTimeout(() => {
         showModal('Backup', 'Seus dados foram sincronizados com a nuvem com sucesso!');
-        if(btn) {
+        if (btn) {
             btn.innerHTML = originalText;
             btn.disabled = false;
         }
@@ -655,15 +655,15 @@ window.manualBackup = async function() {
 
 // --- GESTÃO DE PERFIL E CONFIGURAÇÕES ---
 
-window.editName = function() {
+window.editName = function () {
     openCustomInputModal(
-        "Alterar Nome de Exibição", 
-        "Digite seu novo nome...", 
-        userProfile.displayName, 
+        "Alterar Nome de Exibição",
+        "Digite seu novo nome...",
+        userProfile.displayName,
         async (newName) => {
             if (newName && newName.trim() !== "" && newName !== userProfile.displayName) {
-                if(!currentUser) return showModal("Erro", "Você precisa estar online.");
-                
+                if (!currentUser) return showModal("Erro", "Você precisa estar online.");
+
                 try {
                     await setDoc(doc(db, "users", currentUser.uid), { displayName: newName.trim() }, { merge: true });
                     await updateProfile(currentUser, { displayName: newName.trim() });
@@ -676,13 +676,13 @@ window.editName = function() {
     );
 }
 
-window.editHandle = function() {
+window.editHandle = function () {
     if (!userProfile || !currentUser) return;
 
     const lastChange = userProfile.lastHandleChange || 0;
     const now = Date.now();
     const daysSinceLastChange = (now - lastChange) / (1000 * 60 * 60 * 24);
-    
+
     if (daysSinceLastChange < 7 && userProfile.createdAt !== userProfile.lastHandleChange) {
         const daysLeft = Math.ceil(7 - daysSinceLastChange);
         return showModal("Aguarde", `Você só pode alterar seu usuário a cada 7 dias. Aguarde mais ${daysLeft} dia(s).`);
@@ -697,7 +697,7 @@ window.editHandle = function() {
 
             const cleanHandle = newHandle.toLowerCase().trim();
             const handleRegex = /^[a-z0-9_]+$/;
-            
+
             if (!handleRegex.test(cleanHandle)) {
                 return showModal("Inválido", "Use apenas letras minúsculas, números e _.");
             }
@@ -709,18 +709,18 @@ window.editHandle = function() {
                     try {
                         const newHandleRef = doc(db, "usernames", cleanHandle);
                         const docSnap = await getDoc(newHandleRef);
-                        
+
                         if (docSnap.exists()) {
                             return showModal("Indisponível", "Este usuário já está em uso.");
                         }
 
                         await setDoc(newHandleRef, { uid: currentUser.uid });
-                        
+
                         if (userProfile.handle) {
                             await deleteDoc(doc(db, "usernames", userProfile.handle));
                         }
 
-                        await setDoc(doc(db, "users", currentUser.uid), { 
+                        await setDoc(doc(db, "users", currentUser.uid), {
                             handle: cleanHandle,
                             lastHandleChange: Date.now()
                         }, { merge: true });
@@ -737,7 +737,7 @@ window.editHandle = function() {
     );
 }
 
-window.editSemester = function() {
+window.editSemester = function () {
     openCustomInputModal(
         "Semestre Atual",
         "Ex: 2025.1",
@@ -754,23 +754,23 @@ window.editSemester = function() {
     );
 }
 
-window.changePhoto = function() {
+window.changePhoto = function () {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/*';
-    
+
     input.onchange = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
 
         const loadingBtn = document.getElementById('btn-change-photo-settings');
         let originalBtnContent = "";
-        if(loadingBtn) {
-             originalBtnContent = loadingBtn.innerHTML;
-             loadingBtn.innerHTML = '<i class="fas fa-circle-notch fa-spin mr-2"></i> Enviando...';
-             loadingBtn.disabled = true;
+        if (loadingBtn) {
+            originalBtnContent = loadingBtn.innerHTML;
+            loadingBtn.innerHTML = '<i class="fas fa-circle-notch fa-spin mr-2"></i> Enviando...';
+            loadingBtn.disabled = true;
         } else {
-             showModal("Aguarde", "Enviando sua foto para o servidor...");
+            showModal("Aguarde", "Enviando sua foto para o servidor...");
         }
 
         const formData = new FormData();
@@ -790,9 +790,9 @@ window.changePhoto = function() {
 
                 await updateProfile(currentUser, { photoURL: newUrl });
                 await setDoc(doc(db, "users", currentUser.uid), { photoURL: newUrl }, { merge: true });
-                
+
                 const genericModal = document.getElementById('generic-modal');
-                if(genericModal && !genericModal.classList.contains('hidden')) closeGenericModal();
+                if (genericModal && !genericModal.classList.contains('hidden')) closeGenericModal();
 
                 showModal("Sucesso", "Foto de perfil atualizada com sucesso!");
             } else {
@@ -803,7 +803,7 @@ window.changePhoto = function() {
             console.error("Erro ao atualizar foto:", error);
             showModal("Erro", "Erro ao enviar foto: " + error.message);
         } finally {
-            if(loadingBtn) {
+            if (loadingBtn) {
                 loadingBtn.innerHTML = originalBtnContent;
                 loadingBtn.disabled = false;
             }
@@ -813,7 +813,7 @@ window.changePhoto = function() {
     input.click();
 }
 
-window.changePassword = function() {
+window.changePassword = function () {
     if (currentUser && currentUser.email) {
         openCustomConfirmModal(
             "Redefinir Senha",
@@ -831,7 +831,7 @@ window.changePassword = function() {
 }
 
 // === RENDERIZAÇÃO DA TELA DE CONFIGURAÇÕES ===
-window.renderSettings = function() {
+window.renderSettings = function () {
     const container = document.getElementById('settings-content');
     if (!container || !userProfile) return;
 
@@ -922,7 +922,7 @@ window.renderSettings = function() {
             </div>
 
             <div class="text-center pt-4 pb-8">
-                 <p class="text-xs text-gray-300 dark:text-gray-600 font-mono">ID: ${currentUser.uid.substring(0,8)}...</p>
+                 <p class="text-xs text-gray-300 dark:text-gray-600 font-mono">ID: ${currentUser.uid.substring(0, 8)}...</p>
                  <p class="text-xs text-gray-300 dark:text-gray-600 mt-1">Salve-se UFRB v2.2 (Clean UI)</p>
             </div>
         </div>
@@ -940,7 +940,7 @@ function initTheme() {
 }
 initTheme();
 
-window.toggleTheme = function() {
+window.toggleTheme = function () {
     if (document.documentElement.classList.contains('dark')) {
         document.documentElement.classList.remove('dark');
         localStorage.setItem('theme', 'light');
@@ -1007,7 +1007,7 @@ if ('serviceWorker' in navigator) {
                 text.innerText = 'Online';
                 icon.className = 'fas fa-wifi';
                 setTimeout(() => toast.classList.remove('show'), 3000);
-                if(currentUser) refreshAllUI(); 
+                if (currentUser) refreshAllUI();
             } else {
                 toast.className = 'network-status offline show';
                 text.innerText = 'Offline';
@@ -1023,7 +1023,7 @@ let scheduleData = JSON.parse(localStorage.getItem('salvese_schedule')) || [];
 let tasksData = JSON.parse(localStorage.getItem('salvese_tasks')) || [];
 let remindersData = JSON.parse(localStorage.getItem('salvese_reminders')) || [];
 let selectedClassIdToDelete = null;
-let currentTaskFilter = 'all'; 
+let currentTaskFilter = 'all';
 
 async function saveData() {
     localStorage.setItem('salvese_schedule', JSON.stringify(scheduleData));
@@ -1049,9 +1049,9 @@ async function saveData() {
 
 window.addTask = function () {
     const input = document.getElementById('todo-input');
-    const priorityInput = document.getElementById('todo-priority'); 
-    const categoryInput = document.getElementById('todo-category'); 
-    
+    const priorityInput = document.getElementById('todo-priority');
+    const categoryInput = document.getElementById('todo-category');
+
     const text = input.value.trim();
     if (!text) return;
 
@@ -1089,12 +1089,12 @@ window.clearCompleted = function () {
     saveData();
 };
 
-window.setTaskFilter = function(filter) {
+window.setTaskFilter = function (filter) {
     currentTaskFilter = filter;
     ['filter-all', 'filter-active', 'filter-completed'].forEach(id => {
         const btn = document.getElementById(id);
-        if(btn) {
-            if(id === `filter-${filter}`) btn.classList.add('bg-indigo-100', 'text-indigo-700', 'dark:bg-indigo-900/50', 'dark:text-indigo-300');
+        if (btn) {
+            if (id === `filter-${filter}`) btn.classList.add('bg-indigo-100', 'text-indigo-700', 'dark:bg-indigo-900/50', 'dark:text-indigo-300');
             else btn.classList.remove('bg-indigo-100', 'text-indigo-700', 'dark:bg-indigo-900/50', 'dark:text-indigo-300');
         }
     });
@@ -1102,7 +1102,7 @@ window.setTaskFilter = function(filter) {
 };
 
 function getPriorityInfo(prio) {
-    switch(prio) {
+    switch (prio) {
         case 'high': return { label: 'Alta', color: 'text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400 border-red-100 dark:border-red-900' };
         case 'medium': return { label: 'Média', color: 'text-orange-600 bg-orange-50 dark:bg-orange-900/20 dark:text-orange-400 border-orange-100 dark:border-orange-900' };
         default: return { label: 'Normal', color: 'text-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400 border-blue-100 dark:border-blue-900' };
@@ -1110,7 +1110,7 @@ function getPriorityInfo(prio) {
 }
 
 function getCategoryIcon(cat) {
-    switch(cat) {
+    switch (cat) {
         case 'estudo': return '<i class="fas fa-book"></i>';
         case 'trabalho': return '<i class="fas fa-briefcase"></i>';
         case 'pessoal': return '<i class="fas fa-user"></i>';
@@ -1121,17 +1121,17 @@ function getCategoryIcon(cat) {
 window.renderTasks = function () {
     const list = document.getElementById('todo-list');
     if (!list) return;
-    
+
     list.innerHTML = '';
-    
+
     let filteredTasks = tasksData;
     if (currentTaskFilter === 'active') filteredTasks = tasksData.filter(t => !t.done);
     if (currentTaskFilter === 'completed') filteredTasks = tasksData.filter(t => t.done);
 
     const priorityWeight = { 'high': 3, 'medium': 2, 'normal': 1 };
-    
+
     const sortedTasks = [...filteredTasks].sort((a, b) => {
-        if (a.done !== b.done) return a.done ? 1 : -1; 
+        if (a.done !== b.done) return a.done ? 1 : -1;
         if (priorityWeight[b.priority || 'normal'] !== priorityWeight[a.priority || 'normal']) {
             return priorityWeight[b.priority || 'normal'] - priorityWeight[a.priority || 'normal'];
         }
@@ -1152,9 +1152,9 @@ window.renderTasks = function () {
         const div = document.createElement('div');
         const prioInfo = getPriorityInfo(t.priority || 'normal');
         const catIcon = getCategoryIcon(t.category || 'geral');
-        
+
         div.className = `group flex items-center gap-3 p-3 rounded-xl border transition-all duration-200 ${t.done ? 'bg-gray-50/50 dark:bg-neutral-900/30 border-transparent opacity-60' : 'bg-white dark:bg-darkcard border-gray-200 dark:border-darkborder hover:border-indigo-300 dark:hover:border-indigo-800 shadow-sm hover:shadow-md'}`;
-        
+
         div.innerHTML = `
             <button onclick="toggleTask('${t.id}')" class="w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all duration-300 ${t.done ? 'bg-emerald-500 border-emerald-500 text-white scale-90' : 'border-gray-300 dark:border-gray-600 hover:border-indigo-500 text-transparent'}">
                 <i class="fas fa-check text-[10px]"></i>
@@ -1176,24 +1176,24 @@ window.renderTasks = function () {
         `;
         list.appendChild(div);
     });
-    
-    window.updateDashboardTasksWidget(); 
+
+    window.updateDashboardTasksWidget();
 }
 
-window.updateDashboardTasksWidget = function() {
+window.updateDashboardTasksWidget = function () {
     const container = document.getElementById('dashboard-tasks-list');
-    const taskCountEl = document.getElementById('task-count-badge'); 
-    
+    const taskCountEl = document.getElementById('task-count-badge');
+
     const pendingTasks = tasksData.filter(t => !t.done);
-    
-    const dashCountOld = document.getElementById('dash-task-count'); 
-    if(dashCountOld) dashCountOld.innerText = pendingTasks.length;
-    
-    if(taskCountEl) {
+
+    const dashCountOld = document.getElementById('dash-task-count');
+    if (dashCountOld) dashCountOld.innerText = pendingTasks.length;
+
+    if (taskCountEl) {
         taskCountEl.innerText = pendingTasks.length;
         taskCountEl.className = pendingTasks.length > 0 ? 'bg-indigo-600 text-white px-2 py-0.5 rounded-full text-xs font-bold' : 'hidden';
     }
-    
+
     if (!container) return;
     container.innerHTML = '';
 
@@ -1212,14 +1212,14 @@ window.updateDashboardTasksWidget = function() {
     const priorityWeight = { 'high': 3, 'medium': 2, 'normal': 1 };
     const topTasks = [...pendingTasks].sort((a, b) => {
         return priorityWeight[b.priority || 'normal'] - priorityWeight[a.priority || 'normal'];
-    }).slice(0, 3); 
+    }).slice(0, 3);
 
     topTasks.forEach(t => {
         const prioInfo = getPriorityInfo(t.priority || 'normal');
         const item = document.createElement('div');
         item.className = "flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-neutral-800 transition cursor-pointer border border-transparent hover:border-gray-100 dark:hover:border-neutral-700";
-        item.onclick = () => switchPage('todo'); 
-        
+        item.onclick = () => switchPage('todo');
+
         item.innerHTML = `
             <div class="w-1.5 h-1.5 rounded-full ${t.priority === 'high' ? 'bg-red-500' : (t.priority === 'medium' ? 'bg-orange-500' : 'bg-blue-500')}"></div>
             <span class="flex-1 text-sm text-gray-700 dark:text-gray-300 truncate">${t.text}</span>
@@ -1245,7 +1245,7 @@ const timeSlots = [
 ];
 
 const daysList = ['seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
-const daysDisplay = {'seg': 'Seg', 'ter': 'Ter', 'qua': 'Qua', 'qui': 'Qui', 'sex': 'Sex', 'sab': 'Sab'};
+const daysDisplay = { 'seg': 'Seg', 'ter': 'Ter', 'qua': 'Qua', 'qui': 'Qui', 'sex': 'Sex', 'sab': 'Sab' };
 
 window.renderSchedule = function () {
     const viewContainer = document.getElementById('view-aulas');
@@ -1293,7 +1293,7 @@ window.renderSchedule = function () {
 
         const classesToday = scheduleData
             .filter(c => c.day === dayKey)
-            .sort((a, b) => parseInt(a.start.replace(':','')) - parseInt(b.start.replace(':','')));
+            .sort((a, b) => parseInt(a.start.replace(':', '')) - parseInt(b.start.replace(':', '')));
 
         const cardsContainer = document.createElement('div');
         cardsContainer.className = "space-y-3";
@@ -1307,11 +1307,11 @@ window.renderSchedule = function () {
             classesToday.forEach(aula => {
                 const colorKey = aula.color || 'indigo';
                 const palette = colorPalettes[colorKey] || colorPalettes['indigo'];
-                
+
                 const card = document.createElement('div');
                 card.className = "relative rounded-xl p-4 cursor-pointer active:scale-[0.98] transition-transform overflow-hidden group";
                 card.style.backgroundColor = `rgba(${palette[500]}, 0.12)`;
-                
+
                 card.innerHTML = `
                     <div class="absolute left-0 top-2 bottom-2 w-1.5 rounded-r-full" style="background-color: rgb(${palette[500]})"></div>
                     <div class="pl-3 flex justify-between items-start">
@@ -1328,7 +1328,7 @@ window.renderSchedule = function () {
                         </div>
                     </div>
                 `;
-                
+
                 card.onclick = () => openEditClassModal(aula.id);
                 cardsContainer.appendChild(card);
             });
@@ -1341,7 +1341,7 @@ window.renderSchedule = function () {
 
     const desktopContainer = document.createElement('div');
     desktopContainer.className = "hidden md:block bg-white dark:bg-darkcard rounded-xl border border-gray-200 dark:border-darkborder shadow-sm overflow-hidden";
-    
+
     let tableHTML = `
         <div class="overflow-x-auto">
             <table class="w-full text-sm border-collapse">
@@ -1365,14 +1365,14 @@ window.renderSchedule = function () {
             if (occupied[cellKey]) return;
 
             const foundClass = scheduleData.find(c => c.day === day && c.start === slot.start);
-            
+
             if (foundClass) {
                 let endIndex = timeSlots.findIndex(s => s.end === foundClass.end);
-                if(endIndex === -1) endIndex = timeSlots.findIndex(s => s.start === foundClass.end) - 1;
-                if (endIndex === -1) endIndex = index; 
-                
+                if (endIndex === -1) endIndex = timeSlots.findIndex(s => s.start === foundClass.end) - 1;
+                if (endIndex === -1) endIndex = index;
+
                 const span = Math.max(1, (endIndex - index) + 1);
-                
+
                 for (let k = 1; k < span; k++) occupied[`${day}-${index + k}`] = true;
 
                 const colorKey = foundClass.color || 'indigo';
@@ -1414,12 +1414,12 @@ window.openAddClassModal = function (day, startHourStr) {
     resetModalFields();
     document.getElementById('modal-title').innerText = "Adicionar Aula";
     document.getElementById('btn-delete-class').classList.add('hidden');
-    
+
     if (day) document.getElementById('class-day').value = day;
     else {
-         const todayIndex = new Date().getDay();
-         const map = ['dom','seg','ter','qua','qui','sex','sab'];
-         if(todayIndex > 0 && todayIndex < 7) document.getElementById('class-day').value = map[todayIndex];
+        const todayIndex = new Date().getDay();
+        const map = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
+        if (todayIndex > 0 && todayIndex < 7) document.getElementById('class-day').value = map[todayIndex];
     }
 
     if (startHourStr) {
@@ -1503,54 +1503,54 @@ window.performDeleteClass = function () {
 function resetModalFields() {
     document.getElementById('class-id').value = ''; document.getElementById('class-name').value = ''; document.getElementById('class-prof').value = '';
     document.getElementById('class-room').value = ''; document.getElementById('class-day').value = 'seg'; window.selectedColor = 'cyan';
-    
-    const startSel = document.getElementById('class-start'); 
+
+    const startSel = document.getElementById('class-start');
     const endSel = document.getElementById('class-end');
-    
-    startSel.innerHTML = ''; 
+
+    startSel.innerHTML = '';
     endSel.innerHTML = '';
-    
-    timeSlots.forEach(t => { 
-        const opt = `<option value="${t.start}">${t.start}</option>`; 
-        startSel.innerHTML += opt; 
+
+    timeSlots.forEach(t => {
+        const opt = `<option value="${t.start}">${t.start}</option>`;
+        startSel.innerHTML += opt;
     });
-    
-    timeSlots.forEach(t => { 
-        const opt = `<option value="${t.end}">${t.end}</option>`; 
-        endSel.innerHTML += opt; 
+
+    timeSlots.forEach(t => {
+        const opt = `<option value="${t.end}">${t.end}</option>`;
+        endSel.innerHTML += opt;
     });
-    
-    startSel.value = "07:00"; 
-    updateEndTime(2); 
+
+    startSel.value = "07:00";
+    updateEndTime(2);
     renderColorPicker();
 }
 
-window.updateEndTime = function(slotsToAdd = 2) {
+window.updateEndTime = function (slotsToAdd = 2) {
     const startSel = document.getElementById('class-start');
     const endSel = document.getElementById('class-end');
     const startHourStr = startSel.value;
-    
+
     const idx = timeSlots.findIndex(s => s.start === startHourStr);
-    
+
     if (idx !== -1) {
-        let targetIdx = idx + (slotsToAdd - 1); 
+        let targetIdx = idx + (slotsToAdd - 1);
         if (targetIdx >= timeSlots.length) targetIdx = timeSlots.length - 1;
         endSel.value = timeSlots[targetIdx].end;
     }
 }
 
-window.toggleModal = function(show) {
-    const modal = document.getElementById('class-modal'); 
+window.toggleModal = function (show) {
+    const modal = document.getElementById('class-modal');
     const content = document.getElementById('class-modal-content');
-    if (show) { 
-        history.pushState({modal: 'class'}, null, '#class-modal');
-        modal.classList.remove('hidden'); 
-        setTimeout(() => { modal.classList.remove('opacity-0'); content.classList.remove('scale-95'); content.classList.add('scale-100'); }, 10); 
-    } else { 
-        modal.classList.add('opacity-0'); 
-        content.classList.remove('scale-100'); 
-        content.classList.add('scale-95'); 
-        setTimeout(() => modal.classList.add('hidden'), 300); 
+    if (show) {
+        history.pushState({ modal: 'class' }, null, '#class-modal');
+        modal.classList.remove('hidden');
+        setTimeout(() => { modal.classList.remove('opacity-0'); content.classList.remove('scale-95'); content.classList.add('scale-100'); }, 10);
+    } else {
+        modal.classList.add('opacity-0');
+        content.classList.remove('scale-100');
+        content.classList.add('scale-95');
+        setTimeout(() => modal.classList.add('hidden'), 300);
     }
 }
 
@@ -1569,7 +1569,7 @@ function renderColorPicker() {
     });
 }
 
-window.updateNextClassWidget = function() {
+window.updateNextClassWidget = function () {
     const container = document.getElementById('next-class-content');
     if (!container) return;
 
@@ -1670,26 +1670,26 @@ window.updateNextClassWidget = function() {
     }
 }
 
-window.toggleRemindersModal = function() {
+window.toggleRemindersModal = function () {
     const modal = document.getElementById('reminders-modal');
     const content = modal ? modal.firstElementChild : null;
     if (!modal) return;
 
     if (modal.classList.contains('hidden')) {
-        history.pushState({modal: 'reminders'}, null, '#reminders-modal');
+        history.pushState({ modal: 'reminders' }, null, '#reminders-modal');
         renderReminders();
         modal.classList.remove('hidden');
-        setTimeout(() => { modal.classList.remove('opacity-0'); if(content) { content.classList.remove('scale-95'); content.classList.add('scale-100'); } }, 10);
-        
+        setTimeout(() => { modal.classList.remove('opacity-0'); if (content) { content.classList.remove('scale-95'); content.classList.add('scale-100'); } }, 10);
+
         // REINICIALIZA COMPONENTES CUSTOM AO ABRIR MODAL
         setTimeout(initCustomUI, 100);
     } else {
-        modal.classList.add('opacity-0'); if(content) { content.classList.remove('scale-100'); content.classList.add('scale-95'); }
+        modal.classList.add('opacity-0'); if (content) { content.classList.remove('scale-100'); content.classList.add('scale-95'); }
         setTimeout(() => modal.classList.add('hidden'), 300);
     }
 }
 
-window.showReminderForm = function() {
+window.showReminderForm = function () {
     document.getElementById('btn-add-reminder').classList.add('hidden');
     document.getElementById('reminder-form').classList.remove('hidden');
     document.getElementById('rem-date').valueAsDate = new Date();
@@ -1697,13 +1697,13 @@ window.showReminderForm = function() {
     setTimeout(initCustomUI, 50);
 }
 
-window.hideReminderForm = function() {
+window.hideReminderForm = function () {
     document.getElementById('reminder-form').classList.add('hidden');
     document.getElementById('btn-add-reminder').classList.remove('hidden');
     document.getElementById('rem-desc').value = '';
 }
 
-window.addReminder = function() {
+window.addReminder = function () {
     const desc = document.getElementById('rem-desc').value.trim();
     const date = document.getElementById('rem-date').value;
     const prio = document.getElementById('rem-prio').value;
@@ -1720,19 +1720,19 @@ window.addReminder = function() {
     hideReminderForm();
 }
 
-window.deleteReminder = function(id) {
+window.deleteReminder = function (id) {
     remindersData = remindersData.filter(r => r.id !== id);
     saveData();
 }
 
-window.renderReminders = function() {
+window.renderReminders = function () {
     const listModal = document.getElementById('reminders-list-modal');
     const listHome = document.getElementById('home-reminders-list');
     const badge = document.getElementById('notification-badge');
 
     const sorted = [...remindersData].sort((a, b) => new Date(a.date) - new Date(b.date));
 
-    if(badge) {
+    if (badge) {
         if (sorted.length > 0) badge.classList.remove('hidden'); else badge.classList.add('hidden');
     }
 
@@ -1761,7 +1761,7 @@ window.renderReminders = function() {
         `;
     };
 
-    if(listModal) {
+    if (listModal) {
         if (sorted.length === 0) {
             listModal.innerHTML = `
                 <div class="flex flex-col items-center justify-center h-32 text-gray-400 dark:text-gray-600">
@@ -1773,7 +1773,7 @@ window.renderReminders = function() {
         }
     }
 
-    if(listHome) {
+    if (listHome) {
         if (sorted.length === 0) {
             listHome.innerHTML = `
                 <div class="flex flex-col items-center justify-center text-center p-4 border-2 border-dashed border-gray-100 dark:border-neutral-800 rounded-lg h-full">
@@ -1790,11 +1790,11 @@ document.addEventListener('DOMContentLoaded', () => {
     window.renderReminders();
     if (window.renderSchedule) window.renderSchedule();
     window.updateNextClassWidget();
-    
+
     const activeMobileLink = document.querySelector(`#mobile-menu nav a[onclick*="'home'"]`);
-    if(activeMobileLink) {
-         activeMobileLink.classList.add('bg-indigo-50', 'text-indigo-600', 'dark:bg-indigo-900/50', 'dark:text-indigo-300');
-         activeMobileLink.classList.remove('text-gray-600', 'dark:text-gray-400');
+    if (activeMobileLink) {
+        activeMobileLink.classList.add('bg-indigo-50', 'text-indigo-600', 'dark:bg-indigo-900/50', 'dark:text-indigo-300');
+        activeMobileLink.classList.remove('text-gray-600', 'dark:text-gray-400');
     }
 
     setInterval(window.updateNextClassWidget, 60000);
@@ -1806,11 +1806,11 @@ window.addEventListener('popstate', (event) => {
     const genericModal = document.getElementById('generic-modal');
 
     if (classModal && !classModal.classList.contains('hidden')) {
-        classModal.classList.add('opacity-0'); 
+        classModal.classList.add('opacity-0');
         setTimeout(() => classModal.classList.add('hidden'), 300);
         return;
     }
-    
+
     if (remindersModal && !remindersModal.classList.contains('hidden')) {
         remindersModal.classList.add('opacity-0');
         setTimeout(() => remindersModal.classList.add('hidden'), 300);
@@ -1829,18 +1829,18 @@ window.addEventListener('popstate', (event) => {
     }
 });
 
-window.showModal = function(title, message) {
+window.showModal = function (title, message) {
     const m = document.getElementById('generic-modal');
     document.getElementById('generic-modal-title').innerText = title;
     document.getElementById('generic-modal-message').innerText = message;
     if (m) {
-        history.pushState({modal: 'generic'}, null, '#alert');
+        history.pushState({ modal: 'generic' }, null, '#alert');
         m.classList.remove('hidden');
         setTimeout(() => { m.classList.remove('opacity-0'); m.firstElementChild.classList.remove('scale-95'); m.firstElementChild.classList.add('scale-100'); }, 10);
     }
 }
 
-window.closeGenericModal = function() {
+window.closeGenericModal = function () {
     const m = document.getElementById('generic-modal');
     if (m) {
         m.classList.add('opacity-0'); m.firstElementChild.classList.remove('scale-100'); m.firstElementChild.classList.add('scale-95');
@@ -1848,7 +1848,7 @@ window.closeGenericModal = function() {
     }
 }
 
-window.toggleColorMenu = function(device) {
+window.toggleColorMenu = function (device) {
     const menu = document.getElementById(`color-menu-${device}`);
     if (!menu) return;
     const isHidden = menu.classList.contains('hidden');
@@ -1870,6 +1870,7 @@ window.toggleColorMenu = function(device) {
 }
 
 const colorPalettes = {
+    // --- CORES ORIGINAIS (13) ---
     cyan: { 50: '236 254 255', 100: '207 250 254', 200: '165 243 252', 300: '103 232 249', 400: '34 211 238', 500: '6 182 212', 600: '8 145 178', 700: '14 116 144', 800: '21 94 117', 900: '22 78 99' },
     red: { 50: '254 242 242', 100: '254 226 226', 200: '254 202 202', 300: '252 165 165', 400: '248 113 113', 500: '239 68 68', 600: '220 38 38', 700: '185 28 28', 800: '153 27 27', 900: '127 29 29' },
     green: { 50: '240 253 244', 100: '220 252 231', 200: '187 247 208', 300: '134 239 172', 400: '74 222 128', 500: '34 197 94', 600: '22 163 74', 700: '21 128 61', 800: '22 101 52', 900: '20 83 45' },
@@ -1882,20 +1883,32 @@ const colorPalettes = {
     rose: { 50: '255 241 242', 100: '255 228 230', 200: '254 205 211', 300: '253 164 175', 400: '251 113 133', 500: '244 63 94', 600: '225 29 72', 700: '190 18 60', 800: '159 18 57', 900: '136 19 55' },
     lime: { 50: '247 254 231', 100: '236 252 203', 200: '217 249 157', 300: '190 242 100', 400: '163 230 53', 500: '132 204 22', 600: '101 163 13', 700: '77 124 15', 800: '63 98 18', 900: '54 83 20' },
     violet: { 50: '245 243 255', 100: '237 233 254', 200: '221 214 254', 300: '196 181 253', 400: '167 139 250', 500: '139 92 246', 600: '124 58 237', 700: '109 40 217', 800: '91 33 182', 900: '76 29 149' },
-    black: { 50: '250 250 250', 100: '244 244 245', 200: '228 228 231', 300: '212 212 216', 400: '161 161 170', 500: '113 113 122', 600: '82 82 91', 700: '63 63 70', 800: '39 39 42', 900: '24 24 27' }
+    black: { 50: '250 250 250', 100: '244 244 245', 200: '228 228 231', 300: '212 212 216', 400: '161 161 170', 500: '113 113 122', 600: '82 82 91', 700: '63 63 70', 800: '39 39 42', 900: '24 24 27' },
+
+    // --- NOVAS CORES (10) ---
+    blue: { 50: '239 246 255', 100: '219 234 254', 200: '191 219 254', 300: '147 197 253', 400: '96 165 250', 500: '59 130 246', 600: '37 99 235', 700: '29 78 216', 800: '30 64 175', 900: '30 58 138' },
+    emerald: { 50: '236 253 245', 100: '209 250 229', 200: '167 243 208', 300: '110 231 183', 400: '52 211 153', 500: '16 185 129', 600: '5 150 105', 700: '4 120 87', 800: '6 95 70', 900: '6 78 59' },
+    fuchsia: { 50: '253 244 255', 100: '250 232 255', 200: '245 208 254', 300: '240 171 252', 400: '232 121 249', 500: '217 70 239', 600: '192 38 211', 700: '162 28 175', 800: '134 25 143', 900: '112 26 117' },
+    sky: { 50: '240 249 255', 100: '224 242 254', 200: '186 230 253', 300: '125 211 252', 400: '56 189 248', 500: '14 165 233', 600: '2 132 199', 700: '3 105 161', 800: '7 89 133', 900: '12 74 110' },
+    amber: { 50: '255 251 235', 100: '254 243 199', 200: '253 230 138', 300: '252 211 77', 400: '251 191 36', 500: '245 158 11', 600: '217 119 6', 700: '180 83 9', 800: '146 64 14', 900: '120 53 15' },
+    slate: { 50: '248 250 252', 100: '241 245 249', 200: '226 232 240', 300: '203 213 225', 400: '148 163 184', 500: '100 116 139', 600: '71 85 105', 700: '51 65 85', 800: '30 41 59', 900: '15 23 42' },
+    neutral: { 50: '250 250 250', 100: '245 245 245', 200: '229 229 229', 300: '212 212 212', 400: '163 163 163', 500: '115 115 115', 600: '82 82 82', 700: '64 64 64', 800: '38 38 38', 900: '23 23 23' },
+    stone: { 50: '250 250 249', 100: '245 245 244', 200: '231 229 228', 300: '214 211 209', 400: '168 162 158', 500: '120 113 108', 600: '87 83 78', 700: '68 64 60', 800: '41 37 36', 900: '28 25 23' },
+    brown: { 50: '239 235 233', 100: '215 204 200', 200: '188 170 164', 300: '161 136 127', 400: '141 110 99', 500: '121 85 72', 600: '109 76 65', 700: '93 64 55', 800: '78 52 46', 900: '62 39 35' },
+    midnight: { 50: '230 230 250', 100: '210 210 240', 200: '180 180 220', 300: '150 150 200', 400: '100 100 180', 500: '25 25 112', 600: '20 20 90', 700: '15 15 70', 800: '10 10 50', 900: '5 5 30' }
 };
 
 function setThemeColor(colorName) {
     const palette = colorPalettes[colorName];
     if (!palette) return;
-    
+
     const iconColor = colorName === 'black' ? `rgb(${palette[900]})` : `rgb(${palette[600]})`;
-    
+
     document.querySelectorAll('#desktop-palette-icon, #mobile-palette-icon').forEach(icon => {
         icon.classList.remove('text-indigo-600');
         icon.style.color = iconColor;
         if (colorName === 'black' && document.documentElement.classList.contains('dark')) {
-             icon.style.color = '#ffffff';
+            icon.style.color = '#ffffff';
         }
     });
 
@@ -1917,7 +1930,7 @@ document.addEventListener('click', (e) => {
     }
 });
 
-window.switchPage = function(pageId, addToHistory = true) {
+window.switchPage = function (pageId, addToHistory = true) {
     document.querySelectorAll('[id^="view-"]').forEach(el => el.classList.add('hidden'));
     const target = document.getElementById(`view-${pageId}`);
     if (target) target.classList.remove('hidden');
@@ -1931,26 +1944,26 @@ window.switchPage = function(pageId, addToHistory = true) {
         link.classList.remove('bg-indigo-50', 'text-indigo-600', 'dark:bg-indigo-900/50', 'dark:text-indigo-300');
         link.classList.add('text-gray-600', 'dark:text-gray-400');
 
-        if(link.getAttribute('onclick').includes(`'${pageId}'`)) {
-             link.classList.add('bg-indigo-50', 'text-indigo-600', 'dark:bg-indigo-900/50', 'dark:text-indigo-300');
-             link.classList.remove('text-gray-600', 'dark:text-gray-400');
+        if (link.getAttribute('onclick').includes(`'${pageId}'`)) {
+            link.classList.add('bg-indigo-50', 'text-indigo-600', 'dark:bg-indigo-900/50', 'dark:text-indigo-300');
+            link.classList.remove('text-gray-600', 'dark:text-gray-400');
         }
     });
 
     const titles = { home: 'Página Principal', onibus: 'Transporte', calc: 'Calculadora', pomo: 'Modo Foco', todo: 'Tarefas', email: 'Templates', aulas: 'Grade Horária', config: 'Configurações' };
     const pageTitleEl = document.getElementById('page-title');
     if (pageTitleEl) pageTitleEl.innerText = titles[pageId] || 'Salve-se UFRB';
-    
-    if(pageId === 'aulas' && window.renderSchedule) window.renderSchedule();
-    if(pageId === 'config' && window.renderSettings) window.renderSettings();
 
-    if(addToHistory) {
-        history.pushState({view: pageId}, null, `#${pageId}`);
+    if (pageId === 'aulas' && window.renderSchedule) window.renderSchedule();
+    if (pageId === 'config' && window.renderSettings) window.renderSettings();
+
+    if (addToHistory) {
+        history.pushState({ view: pageId }, null, `#${pageId}`);
     }
 }
 
 let clockMode = 0;
-window.cycleClockMode = function() { clockMode = (clockMode + 1) % 4; updateClock(); }
+window.cycleClockMode = function () { clockMode = (clockMode + 1) % 4; updateClock(); }
 function updateClock() {
     const now = new Date();
     let timeString = "";
@@ -1962,7 +1975,7 @@ function updateClock() {
         const time = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
         timeString = `${date} • ${time}`;
     }
-    
+
     const clockEls = document.querySelectorAll('#clock');
     clockEls.forEach(el => el.innerText = timeString);
 }
@@ -2006,7 +2019,7 @@ function updateNextBus() {
     }
     const container = document.getElementById('bus-dynamic-area'); const title = document.getElementById('dash-bus-title'); const subtitle = document.getElementById('dash-bus-subtitle');
     const statusDot = document.getElementById('bus-status-dot'); const statusText = document.getElementById('bus-status-text');
-    
+
     if (!container || !title) return;
 
     if (activeBus) {
@@ -2035,10 +2048,10 @@ function updateNextBus() {
 }
 renderBusTable(); updateNextBus(); setInterval(updateNextBus, 1000);
 
-window.addGradeRow = function() {
+window.addGradeRow = function () {
     const container = document.getElementById('grades-container');
     if (!container) return;
-    
+
     const div = document.createElement('div'); div.className = "flex gap-3 items-center fade-in";
     div.innerHTML = `
         <div class="flex-grow relative group">
@@ -2059,16 +2072,16 @@ function parseLocalFloat(val) {
     return parseFloat(val.replace(',', '.'));
 }
 
-window.calculateAverage = function() {
+window.calculateAverage = function () {
     let totalScore = 0, totalWeight = 0, hasInput = false;
     const passingEl = document.getElementById('passing-grade');
-    if(!passingEl) return;
+    if (!passingEl) return;
     const passing = parseFloat(passingEl.value) || 6.0;
 
     document.querySelectorAll('.grade-input').forEach((inp, i) => {
         const val = parseLocalFloat(inp.value);
         const weightInps = document.querySelectorAll('.weight-input');
-        if(weightInps[i]) {
+        if (weightInps[i]) {
             let wStr = weightInps[i].value;
             let w = parseLocalFloat(wStr);
             if (isNaN(w) && !isNaN(val)) w = 1;
@@ -2112,15 +2125,15 @@ window.calculateAverage = function() {
     }
 }
 
-window.resetCalc = function() {
+window.resetCalc = function () {
     const container = document.getElementById('grades-container');
-    if(container) container.innerHTML = '';
+    if (container) container.innerHTML = '';
     addGradeRow(); addGradeRow();
     calculateAverage();
 }
 
 addGradeRow(); addGradeRow();
-if(document.getElementById('passing-grade')) document.getElementById('passing-grade').addEventListener('input', calculateAverage);
+if (document.getElementById('passing-grade')) document.getElementById('passing-grade').addEventListener('input', calculateAverage);
 
 let timerInterval1, timeLeft1 = 25 * 60, isRunning1 = false, currentMode1 = 'pomodoro';
 const modes1 = { 'pomodoro': 25 * 60, 'short': 5 * 60, 'long': 15 * 60 };
@@ -2128,13 +2141,13 @@ function updateTimerDisplay() {
     const m = Math.floor(timeLeft1 / 60), s = timeLeft1 % 60;
     const display = document.getElementById('timer-display');
     const circle = document.getElementById('timer-circle');
-    
-    if(display) display.innerText = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-    if(circle) circle.style.strokeDashoffset = 816 - (timeLeft1 / modes1[currentMode1]) * 816;
+
+    if (display) display.innerText = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    if (circle) circle.style.strokeDashoffset = 816 - (timeLeft1 / modes1[currentMode1]) * 816;
 }
-window.toggleTimer = function() {
+window.toggleTimer = function () {
     const btn = document.getElementById('btn-start');
-    if(!btn) return;
+    if (!btn) return;
     if (isRunning1) {
         clearInterval(timerInterval1); isRunning1 = false; btn.innerHTML = '<i class="fas fa-play pl-1"></i>'; btn.classList.replace('bg-red-600', 'bg-indigo-600'); btn.classList.replace('hover:bg-red-700', 'hover:bg-indigo-700');
     }
@@ -2147,18 +2160,18 @@ window.toggleTimer = function() {
         }, 1000);
     }
 }
-window.resetTimer = function() { if (isRunning1) toggleTimer(); timeLeft1 = modes1[currentMode1]; updateTimerDisplay(); }
-window.setTimerMode = function(m) {
+window.resetTimer = function () { if (isRunning1) toggleTimer(); timeLeft1 = modes1[currentMode1]; updateTimerDisplay(); }
+window.setTimerMode = function (m) {
     ['pomodoro', 'short', 'long'].forEach(mode => {
         const btn = document.getElementById(`mode-${mode}`);
         if (btn) {
             if (mode === m) { btn.classList.add('bg-white', 'dark:bg-neutral-700', 'text-gray-800', 'dark:text-white', 'shadow-sm'); btn.classList.remove('text-gray-500', 'dark:text-gray-400'); }
             else { btn.classList.remove('bg-white', 'dark:bg-neutral-700', 'text-gray-800', 'dark:text-white', 'shadow-sm'); btn.classList.add('text-gray-500', 'dark:text-gray-400'); }
         }
-    }); 
-    currentMode1 = m; 
+    });
+    currentMode1 = m;
     const label = document.getElementById('timer-label');
-    if(label) label.innerText = m === 'pomodoro' ? 'Foco' : (m === 'short' ? 'Curta' : 'Longa'); 
+    if (label) label.innerText = m === 'pomodoro' ? 'Foco' : (m === 'short' ? 'Curta' : 'Longa');
     resetTimer();
 }
 
@@ -2168,6 +2181,6 @@ const templates = {
     absence: `Prezado(a) Prof(a). [Nome],\n\nJustifico minha falta no dia [Data] devido a [Motivo]. Segue anexo (se houver).\n\nAtenciosamente,\n[Seu Nome]`,
     tcc: `Prezado(a) Prof(a). [Nome],\n\nTenho interesse em sua área de pesquisa e gostaria de saber se há disponibilidade para orientação de TCC sobre [Tema].\n\nAtenciosamente,\n[Seu Nome]`
 };
-window.loadTemplate = function(k) { document.getElementById('email-content').value = templates[k]; }
-window.copyEmail = function() { const e = document.getElementById('email-content'); e.select(); document.execCommand('copy'); }
-window.openPortal = function() { window.open('https://sistemas.ufrb.edu.br/sigaa/verTelaLogin.do', '_blank'); }
+window.loadTemplate = function (k) { document.getElementById('email-content').value = templates[k]; }
+window.copyEmail = function () { const e = document.getElementById('email-content'); e.select(); document.execCommand('copy'); }
+window.openPortal = function () { window.open('https://sistemas.ufrb.edu.br/sigaa/verTelaLogin.do', '_blank'); }

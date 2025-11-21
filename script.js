@@ -32,6 +32,7 @@ const firebaseConfig = {
 
 // Configuração da IA (Gemini)
 const GEMINI_API_KEY = "AIzaSyCE_fEn7sQiOKDCZbicb_v3ujPkERmmomI";
+// Usando a versão mais estável para chat
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
 
 // Inicializa Firebase
@@ -254,7 +255,7 @@ window.switchPage = function(pageId, addToHistory = true) {
 }
 
 // ============================================================
-// --- INTEGRAÇÃO SALVE-SE IA (GEMINI) ---
+// --- INTEGRAÇÃO SALVE-SE IA (GEMINI - CORRIGIDO) ---
 // ============================================================
 
 window.sendIAMessage = async function() {
@@ -266,7 +267,7 @@ window.sendIAMessage = async function() {
 
     if (!message) return;
 
-    // 1. Adicionar mensagem do usuário
+    // 1. Adicionar mensagem do usuário na UI
     appendMessage('user', message);
     input.value = '';
     input.disabled = true;
@@ -279,43 +280,61 @@ window.sendIAMessage = async function() {
     if(typingIndicator) typingIndicator.classList.remove('hidden');
 
     try {
-        // Preparar o contexto da conversa
-        let contextPrompt = `
+        // Preparar o contexto (System Instruction)
+        let systemInstructionText = `
 Você é a "Salve-se IA", uma assistente virtual inteligente integrada ao painel do estudante "Salve-se UFRB".
 Seu tom é amigável, direto e útil. Você ajuda estudantes universitários.
 Contexto atual do usuário: Ele está na aba "${currentViewContext}".
         `;
 
-        // Adicionar dados relevantes ao contexto se necessário
         if (currentViewContext === 'aulas') {
-            contextPrompt += `\nO usuário tem ${scheduleData.length} aulas cadastradas.`;
+            const aulasHoje = scheduleData.length > 0 ? `O usuário tem ${scheduleData.length} aulas cadastradas.` : "O usuário não tem aulas cadastradas ainda.";
+            systemInstructionText += `\n${aulasHoje}`;
         } else if (currentViewContext === 'todo') {
             const pending = tasksData.filter(t => !t.done).length;
-            contextPrompt += `\nO usuário tem ${pending} tarefas pendentes.`;
+            systemInstructionText += `\nO usuário tem ${pending} tarefas pendentes.`;
         }
 
-        // Construir payload para Gemini
-        const contents = [
-            {
-                role: "user",
-                parts: [{ text: contextPrompt }]
-            },
-            ...chatHistory.map(msg => ({
-                role: msg.role === 'user' ? 'user' : 'model',
-                parts: [{ text: msg.text }]
-            })),
-            {
-                role: "user",
-                parts: [{ text: message }]
+        // Construir histórico garantindo alternância correta (User -> Model -> User)
+        // A API do Gemini é estrita: não pode haver user->user ou model->model
+        const contents = [];
+        
+        // Adiciona histórico filtrado
+        if (chatHistory.length > 0) {
+            let expectingRole = 'user';
+            for (const msg of chatHistory) {
+                // Apenas adiciona se a role for a esperada para manter a sequência
+                if (msg.role === expectingRole) {
+                    contents.push({
+                        role: msg.role === 'user' ? 'user' : 'model',
+                        parts: [{ text: msg.text }]
+                    });
+                    expectingRole = expectingRole === 'user' ? 'model' : 'user';
+                }
             }
-        ];
+        }
 
-        // Chamada Fetch para API REST do Gemini
+        // Correção de segurança: Se a última mensagem no array contents for 'user', removemos ela 
+        // para não dar erro de user->user ao adicionar a nova mensagem atual
+        if (contents.length > 0 && contents[contents.length - 1].role === 'user') {
+            contents.pop(); 
+        }
+
+        // Adiciona a mensagem atual
+        contents.push({
+            role: "user",
+            parts: [{ text: message }]
+        });
+
+        // Chamada Fetch
         const response = await fetch(GEMINI_API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 contents: contents,
+                system_instruction: {
+                    parts: [{ text: systemInstructionText }]
+                },
                 generationConfig: {
                     temperature: 0.7,
                     maxOutputTokens: 800,
@@ -326,7 +345,14 @@ Contexto atual do usuário: Ele está na aba "${currentViewContext}".
         const data = await response.json();
         
         if (data.error) {
-            throw new Error(data.error.message);
+            console.error("Erro detalhado da API:", data.error);
+            // Tenta extrair a mensagem de erro mais legível
+            const errorMsg = data.error.message || "Erro desconhecido na API";
+            throw new Error(errorMsg);
+        }
+
+        if (!data.candidates || !data.candidates[0].content) {
+             throw new Error("A IA não retornou nenhuma resposta.");
         }
 
         const aiResponseText = data.candidates[0].content.parts[0].text;
@@ -338,7 +364,14 @@ Contexto atual do usuário: Ele está na aba "${currentViewContext}".
     } catch (error) {
         console.error("Erro IA:", error);
         if(typingIndicator) typingIndicator.classList.add('hidden');
-        appendMessage('ai', "Desculpe, tive um problema de conexão. Pode tentar novamente?");
+        
+        // Mensagem de erro amigável na interface
+        let userFriendlyError = "Ops! Tive um problema técnico. ";
+        if (error.message.includes("400")) userFriendlyError += "Houve uma confusão na conversa.";
+        else if (error.message.includes("403") || error.message.includes("API key")) userFriendlyError += "Verifique a chave da API.";
+        else userFriendlyError += "Tente recarregar a página.";
+
+        appendMessage('ai', userFriendlyError);
     } finally {
         input.disabled = false;
         sendBtn.disabled = false;

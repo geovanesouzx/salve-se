@@ -35,17 +35,16 @@ const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__f
 };
 
 // --- CONFIGURAÇÃO DAS IAs ---
-// A chave do Gemini que você enviou:
-const apiKey = "AIzaSyAZgpqT4iz9NgLzpYJsIvc4tgeaJ1qHUaI";
+const apiKey = "AIzaSyAZgpqT4iz9NgLzpYJsIvc4tgeaJ1qHUaI"; // Sua chave
 
-const GEMINI_MODEL = "gemini-2.5-flash-preview-09-2025";
+// MUDANÇA AQUI: Usando o modelo estável 1.5 Flash
+const GEMINI_MODEL = "gemini-1.5-flash";
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
 
 const GROQ_API_KEY = "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";
 const GROQ_MODEL = "llama-3.3-70b-versatile";
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 
-// Controle de qual IA está ativa
 let currentAIProvider = 'gemini';
 
 // Inicializa Firebase
@@ -631,19 +630,18 @@ window.sendIAMessage = async function () {
     showTypingIndicator();
 
     try {
-        // Contexto simplificado para economizar tokens e focar a IA
         const contextData = {
             tela: currentViewContext,
             data: new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
             user: userProfile ? userProfile.displayName : 'Usuário',
-            tarefas: tasksData.map(t => t.text), // Manda só texto para economizar token
+            tarefas: tasksData.map(t => t.text),
             lembretes: remindersData.map(r => r.desc),
             aulas_hoje: scheduleData.filter(c => c.day === ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'][new Date().getDay()]).map(c => c.name),
             widgets_ocultos: hiddenWidgets,
             aiProvider: currentAIProvider
         };
 
-        // PROMPT REFORÇADO PARA FORÇAR COMANDOS
+        // PROMPT ATUALIZADO COM COMANDOS DE "DELETE ALL"
         let systemInstructionText = `
 VOCÊ É O CÉREBRO DO APP "SALVE-SE UFRB".
 Sua função é executar ações no app baseadas no pedido do usuário.
@@ -652,25 +650,27 @@ CONTEXTO: ${JSON.stringify(contextData)}
 
 ESTRUTURA DE RESPOSTA OBRIGATÓRIA (JSON PURO):
 {
-  "message": "Texto curto e simpático para o usuário (use HTML básico se precisar: <b>, <br>)",
+  "message": "Texto curto e simpático para o usuário",
   "commands": [
     { "action": "NOME_DA_ACAO", "params": { ... } }
   ]
 }
 
-LISTA DE AÇÕES (Use exatamente estes nomes):
+LISTA DE AÇÕES PERMITIDAS:
 - "create_task": { "text": "...", "priority": "normal|medium|high", "category": "geral|estudo|trabalho" }
-- "create_reminder": { "desc": "...", "date": "YYYY-MM-DD", "prio": "medium" }
-- "create_note": { "title": "...", "content": "Conteúdo HTML" }
-- "create_class": { "name": "...", "day": "seg|ter|qua|qui|sex|sab", "start": "00:00", "end": "00:00", "room": "..." }
-- "navigate": { "page": "home|todo|aulas|notas|onibus|calc|pomo" }
-- "hide_widget": { "id": "widget-tasks|widget-bus|..." }
-- "show_widget": { "id": "widget-tasks|widget-bus|..." }
+- "delete_task": { "text": "texto para buscar e apagar" }
+- "delete_all_tasks": {}  <-- PARA APAGAR TODAS AS TAREFAS
 
-REGRAS FATAIS:
-1. SE O USUÁRIO PEDIR PARA CRIAR ALGO, O ARRAY "commands" NÃO PODE ESTAR VAZIO.
-2. NÃO responda com markdown (sem \`\`\`json). Responda apenas o JSON cru.
-3. Se for criar tarefa/lembrete, confirme no campo "message" que foi feito.
+- "create_reminder": { "desc": "...", "date": "YYYY-MM-DD", "prio": "medium" }
+- "delete_reminder": { "desc": "texto para buscar e apagar" }
+- "delete_all_reminders": {} <-- PARA APAGAR TODOS OS LEMBRETES
+
+- "create_note": { "title": "...", "content": "Conteúdo HTML" }
+- "navigate": { "page": "home|todo|aulas|notas|onibus|calc|pomo" }
+
+REGRAS:
+1. Se o usuário pedir para apagar TUDO (lembretes ou tarefas), use os comandos "delete_all_...".
+2. Responda APENAS JSON válido.
 `;
 
         let messagesPayload = [];
@@ -695,7 +695,7 @@ REGRAS FATAIS:
                 body: JSON.stringify({
                     model: GROQ_MODEL,
                     messages: messagesPayload,
-                    temperature: 0.1, // Temperatura baixa para ser mais "robótico" e preciso no JSON
+                    temperature: 0.1,
                     max_tokens: 1024,
                     response_format: { type: "json_object" }
                 })
@@ -706,10 +706,8 @@ REGRAS FATAIS:
             aiResponseText = data.choices[0].message.content;
 
         } else {
-            // Lógica do Gemini (Só funciona se tiver API Key)
-            if (!apiKey && !GEMINI_API_URL.includes("key=")) {
-                throw new Error("Configure a API Key do Gemini ou mude para Llama.");
-            }
+            // Lógica do Gemini
+            if (!apiKey) throw new Error("API Key do Gemini ausente.");
 
             const geminiContents = [{ role: "user", parts: [{ text: systemInstructionText + "\n\nUsuário: " + message }] }];
 
@@ -730,14 +728,8 @@ REGRAS FATAIS:
             aiResponseText = data.candidates[0].content.parts[0].text;
         }
 
-        // --- PARSEAMENTO ROBUSTO DE JSON ---
         try {
-            console.log("Resposta bruta da IA:", aiResponseText); // Para debug
-
-            // 1. Tenta limpar markdown
             let cleanText = aiResponseText.replace(/```json/g, '').replace(/```/g, '').trim();
-
-            // 2. Se a IA mandou texto antes do JSON, tenta achar o primeiro '{' e o último '}'
             const firstBracket = cleanText.indexOf('{');
             const lastBracket = cleanText.lastIndexOf('}');
             if (firstBracket !== -1 && lastBracket !== -1) {
@@ -746,38 +738,27 @@ REGRAS FATAIS:
 
             const responseJson = JSON.parse(cleanText);
 
-            // Exibe a mensagem da IA
-            if (responseJson.message) {
-                appendMessage('ai', responseJson.message);
-            } else {
-                appendMessage('ai', "Feito.");
-            }
+            if (responseJson.message) appendMessage('ai', responseJson.message);
+            else appendMessage('ai', "Feito.");
 
-            // Executa os comandos
             if (responseJson.commands && Array.isArray(responseJson.commands)) {
-                console.log("Comandos encontrados:", responseJson.commands.length);
                 for (const cmd of responseJson.commands) {
                     await executeAICommand(cmd);
                     await new Promise(r => setTimeout(r, 300));
                 }
             } else if (responseJson.action) {
-                // Suporte legado para formato de ação única
                 await executeAICommand(responseJson);
-            } else {
-                console.warn("Nenhum comando encontrado no JSON da IA");
             }
 
         } catch (e) {
-            console.error("Erro Parse JSON IA:", e);
-            console.log("Texto que falhou:", aiResponseText);
-            // Se falhar o JSON, mostra o texto cru como fallback, mas avisa
-            appendMessage('ai', aiResponseText.replace(/[\{\}\[\]"]/g, ''));
+            console.error("Erro Parse:", e);
+            appendMessage('ai', "Entendi, mas tive um erro técnico ao processar o comando.");
         }
 
     } catch (error) {
         console.error("Erro IA:", error);
         let msg = "Ops! Erro de conexão.";
-        if (error.message.includes("API Key")) msg = "⚠️ API Key do Gemini ausente.";
+        if (error.message.includes("API Key")) msg = "⚠️ Verifique a API Key.";
         appendMessage('ai', msg);
     } finally {
         hideTypingIndicator();
@@ -878,10 +859,6 @@ async function executeAICommand(cmd) {
     const p = cmd.params || {};
 
     switch (cmd.action) {
-        case 'update_dashboard_widget':
-            updateAIWidget(p.content);
-            break;
-
         case 'create_task':
             tasksData.push({ id: Date.now().toString() + Math.random(), text: p.text, done: false, priority: p.priority || 'normal', category: p.category || 'geral', createdAt: Date.now() });
             saveData();
@@ -889,21 +866,14 @@ async function executeAICommand(cmd) {
 
         case 'delete_task':
             if (p.text) {
-                const initialLen = tasksData.length;
                 tasksData = tasksData.filter(t => !t.text.toLowerCase().includes(p.text.toLowerCase()));
-                if (tasksData.length < initialLen) saveData();
+                saveData();
             }
             break;
 
-        case 'create_class':
-            scheduleData.push({ id: Date.now().toString() + Math.random(), name: p.name, prof: p.prof || 'N/A', room: p.room || 'N/A', day: p.day, start: p.start, end: p.end, color: 'indigo' });
+        case 'delete_all_tasks':
+            tasksData = [];
             saveData();
-            break;
-
-        case 'navigate':
-            if (p.page !== currentViewContext) {
-                switchPage(p.page);
-            }
             break;
 
         case 'create_reminder':
@@ -913,86 +883,42 @@ async function executeAICommand(cmd) {
 
         case 'delete_reminder':
             if (p.desc) {
-                const initLen = remindersData.length;
                 remindersData = remindersData.filter(r => !r.desc.toLowerCase().includes(p.desc.toLowerCase()));
-                if (remindersData.length < initLen) saveData();
+                saveData();
             }
             break;
 
-        case 'add_grade':
-            if (currentViewContext !== 'calc') switchPage('calc');
-            setTimeout(() => {
-                const inputs = document.querySelectorAll('.grade-input');
-                const weights = document.querySelectorAll('.weight-input');
-                let found = false;
-                for (let i = 0; i < inputs.length; i++) {
-                    if (inputs[i].value === "") {
-                        inputs[i].value = p.value;
-                        if (p.weight) weights[i].value = p.weight;
-                        found = true;
-                        break;
-                    }
-                }
-                if (!found) {
-                    addGradeRow();
-                    const newInputs = document.querySelectorAll('.grade-input');
-                    const lastInput = newInputs[newInputs.length - 1];
-                    lastInput.value = p.value;
-                }
-                calculateAverage();
-            }, 500);
+        case 'delete_all_reminders':
+            remindersData = [];
+            saveData();
+            break;
+
+        case 'create_class':
+            scheduleData.push({ id: Date.now().toString() + Math.random(), name: p.name, prof: p.prof || 'N/A', room: p.room || 'N/A', day: p.day, start: p.start, end: p.end, color: 'indigo' });
+            saveData();
+            break;
+
+        case 'navigate':
+            if (p.page !== currentViewContext) switchPage(p.page);
+            break;
+
+        case 'create_note':
+            const newNoteId = Date.now().toString();
+            notesData.push({ id: newNoteId, title: p.title || "Nova Nota IA", content: formatAIContent(p.content) || "", updatedAt: Date.now() });
+            saveData();
+            if (currentViewContext === 'notas') { renderNotes(); openNote(newNoteId); }
             break;
 
         case 'toggle_theme':
             toggleTheme();
             break;
 
-        case 'create_note':
-            const newNoteId = Date.now().toString();
-            const formattedNewContent = formatAIContent(p.content);
-            notesData.push({
-                id: newNoteId,
-                title: p.title || "Nova Nota IA",
-                content: formattedNewContent || "",
-                updatedAt: Date.now()
-            });
-            saveData();
-            if (currentViewContext === 'notas') {
-                renderNotes();
-                openNote(newNoteId);
-            }
-            break;
-
-        case 'update_note':
-            const targetId = p.id || activeNoteId;
-            const noteToUpdate = notesData.find(n => n.id === targetId);
-            if (noteToUpdate) {
-                noteToUpdate.content = formatAIContent(p.content);
-                noteToUpdate.updatedAt = Date.now();
-                saveData();
-                if (activeNoteId === targetId && currentViewContext === 'notas') {
-                    const editor = document.getElementById('editor-content');
-                    if (editor) editor.innerHTML = noteToUpdate.content;
-                }
-            }
-            break;
-
         case 'hide_widget':
-            if (p.id && !hiddenWidgets.includes(p.id)) {
-                toggleWidget(p.id);
-            }
+            if (p.id && !hiddenWidgets.includes(p.id)) toggleWidget(p.id);
             break;
 
         case 'show_widget':
-            if (p.id && hiddenWidgets.includes(p.id)) {
-                toggleWidget(p.id);
-            }
-            break;
-
-        case 'style_widget':
-            if (p.id && p.style) {
-                setWidgetStyle(p.id, p.style);
-            }
+            if (p.id && hiddenWidgets.includes(p.id)) toggleWidget(p.id);
             break;
 
         default:

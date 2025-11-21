@@ -1,7 +1,7 @@
 // ============================================================
 // --- CONFIGURAÇÃO FIREBASE & IMPORTAÇÕES ---
 // ============================================================
-import { initializeApp } from "[https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js](https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js)";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { 
     getAuth, 
     signInWithPopup, 
@@ -9,10 +9,8 @@ import {
     onAuthStateChanged, 
     signOut, 
     updateProfile, 
-    sendPasswordResetEmail,
-    signInWithCustomToken,
-    signInAnonymously
-} from "[https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js](https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js)";
+    sendPasswordResetEmail
+} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 import { 
     getFirestore, 
     doc, 
@@ -20,12 +18,10 @@ import {
     getDoc, 
     deleteDoc, 
     onSnapshot, 
-    enableIndexedDbPersistence,
-    collection
-} from "[https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js](https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js)";
+    enableIndexedDbPersistence 
+} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-// Use as variáveis globais do ambiente se disponíveis, senão use valores padrão para teste
-const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+const firebaseConfig = {
   apiKey: "AIzaSyD5Ggqw9FpMS98CHcfXKnghMQNMV5WIVTw",
   authDomain: "salvee-se.firebaseapp.com",
   projectId: "salvee-se",
@@ -35,14 +31,13 @@ const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__f
 };
 
 // --- CONFIGURAÇÃO DAS IAs ---
-// NOTA: A chave da API deve ser vazia para usar o ambiente do Gemini
-const GEMINI_API_KEY = ""; 
+const GEMINI_API_KEY = "AIzaSyCVGN5yxdscAjDgOcXTZgsb4qy3Ucy0Ve8"; 
 const GEMINI_MODEL = "gemini-2.5-flash-preview-09-2025";
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
 
-const GROQ_API_KEY = "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"; // Mantido conforme original, mas ideal ser variável segura
+const GROQ_API_KEY = "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";
 const GROQ_MODEL = "llama-3.3-70b-versatile"; 
-const GROQ_API_URL = "[https://api.groq.com/openai/v1/chat/completions](https://api.groq.com/openai/v1/chat/completions)";
+const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 
 // Controle de qual IA está ativa (Padrão: Gemini)
 let currentAIProvider = 'gemini'; 
@@ -52,7 +47,6 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-// Tentativa de persistência offline
 try {
     enableIndexedDbPersistence(db).catch((err) => {
         if (err.code === 'failed-precondition') {
@@ -71,8 +65,6 @@ try {
 let currentUser = null;
 let userProfile = null;
 let unsubscribeData = null;
-
-// Dados Locais
 let scheduleData = JSON.parse(localStorage.getItem('salvese_schedule')) || [];
 let tasksData = JSON.parse(localStorage.getItem('salvese_tasks')) || [];
 let remindersData = JSON.parse(localStorage.getItem('salvese_reminders')) || [];
@@ -80,10 +72,6 @@ let notesData = JSON.parse(localStorage.getItem('salvese_notes')) || [];
 let hiddenWidgets = JSON.parse(localStorage.getItem('salvese_hidden_widgets')) || []; 
 let widgetStyles = JSON.parse(localStorage.getItem('salvese_widget_styles')) || {};
 
-// Configurações de Visualização
-let scheduleViewMode = localStorage.getItem('salvese_schedule_mode') || 'table'; // 'table' ou 'cards'
-
-// Estados Temporários
 let selectedClassIdToDelete = null;
 let currentTaskFilter = 'all'; 
 let chatHistory = []; 
@@ -114,22 +102,25 @@ const svgs = {
 
 const sessionActive = localStorage.getItem('salvese_session_active');
 
-// Autenticação Inicial (Prioriza Custom Token, depois Anônimo, depois Google Popup se solicitado)
-const initAuth = async () => {
-    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-        await signInWithCustomToken(auth, __initial_auth_token);
-    } 
-    // Se não houver token e nenhuma sessão ativa, aguarda login manual
-};
-initAuth();
+const forceLoadTimeout = setTimeout(() => {
+    const loadingScreen = document.getElementById('loading-screen');
+    if (loadingScreen && !loadingScreen.classList.contains('hidden')) {
+        if (sessionActive === 'true') {
+            loadAppOfflineMode(); 
+        } else {
+            showLoginScreen();
+        }
+    }
+}, 3000); 
 
 onAuthStateChanged(auth, async (user) => {
+    clearTimeout(forceLoadTimeout);
+
     if (user) {
         currentUser = user;
         localStorage.setItem('salvese_session_active', 'true');
 
         try {
-            // Tenta buscar perfil existente
             const docRef = doc(db, "users", user.uid);
             const docSnap = await getDoc(docRef); 
 
@@ -140,14 +131,7 @@ onAuthStateChanged(auth, async (user) => {
                 showAppInterface(); 
                 initRealtimeSync(user.uid); 
             } else {
-                // Se não existe, e é login anônimo ou novo, talvez criar perfil padrão ou mandar para setup
-                if (user.isAnonymous) {
-                     // Cria um perfil temporário para usuário anônimo
-                     userProfile = { displayName: 'Visitante', handle: 'visitante', semester: 'N/A' };
-                     showAppInterface();
-                } else {
-                    showProfileSetupScreen();
-                }
+                showProfileSetupScreen();
             }
         } catch (e) {
             console.error("Erro ao buscar perfil:", e);
@@ -244,22 +228,18 @@ window.fixChatLayout = function() {
     const messageContainer = document.getElementById('chat-messages-container');
     const inputContainer = viewIA ? viewIA.querySelector('.absolute.bottom-0') : null;
     
-    if (viewIA) {
+    if (viewIA && inputContainer) {
         viewIA.className = "hidden fade-in flex flex-col h-full relative bg-gray-50 dark:bg-darkbg overflow-hidden";
-        // Ajuste para telas móveis e desktop
         viewIA.style.height = "calc(100vh - 4rem)"; 
 
         if(messageContainer) {
             messageContainer.className = "flex-1 overflow-y-auto p-4 space-y-4 scroll-smooth";
             messageContainer.style.paddingBottom = "20px"; 
         }
-        
-        // Se inputContainer existe separadamente (depende do HTML), ajusta
-        if (inputContainer) {
-             inputContainer.className = "flex-none w-full p-4 bg-white dark:bg-darkcard border-t border-gray-200 dark:border-darkborder z-20";
-             inputContainer.style.position = "relative"; 
-             inputContainer.style.bottom = "auto";
-        }
+
+        inputContainer.className = "flex-none w-full p-4 bg-white dark:bg-darkcard border-t border-gray-200 dark:border-darkborder z-20";
+        inputContainer.style.position = "relative"; 
+        inputContainer.style.bottom = "auto";
     }
 }
 
@@ -301,15 +281,10 @@ window.switchPage = function(pageId, addToHistory = true) {
     const pageTitleEl = document.getElementById('page-title');
     if (pageTitleEl) pageTitleEl.innerText = titles[pageId] || 'Salve-se UFRB';
     
-    // Funções de renderização específicas por página
     if(pageId === 'aulas' && window.renderSchedule) window.renderSchedule();
     if(pageId === 'config' && window.renderSettings) window.renderSettings();
     if(pageId === 'notas' && window.renderNotes) window.renderNotes();
     if(pageId === 'ocultos' && window.renderHiddenWidgetsPage) window.renderHiddenWidgetsPage();
-    if(pageId === 'home') {
-        applyWidgetVisibility(); // Garante que widgets ocultos fiquem ocultos ao voltar pra home
-        refreshAllUI();
-    }
     
     if(pageId === 'ia') {
         fixChatLayout();
@@ -326,6 +301,7 @@ window.switchPage = function(pageId, addToHistory = true) {
 // --- GESTÃO DE WIDGETS (Personalização & Ocultar) ---
 // ============================================================
 
+// Mapeamento de Estilos Disponíveis
 const WIDGET_PRESETS = {
     'default': { label: 'Padrão (Claro/Escuro)', class: 'bg-white dark:bg-darkcard border-gray-200 dark:border-darkborder' },
     'gradient-indigo': { label: 'Hora de Focar (Roxo)', class: 'bg-gradient-to-br from-indigo-600 to-violet-700 text-white border-transparent shadow-lg' },
@@ -415,6 +391,7 @@ window.setWidgetStyle = function(widgetId, styleKey) {
     showModal("Estilo Aplicado", "O visual do widget foi atualizado.");
 }
 
+// CORREÇÃO: Esta função foi simplificada para não quebrar elementos internos (bug da cor branca)
 function applyAllWidgetStyles() {
     Object.entries(widgetStyles).forEach(([id, styleKey]) => {
         const widget = document.getElementById(id);
@@ -423,22 +400,19 @@ function applyAllWidgetStyles() {
         const preset = WIDGET_PRESETS[styleKey];
         if(!preset) return;
 
-        // Limpa classes antigas de estilo
+        // Limpa classes antigas
         widget.className = widget.className.replace(/bg-[\w-\/]+|border-[\w-\/]+|text-[\w-\/]+|widget-mode-\w+/g, '').trim();
         widget.classList.remove('bg-white', 'dark:bg-darkcard', 'border-gray-200', 'dark:border-darkborder', 'shadow-sm');
         
-        // Mantém classes estruturais importantes
-        if(!widget.className.includes('rounded-xl')) widget.classList.add('rounded-xl');
-        if(!widget.className.includes('flex')) widget.classList.add('flex', 'flex-col');
-        
         // Aplica nova base + preset
-        // NOTA: 'hidden' deve ser preservado se estiver lá
-        const isHidden = widget.classList.contains('hidden');
-        widget.className = `rounded-xl border p-6 flex flex-col h-full min-h-[200px] relative overflow-hidden group transition-all duration-300 ${preset.class} ${isHidden ? 'hidden' : ''}`;
+        widget.className = `rounded-xl border p-6 flex flex-col h-full relative overflow-hidden group transition-all duration-300 ${preset.class}`;
         
         if(styleKey !== 'default') {
-             // Adiciona classe para controle CSS (texto branco forçado em fundos escuros)
+             // Adiciona classe para controle CSS (que deve lidar com a cor branca globalmente)
             widget.classList.add('widget-custom-dark');
+            
+            // Removido loop que forçava !text-white em tudo.
+            // Agora confiamos no CSS .widget-custom-dark { color: white } e nas exceções do CSS.
             
              // Ajusta controles para garantir visibilidade
             const controls = widget.querySelector('.widget-controls');
@@ -446,11 +420,14 @@ function applyAllWidgetStyles() {
                 controls.className = "widget-controls absolute top-3 right-3 flex gap-2 z-20 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 dark:bg-black/60 backdrop-blur-sm rounded-lg p-1 shadow-sm";
             }
         } else {
+            // Remove a classe de controle customizada
             widget.classList.remove('widget-custom-dark');
+            
             // Adiciona estilos padrão
             widget.classList.add('bg-white', 'dark:bg-darkcard', 'border-gray-200', 'dark:border-darkborder', 'shadow-sm');
         }
         
+        // Re-injeta controles se necessário (segurança)
         if (!widget.querySelector('.widget-controls')) {
             injectWidgetControls();
         }
@@ -462,12 +439,12 @@ window.toggleWidget = function(widgetId) {
     if(!widget) return;
 
     if(hiddenWidgets.includes(widgetId)) {
-        // Remove da lista de ocultos (Mostrar)
+        // Remove da lista de ocultos
         hiddenWidgets = hiddenWidgets.filter(id => id !== widgetId);
         widget.classList.remove('hidden');
         showModal("Widget Restaurado", "O widget voltou para a tela principal.");
     } else {
-        // Adiciona à lista de ocultos (Ocultar)
+        // Adiciona à lista de ocultos
         hiddenWidgets.push(widgetId);
         widget.classList.add('hidden');
         
@@ -478,8 +455,9 @@ window.toggleWidget = function(widgetId) {
         setTimeout(() => toast.remove(), 3000);
     }
     
+    // Salva e força a reaplicação imediata da visibilidade para evitar bugs de layout
     saveData();
-    applyWidgetVisibility(); // Força o reflow do grid
+    applyWidgetVisibility(); 
     if(currentViewContext === 'ocultos') renderHiddenWidgetsPage();
 }
 
@@ -488,11 +466,8 @@ function applyWidgetVisibility() {
     allWidgets.forEach(id => {
         const el = document.getElementById(id);
         if(el) {
-            if(hiddenWidgets.includes(id)) {
-                el.classList.add('hidden'); // CSS Grid deve reorganizar automaticamente quando display:none (hidden) é aplicado
-            } else {
-                el.classList.remove('hidden');
-            }
+            if(hiddenWidgets.includes(id)) el.classList.add('hidden');
+            else el.classList.remove('hidden');
         }
     });
 }
@@ -565,7 +540,7 @@ window.renderHiddenWidgetsPage = function() {
 }
 
 // ============================================================
-// --- INTEGRAÇÃO SALVE-SE IA (CORRIGIDA) ---
+// --- INTEGRAÇÃO SALVE-SE IA (MELHORADA) ---
 // ============================================================
 
 window.setAIProvider = function(provider) {
@@ -590,9 +565,12 @@ function updateAISelectorUI() {
     }
 }
 
+// Função para formatar conteúdo da IA (Quebras de linha para HTML)
 function formatAIContent(text) {
     if (!text) return "";
+    // Se o texto já parece ter HTML, não mexe muito
     if (text.includes("<br>") || text.includes("<p>")) return text;
+    // Converte quebras de linha em <br> e envolve em parágrafos se necessário
     return text.split('\n').filter(line => line.trim() !== '').map(line => `<p>${line}</p>`).join('');
 }
 
@@ -620,7 +598,9 @@ window.sendIAMessage = async function() {
             tarefas: tasksData.map(t => ({ id: t.id, text: t.text, done: t.done, priority: t.priority })),
             aulas: scheduleData.map(c => ({ id: c.id, name: c.name, day: c.day, start: c.start, room: c.room })),
             lembretes: remindersData,
+            // Resumo das notas
             notas: notesData.map(n => ({ id: n.id, title: n.title, preview: n.content.substring(0, 100).replace(/<[^>]*>?/gm, '') })),
+            // Nota aberta: conteúdo completo
             notaAberta: activeNoteId ? notesData.find(n => n.id === activeNoteId) : null,
             widgetsOcultos: hiddenWidgets,
             tema: document.documentElement.classList.contains('dark') ? 'Escuro' : 'Claro',
@@ -628,6 +608,7 @@ window.sendIAMessage = async function() {
             aiProvider: currentAIProvider
         };
 
+        // CORREÇÃO: Adicionado suporte para deleção de itens no prompt do sistema
         let systemInstructionText = `
 Você é a "Salve-se IA", assistente da UFRB. 
 CONTEXTO ATUAL: ${JSON.stringify(contextData)}
@@ -637,6 +618,7 @@ REGRAS CRÍTICAS:
 2. Para ANOTAÇÕES ("create_note" ou "update_note"):
    - USE FORMATAÇÃO HTML: <p>, <br>, <b>, <ul>, <li>.
    - Ao usar "update_note", envie o CONTEÚDO COMPLETO da nota (antigo + novo), a menos que o usuário peça para apagar.
+   - Não use Markdown (ex: **negrito**, \n). Use tags HTML.
 3. Você pode ocultar, mostrar ou personalizar widgets.
 4. Você pode criar e APAGAR tarefas, lembretes e notas.
 
@@ -696,7 +678,6 @@ COMANDOS:
             aiResponseText = data.choices[0].message.content;
 
         } else {
-            // Lógica do Gemini com API Key do ambiente (vazia no código)
             const geminiContents = recentHistory.map(msg => ({
                 role: msg.role === 'user' ? 'user' : 'model',
                 parts: [{ text: msg.text }]
@@ -723,9 +704,7 @@ COMANDOS:
         }
 
         try {
-            // Limpeza robusta do JSON (caso a IA mande markdown ```json ... ```)
-            let cleanText = aiResponseText.replace(/```json/g, '').replace(/```/g, '').trim();
-            const responseJson = JSON.parse(cleanText);
+            const responseJson = JSON.parse(aiResponseText);
             
             if (responseJson.message) {
                 appendMessage('ai', responseJson.message);
@@ -743,9 +722,9 @@ COMANDOS:
             }
 
         } catch (e) {
-            console.error("Erro Parse JSON IA:", e);
-            const cleanText = aiResponseText.replace(/[\{\}\[\]"]/g, '').substring(0, 150);
-            appendMessage('ai', "Tive um erro ao processar o comando, mas aqui está a resposta bruta: " + cleanText + "...");
+            console.error("Erro JSON IA:", e);
+            const cleanText = aiResponseText.replace(/[\{\}\[\]"]/g, '').substring(0, 100);
+            appendMessage('ai', "Tive um erro ao processar o comando, mas entendi: " + cleanText);
         }
 
     } catch (error) {
@@ -868,6 +847,7 @@ async function executeAICommand(cmd) {
             saveData();
             break;
 
+        // CORREÇÃO: Comando de deletar tarefas
         case 'delete_task':
             if(p.text) {
                 const initialLen = tasksData.length;
@@ -892,6 +872,7 @@ async function executeAICommand(cmd) {
              saveData();
              break;
 
+        // CORREÇÃO: Comando de deletar lembretes
         case 'delete_reminder':
              if(p.desc) {
                  const initLen = remindersData.length;
@@ -928,6 +909,11 @@ async function executeAICommand(cmd) {
              toggleTheme();
              break;
 
+        case 'change_ai_provider':
+             setAIProvider(p.provider);
+             break;
+
+        // --- COMANDOS DE NOTAS ---
         case 'create_note':
              const newNoteId = Date.now().toString();
              const formattedNewContent = formatAIContent(p.content);
@@ -958,6 +944,7 @@ async function executeAICommand(cmd) {
              }
              break;
 
+        // --- COMANDOS DE WIDGETS ---
         case 'hide_widget':
              if(p.id && !hiddenWidgets.includes(p.id)) {
                 toggleWidget(p.id);
@@ -1085,7 +1072,7 @@ window.saveUserProfile = async () => {
             reminders: [],
             notes: [],
             hiddenWidgets: [], 
-            widgetStyles: {}, 
+            widgetStyles: {}, // Novo campo
             lastUpdated: new Date().toISOString()
         };
         
@@ -1125,7 +1112,7 @@ function initRealtimeSync(uid) {
 
             refreshAllUI();
             applyWidgetVisibility();
-            applyAllWidgetStyles();
+            applyAllWidgetStyles(); // Sincroniza estilos
         }
     }, (error) => console.log("Modo offline ou erro de sync:", error.code));
 
@@ -1308,10 +1295,7 @@ function renderNoteEditor(container, noteId) {
 
     container.innerHTML = '';
     const editorWrapper = document.createElement('div');
-    
-    // CORREÇÃO MOBILE: Classes ajustadas para tela cheia no mobile (fixed inset-0 z-50)
-    // No Desktop (md:), volta ao normal (static, width max, etc)
-    editorWrapper.className = "fixed inset-0 z-50 bg-white dark:bg-darkcard md:static md:z-auto md:max-w-4xl md:mx-auto md:h-[calc(100vh-8rem)] flex flex-col md:rounded-xl md:border md:border-gray-200 md:dark:border-darkborder md:shadow-sm overflow-hidden md:m-4";
+    editorWrapper.className = "max-w-4xl mx-auto h-full flex flex-col bg-white dark:bg-darkcard rounded-xl border border-gray-200 dark:border-darkborder shadow-sm overflow-hidden relative m-0 md:m-4 md:h-[calc(100vh-8rem)]";
     
     // Toolbar
     const toolbar = document.createElement('div');
@@ -1674,7 +1658,7 @@ window.changePhoto = function() {
         formData.append('image', file);
 
         try {
-            const response = await fetch('[https://api.imgur.com/3/image](https://api.imgur.com/3/image)', {
+            const response = await fetch('https://api.imgur.com/3/image', {
                 method: 'POST',
                 headers: { 'Authorization': 'Client-ID 513bb727cecf9ac' },
                 body: formData
@@ -1737,7 +1721,7 @@ window.renderSettings = function() {
         dateStr = date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
     }
 
-    const photo = userProfile.photoURL || "[https://files.catbox.moe/pmdtq6.png](https://files.catbox.moe/pmdtq6.png)";
+    const photo = userProfile.photoURL || "https://files.catbox.moe/pmdtq6.png";
 
     const createActionCard = (onclick, svgIcon, title, subtitle, colorClass = "text-gray-500 group-hover:text-indigo-500") => `
         <button onclick="${onclick}" class="group w-full bg-white dark:bg-darkcard border border-gray-100 dark:border-darkborder p-4 rounded-2xl flex items-center justify-between hover:border-indigo-500 dark:hover:border-indigo-500 hover:shadow-md transition-all duration-200 mb-3 text-left">
@@ -1765,7 +1749,7 @@ window.renderSettings = function() {
                  
                  <div class="relative group mb-4 mt-4">
                     <div class="w-28 h-28 rounded-full overflow-hidden p-1 border-4 border-white dark:border-darkcard shadow-lg relative z-10">
-                        <img src="${photo}" class="w-full h-full object-cover rounded-full bg-gray-100" onerror="this.src='[https://files.catbox.moe/pmdtq6.png](https://files.catbox.moe/pmdtq6.png)'">
+                        <img src="${photo}" class="w-full h-full object-cover rounded-full" onerror="this.src='https://files.catbox.moe/pmdtq6.png'">
                     </div>
                     <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition rounded-full flex items-center justify-center cursor-pointer m-1 z-20" onclick="changePhoto()">
                         <i class="fas fa-camera text-white text-2xl"></i>
@@ -1829,7 +1813,7 @@ window.renderSettings = function() {
 
             <div class="text-center pt-4 pb-8">
                  <p class="text-xs text-gray-300 dark:text-gray-600 font-mono">ID: ${currentUser.uid.substring(0,8)}...</p>
-                 <p class="text-xs text-gray-300 dark:text-gray-600 mt-1">Salve-se UFRB v3.3 (Mobile + PC Fixes)</p>
+                 <p class="text-xs text-gray-300 dark:text-gray-600 mt-1">Salve-se UFRB v3.2 (Widget Master)</p>
             </div>
         </div>
     `;
@@ -2026,7 +2010,7 @@ window.updateDashboardTasksWidget = function() {
 };
 
 // ============================================================
-// --- FUNCIONALIDADE: GRADE HORÁRIA (Com Alternador de View) ---
+// --- FUNCIONALIDADE: GRADE HORÁRIA ---
 // ============================================================
 
 const timeSlots = [
@@ -2040,12 +2024,6 @@ const timeSlots = [
 const daysList = ['seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
 const daysDisplay = {'seg': 'Seg', 'ter': 'Ter', 'qua': 'Qua', 'qui': 'Qui', 'sex': 'Sex', 'sab': 'Sab'};
 
-window.toggleScheduleMode = function() {
-    scheduleViewMode = scheduleViewMode === 'table' ? 'cards' : 'table';
-    localStorage.setItem('salvese_schedule_mode', scheduleViewMode);
-    window.renderSchedule();
-}
-
 window.renderSchedule = function () {
     const viewContainer = document.getElementById('view-aulas');
     if (!viewContainer) return;
@@ -2055,19 +2033,12 @@ window.renderSchedule = function () {
     const wrapper = document.createElement('div');
     wrapper.className = "max-w-6xl mx-auto pb-20 md:pb-10";
 
-    // Header Desktop com Toggle
     const header = document.createElement('div');
     header.className = "hidden md:flex justify-between items-center mb-6 px-2";
     header.innerHTML = `
-        <div class="flex items-center gap-4">
-            <div>
-                <h2 class="text-2xl font-bold text-gray-800 dark:text-white">Grade Horária</h2>
-                <p class="text-sm text-gray-500 dark:text-gray-400">Gerencie suas aulas da semana.</p>
-            </div>
-            <button onclick="toggleScheduleMode()" class="ml-4 text-xs font-bold px-3 py-1.5 rounded-full border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-neutral-800 transition flex items-center gap-2 text-gray-600 dark:text-gray-300">
-                <i class="fas ${scheduleViewMode === 'table' ? 'fa-th-list' : 'fa-table'}"></i>
-                ${scheduleViewMode === 'table' ? 'Ver como Lista' : 'Ver como Tabela'}
-            </button>
+        <div>
+            <h2 class="text-2xl font-bold text-gray-800 dark:text-white">Grade Horária</h2>
+            <p class="text-sm text-gray-500 dark:text-gray-400">Gerencie suas aulas da semana.</p>
         </div>
         <button onclick="openAddClassModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg shadow-md transition flex items-center gap-2 text-sm font-bold">
             <i class="fas fa-plus"></i> <span>Nova Aula</span>
@@ -2075,20 +2046,13 @@ window.renderSchedule = function () {
     `;
     wrapper.appendChild(header);
 
-    // Header Mobile
-    const mobileHeader = document.createElement('div');
-    mobileHeader.className = "md:hidden flex justify-between items-center mb-6 px-1";
-    mobileHeader.innerHTML = `
-        <h2 class="text-xl font-bold text-gray-900 dark:text-white">Minha Grade</h2>
-        <button onclick="openAddClassModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white w-8 h-8 rounded-full flex items-center justify-center shadow-md">
-            <i class="fas fa-plus text-sm"></i>
-        </button>
-    `;
+    const mobileHeader = document.createElement('h2');
+    mobileHeader.className = "md:hidden text-xl font-bold text-gray-900 dark:text-white mb-6 px-1";
+    mobileHeader.innerText = "Minha Grade de Horários";
     wrapper.appendChild(mobileHeader);
 
-    // CONTAINER TIPO "CARDS" (Usado no mobile e opcional no PC)
-    const cardsContainerWrapper = document.createElement('div');
-    cardsContainerWrapper.className = scheduleViewMode === 'cards' ? "space-y-6" : "md:hidden space-y-6";
+    const mobileContainer = document.createElement('div');
+    mobileContainer.className = "md:hidden space-y-6";
 
     daysList.forEach(dayKey => {
         const daySection = document.createElement('div');
@@ -2110,25 +2074,12 @@ window.renderSchedule = function () {
 
         const cardsContainer = document.createElement('div');
         cardsContainer.className = "space-y-3";
-        // Layout em grid se estiver no PC modo cards
-        if (scheduleViewMode === 'cards') {
-             cardsContainer.className = "space-y-3 md:grid md:grid-cols-2 lg:grid-cols-3 md:gap-4 md:space-y-0";
-        }
 
         if (classesToday.length === 0) {
-            if (scheduleViewMode === 'cards') { // Apenas exibe msg vazia se for cards mode explicitamente ou mobile
-                 cardsContainer.innerHTML = `
-                    <div class="col-span-full">
-                        <p class="text-sm text-gray-400 italic pl-1">Nenhuma aula neste dia.</p>
-                        <div class="border-b border-gray-100 dark:border-neutral-800 border-dashed my-1 md:hidden"></div>
-                    </div>
-                `;
-            } else {
-                 cardsContainer.innerHTML = `
-                    <p class="text-sm text-gray-400 italic pl-1">Nenhuma aula neste dia.</p>
-                    <div class="border-b border-gray-100 dark:border-neutral-800 border-dashed my-1"></div>
-                `;
-            }
+            cardsContainer.innerHTML = `
+                <p class="text-sm text-gray-400 italic pl-1">Nenhuma aula neste dia.</p>
+                <div class="border-b border-gray-100 dark:border-neutral-800 border-dashed my-1"></div>
+            `;
         } else {
             classesToday.forEach(aula => {
                 const colorKey = aula.color || 'indigo';
@@ -2160,88 +2111,78 @@ window.renderSchedule = function () {
             });
         }
         daySection.appendChild(cardsContainer);
-        cardsContainerWrapper.appendChild(daySection);
+        mobileContainer.appendChild(daySection);
     });
 
-    // Se estiver no modo tabela no PC, esconde o wrapper de cards (que já tem md:hidden por padrão se for mobile-only logic)
-    // Mas se user escolheu 'cards', ele aparece.
-    if (scheduleViewMode === 'cards') {
-        wrapper.appendChild(cardsContainerWrapper);
-    } else {
-        // Renderiza cards apenas mobile
-        wrapper.appendChild(cardsContainerWrapper);
-    }
+    wrapper.appendChild(mobileContainer);
 
-    // CONTAINER TIPO "TABELA" (Apenas Desktop e se selecionado)
-    if (scheduleViewMode === 'table') {
-        const desktopContainer = document.createElement('div');
-        desktopContainer.className = "hidden md:block bg-white dark:bg-darkcard rounded-xl border border-gray-200 dark:border-darkborder shadow-sm overflow-hidden";
-        
-        let tableHTML = `
-            <div class="overflow-x-auto">
-                <table class="w-full text-sm border-collapse">
-                    <thead class="bg-gray-50 dark:bg-neutral-900 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider">
-                        <tr>
-                            <th class="p-4 text-left w-40 border-b dark:border-darkborder sticky left-0 bg-gray-50 dark:bg-neutral-900 z-10">Horário</th>
-                            ${daysList.map(d => `<th class="p-4 text-center border-b dark:border-darkborder border-l dark:border-neutral-800 min-w-[120px]">${daysDisplay[d]}</th>`).join('')}
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-100 dark:divide-darkborder">
-        `;
+    const desktopContainer = document.createElement('div');
+    desktopContainer.className = "hidden md:block bg-white dark:bg-darkcard rounded-xl border border-gray-200 dark:border-darkborder shadow-sm overflow-hidden";
+    
+    let tableHTML = `
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm border-collapse">
+                <thead class="bg-gray-50 dark:bg-neutral-900 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider">
+                    <tr>
+                        <th class="p-4 text-left w-40 border-b dark:border-darkborder sticky left-0 bg-gray-50 dark:bg-neutral-900 z-10">Horário</th>
+                        ${daysList.map(d => `<th class="p-4 text-center border-b dark:border-darkborder border-l dark:border-neutral-800 min-w-[120px]">${daysDisplay[d]}</th>`).join('')}
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100 dark:divide-darkborder">
+    `;
 
-        const occupied = {};
+    const occupied = {};
 
-        timeSlots.forEach((slot, index) => {
-            tableHTML += `<tr>`;
-            tableHTML += `<td class="p-3 font-mono text-xs font-bold text-gray-500 dark:text-gray-400 bg-gray-50/50 dark:bg-neutral-900/50 sticky left-0 z-10 border-r dark:border-darkborder whitespace-nowrap">${slot.start} - ${slot.end}</td>`;
+    timeSlots.forEach((slot, index) => {
+        tableHTML += `<tr>`;
+        tableHTML += `<td class="p-3 font-mono text-xs font-bold text-gray-500 dark:text-gray-400 bg-gray-50/50 dark:bg-neutral-900/50 sticky left-0 z-10 border-r dark:border-darkborder whitespace-nowrap">${slot.start} - ${slot.end}</td>`;
 
-            daysList.forEach(day => {
-                const cellKey = `${day}-${index}`;
-                if (occupied[cellKey]) return;
+        daysList.forEach(day => {
+            const cellKey = `${day}-${index}`;
+            if (occupied[cellKey]) return;
 
-                const foundClass = scheduleData.find(c => c.day === day && c.start === slot.start);
+            const foundClass = scheduleData.find(c => c.day === day && c.start === slot.start);
+            
+            if (foundClass) {
+                let endIndex = timeSlots.findIndex(s => s.end === foundClass.end);
+                if(endIndex === -1) endIndex = timeSlots.findIndex(s => s.start === foundClass.end) - 1;
+                if (endIndex === -1) endIndex = index; 
                 
-                if (foundClass) {
-                    let endIndex = timeSlots.findIndex(s => s.end === foundClass.end);
-                    if(endIndex === -1) endIndex = timeSlots.findIndex(s => s.start === foundClass.end) - 1;
-                    if (endIndex === -1) endIndex = index; 
-                    
-                    const span = Math.max(1, (endIndex - index) + 1);
-                    
-                    for (let k = 1; k < span; k++) occupied[`${day}-${index + k}`] = true;
+                const span = Math.max(1, (endIndex - index) + 1);
+                
+                for (let k = 1; k < span; k++) occupied[`${day}-${index + k}`] = true;
 
-                    const colorKey = foundClass.color || 'indigo';
-                    const palette = colorPalettes[colorKey] || colorPalettes['indigo'];
-                    const bgStyle = `background-color: rgba(${palette[500]}, 0.15)`;
-                    const borderStyle = `border-left: 4px solid rgb(${palette[500]})`;
-                    const textStyle = `color: rgb(${palette[700]})`;
+                const colorKey = foundClass.color || 'indigo';
+                const palette = colorPalettes[colorKey] || colorPalettes['indigo'];
+                const bgStyle = `background-color: rgba(${palette[500]}, 0.15)`;
+                const borderStyle = `border-left: 4px solid rgb(${palette[500]})`;
+                const textStyle = `color: rgb(${palette[700]})`;
 
-                    tableHTML += `
-                        <td rowspan="${span}" class="p-1 align-top h-full border-l border-gray-100 dark:border-neutral-800 relative group cursor-pointer hover:brightness-95 dark:hover:brightness-110 transition" onclick="openEditClassModal('${foundClass.id}')">
-                            <div class="h-full w-full rounded p-2 flex flex-col justify-center text-left shadow-sm" style="${bgStyle}; ${borderStyle}">
-                                <p class="text-sm font-bold truncate" style="${textStyle}">${foundClass.name}</p>
-                                <p class="text-xs text-gray-600 dark:text-gray-300 truncate opacity-80">${foundClass.prof}</p>
-                                <p class="text--[10px] text-gray-500 dark:text-gray-400 truncate mt-1 bg-white/50 dark:bg-black/20 rounded w-fit px-1">${foundClass.room}</p>
-                            </div>
-                        </td>
-                    `;
-                } else {
-                    tableHTML += `
-                        <td class="p-1 border-l border-gray-100 dark:border-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-800 transition cursor-pointer group" onclick="openAddClassModal('${day}', '${slot.start}')">
-                            <div class="w-full h-full flex items-center justify-center opacity-0 group-hover:opacity-100 text-gray-300 dark:text-neutral-600">
-                                <i class="fas fa-plus text-xs"></i>
-                            </div>
-                        </td>
-                    `;
-                }
-            });
-            tableHTML += `</tr>`;
+                tableHTML += `
+                    <td rowspan="${span}" class="p-1 align-top h-full border-l border-gray-100 dark:border-neutral-800 relative group cursor-pointer hover:brightness-95 dark:hover:brightness-110 transition" onclick="openEditClassModal('${foundClass.id}')">
+                        <div class="h-full w-full rounded p-2 flex flex-col justify-center text-left shadow-sm" style="${bgStyle}; ${borderStyle}">
+                            <p class="text-sm font-bold truncate" style="${textStyle}">${foundClass.name}</p>
+                            <p class="text-xs text-gray-600 dark:text-gray-300 truncate opacity-80">${foundClass.prof}</p>
+                            <p class="text--[10px] text-gray-500 dark:text-gray-400 truncate mt-1 bg-white/50 dark:bg-black/20 rounded w-fit px-1">${foundClass.room}</p>
+                        </div>
+                    </td>
+                `;
+            } else {
+                tableHTML += `
+                    <td class="p-1 border-l border-gray-100 dark:border-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-800 transition cursor-pointer group" onclick="openAddClassModal('${day}', '${slot.start}')">
+                        <div class="w-full h-full flex items-center justify-center opacity-0 group-hover:opacity-100 text-gray-300 dark:text-neutral-600">
+                            <i class="fas fa-plus text-xs"></i>
+                        </div>
+                    </td>
+                `;
+            }
         });
+        tableHTML += `</tr>`;
+    });
 
-        tableHTML += `</tbody></table></div>`;
-        desktopContainer.innerHTML = tableHTML;
-        wrapper.appendChild(desktopContainer);
-    }
+    tableHTML += `</tbody></table></div>`;
+    desktopContainer.innerHTML = tableHTML;
+    wrapper.appendChild(desktopContainer);
 
     viewContainer.appendChild(wrapper);
 };
@@ -2783,7 +2724,7 @@ window.calculateAverage = function() {
         display.className = "text-6xl font-black text-green-500 dark:text-green-400 mb-6 transition-all duration-500 scale-110";
         feedback.innerHTML = `
             <div class="flex flex-col items-center animate-scale-in">
-                <img src="[https://media.tenor.com/q9CixI3CcrkAAAAj/dance.gif](https://media.tenor.com/q9CixI3CcrkAAAAj/dance.gif)" class="w-32 h-32 object-contain mb-4 drop-shadow-lg rounded-full">
+                <img src="https://media.tenor.com/q9CixI3CcrkAAAAj/dance.gif" class="w-32 h-32 object-contain mb-4 drop-shadow-lg rounded-full">
                 <p class="text-green-600 dark:text-green-400 font-bold text-lg">Parabéns! Aprovado!</p>
             </div>
         `;
@@ -2791,7 +2732,7 @@ window.calculateAverage = function() {
         display.className = "text-6xl font-black text-red-500 dark:text-red-400 mb-6 transition-all duration-500";
         feedback.innerHTML = `
             <div class="flex flex-col items-center animate-scale-in">
-                <img src="[https://media.tenor.com/qL2ySe3uUgQAAAAj/gatto.gif](https://media.tenor.com/qL2ySe3uUgQAAAAj/gatto.gif)" class="w-32 h-32 object-contain mb-4 drop-shadow-lg rounded-lg">
+                <img src="https://media.tenor.com/qL2ySe3uUgQAAAAj/gatto.gif" class="w-32 h-32 object-contain mb-4 drop-shadow-lg rounded-lg">
                 <p class="text-red-600 dark:text-red-400 font-bold text-lg">Ixi... Não foi dessa vez.</p>
             </div>
         `;
@@ -2866,7 +2807,7 @@ const templates = {
 
 window.loadTemplate = function(k) { document.getElementById('email-content').value = templates[k]; }
 window.copyEmail = function() { const e = document.getElementById('email-content'); e.select(); document.execCommand('copy'); }
-window.openPortal = function() { window.open('[https://sistemas.ufrb.edu.br/sigaa/verTelaLogin.do](https://sistemas.ufrb.edu.br/sigaa/verTelaLogin.do)', '_blank'); }
+window.openPortal = function() { window.open('https://sistemas.ufrb.edu.br/sigaa/verTelaLogin.do', '_blank'); }
 
 // ============================================================
 // --- TEMA E CORES ---
@@ -2993,8 +2934,8 @@ const manifest = {
     "background_color": "#09090b",
     "theme_color": "#4f46e5",
     "icons": [
-        { "src": "[https://files.catbox.moe/pmdtq6.png](https://files.catbox.moe/pmdtq6.png)", "sizes": "192x192", "type": "image/png" },
-        { "src": "[https://files.catbox.moe/pmdtq6.png](https://files.catbox.moe/pmdtq6.png)", "sizes": "512x512", "type": "image/png" }
+        { "src": "https://files.catbox.moe/pmdtq6.png", "sizes": "192x192", "type": "image/png" },
+        { "src": "https://files.catbox.moe/pmdtq6.png", "sizes": "512x512", "type": "image/png" }
     ]
 };
 const stringManifest = JSON.stringify(manifest);

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'salvese-v25.0-fixes'; 
+const CACHE_NAME = 'salvese-v26.0-fixes'; 
 const URLS_TO_CACHE = [
     './',
     './index.html',

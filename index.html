@@ -13,7 +13,7 @@
     <link rel="apple-touch-icon" href="https://files.catbox.moe/pmdtq6.png">
 
     <!-- CSS Externo -->
-    <link rel="stylesheet" href="style.css?v=25">
+    <link rel="stylesheet" href="style.css?v=26">
 
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -86,8 +86,9 @@
     <!-- TELA 1: LOGIN -->
     <div id="login-screen" class="hidden fixed inset-0 z-50 flex flex-col items-center justify-center bg-white dark:bg-darkbg transition-opacity duration-500">
         <div class="text-center space-y-6 p-8 max-w-md w-full animate-fade-in-up">
-            <div class="w-24 h-24 mx-auto bg-indigo-100 dark:bg-indigo-900/20 rounded-3xl flex items-center justify-center shadow-xl shadow-indigo-200 dark:shadow-none mb-6">
-                <img src="https://files.catbox.moe/pmdtq6.png" class="w-16 h-16 object-contain">
+            <!-- Logo Aumentado e Fundo Removido -->
+            <div class="w-32 h-32 mx-auto flex items-center justify-center mb-6 transition-transform hover:scale-105">
+                <img src="https://files.catbox.moe/pmdtq6.png" class="w-full h-full object-contain drop-shadow-xl">
             </div>
             
             <div>
@@ -145,8 +146,8 @@
         <!-- SIDEBAR (Desktop) -->
         <aside class="w-64 bg-white dark:bg-darkcard border-r border-gray-200 dark:border-darkborder flex-col hidden md:flex z-20 shadow-sm theme-transition relative">
             <div class="h-20 flex items-center px-6 border-b border-gray-200 dark:border-darkborder group relative">
-                <div class="w-10 h-10 mr-3 flex-shrink-0 rounded-lg overflow-hidden bg-indigo-50">
-                    <img src="https://files.catbox.moe/pmdtq6.png" alt="Logo" class="w-full h-full object-contain p-1">
+                <div class="w-10 h-10 mr-3 flex-shrink-0 rounded-lg overflow-hidden">
+                    <img src="https://files.catbox.moe/pmdtq6.png" alt="Logo" class="w-full h-full object-contain">
                 </div>
                 <span class="text-lg font-bold tracking-tight text-gray-800 dark:text-white mr-2">Salve-se UFRB</span>
             </div>
@@ -393,8 +394,9 @@
                                     <h3 class="text-2xl font-bold text-gray-800 dark:text-white" id="dash-bus-title">--:--</h3>
                                     <p class="text-sm text-gray-500 dark:text-gray-400" id="dash-bus-subtitle">...</p>
                                 </div>
-                                <div class="w-12 h-12 flex items-center justify-center rounded-lg bg-indigo-50 dark:bg-neutral-900 border border-indigo-100 dark:border-neutral-800 overflow-hidden">
-                                    <img src="https://www.imagensanimadas.com/data/media/425/onibus-imagem-animada-0001.gif" onerror="this.style.display='none'; this.parentElement.innerHTML='<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'30\' height=\'30\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'currentColor\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\' class=\'text-indigo-300\'><path d=\'M4 6 2 7\'/><path d=\'M10 6h4\'/><path d=\'m22 7-2-1\'/><rect width=\'16\' height=\'16\' x=\'4\' y=\'3\' rx=\'2\'/><path d=\'M4 11h16\'/><path d=\'M8 15h.01\'/><path d=\'M16 15h.01\'/><path d=\'M6 19v2\'/><path d=\'M18 21v-2\'/></svg>'" class="w-full h-full object-contain p-1">
+                                <!-- AUMENTADO O CONTAINER DO GIF -->
+                                <div class="w-20 h-20 flex items-center justify-center rounded-lg bg-indigo-50 dark:bg-neutral-900 border border-indigo-100 dark:border-neutral-800 overflow-hidden">
+                                    <img src="https://www.imagensanimadas.com/data/media/425/onibus-imagem-animada-0001.gif" onerror="this.style.display='none'; this.parentElement.innerHTML='<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'40\' height=\'40\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'currentColor\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\' class=\'text-indigo-300\'><path d=\'M4 6 2 7\'/><path d=\'M10 6h4\'/><path d=\'m22 7-2-1\'/><rect width=\'16\' height=\'16\' x=\'4\' y=\'3\' rx=\'2\'/><path d=\'M4 11h16\'/><path d=\'M8 15h.01\'/><path d=\'M16 15h.01\'/><path d=\'M6 19v2\'/><path d=\'M18 21v-2\'/></svg>'" class="w-full h-full object-contain p-1">
                                 </div>
                             </div>
                             <div id="bus-dynamic-area" class="p-5 pt-2 flex-1 flex flex-col justify-end min-h-[120px]"></div>

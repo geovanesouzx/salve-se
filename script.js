@@ -1,7 +1,6 @@
 // ============================================================
 // --- CONFIGURAÇÃO FIREBASE & IMPORTAÇÕES ---
 // ============================================================
-// CORREÇÃO: URLs limpas sem formatação Markdown que causava o travamento
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { 
     getAuth, 
@@ -36,9 +35,10 @@ const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__f
 };
 
 // --- CONFIGURAÇÃO DAS IAs ---
-const GEMINI_API_KEY = ""; 
+// CORREÇÃO: Usando 'apiKey' para injeção automática do ambiente
+const apiKey = ""; 
 const GEMINI_MODEL = "gemini-2.5-flash-preview-09-2025";
-const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
 
 const GROQ_API_KEY = "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"; 
 const GROQ_MODEL = "llama-3.3-70b-versatile"; 
@@ -135,7 +135,7 @@ const initAuth = async () => {
 initAuth();
 
 onAuthStateChanged(auth, async (user) => {
-    clearTimeout(forceLoadTimeout); // Cancela o timeout se a auth responder rápido
+    clearTimeout(forceLoadTimeout);
 
     if (user) {
         currentUser = user;
@@ -206,7 +206,14 @@ function showAppInterface() {
     updateUserInterfaceInfo();
     refreshAllUI();
     
-    fixChatLayout();
+    // Força a chamada inicial para ajustar layout se já estiver na home
+    if(currentViewContext === 'home') {
+        const main = document.querySelector('main');
+        if(main) {
+            main.className = "flex-1 overflow-y-auto p-4 md:p-8 pb-24 md:pb-8";
+        }
+    }
+    
     injectWidgetControls();
 
     if(loadingScreen && !loadingScreen.classList.contains('hidden')) {
@@ -248,13 +255,19 @@ function showProfileSetupScreen() {
 }
 
 window.fixChatLayout = function() {
+    // Esta função agora apenas garante que a view esteja visível
+    // O layout principal é controlado pelo switchPage modificando o <main>
     const viewIA = document.getElementById('view-ia');
     const messageContainer = document.getElementById('chat-messages-container');
-    const inputContainer = viewIA ? viewIA.querySelector('.absolute.bottom-0') : null;
+    const inputContainer = viewIA ? viewIA.querySelector('.w-full.p-4.border-t') : null;
     
     if (viewIA) {
-        viewIA.className = "hidden fade-in flex flex-col h-full relative bg-gray-50 dark:bg-darkbg overflow-hidden";
-        viewIA.style.height = "calc(100vh - 4rem)"; 
+        // Remove 'hidden' se estiver presente
+        viewIA.classList.remove('hidden');
+        viewIA.classList.add('flex');
+        
+        // A altura agora é 100% do pai (<main>), que não tem padding
+        viewIA.style.height = "100%"; 
 
         if(messageContainer) {
             messageContainer.className = "flex-1 overflow-y-auto p-4 space-y-4 scroll-smooth";
@@ -271,6 +284,18 @@ window.fixChatLayout = function() {
 
 window.switchPage = function(pageId, addToHistory = true) {
     currentViewContext = pageId;
+
+    // CORREÇÃO DE LAYOUT: Ajustar o container <main> dependendo da tela
+    const mainContainer = document.querySelector('main');
+    if(mainContainer) {
+        if(pageId === 'ia') {
+            // Na IA, removemos padding e scroll do main para o chat gerenciar seu próprio scroll
+            mainContainer.className = "flex-1 flex flex-col h-full overflow-hidden p-0 bg-gray-50 dark:bg-darkbg";
+        } else {
+            // Nas outras telas, usamos o layout padrão com padding e scroll
+            mainContainer.className = "flex-1 overflow-y-auto p-4 md:p-8 pb-24 md:pb-8";
+        }
+    }
 
     document.querySelectorAll('[id^="view-"]').forEach(el => el.classList.add('hidden'));
     const target = document.getElementById(`view-${pageId}`);
@@ -688,6 +713,10 @@ COMANDOS:
             aiResponseText = data.choices[0].message.content;
 
         } else {
+            if (!apiKey && !GEMINI_API_URL.includes("key=")) {
+                 throw new Error("Chave de API do Gemini não configurada. Use o provider 'Llama' ou adicione a chave.");
+            }
+
             const geminiContents = recentHistory.map(msg => ({
                 role: msg.role === 'user' ? 'user' : 'model',
                 parts: [{ text: msg.text }]
@@ -742,6 +771,7 @@ COMANDOS:
         console.error("Erro IA:", error);
         let msg = "Ops! Tive um problema técnico.";
         if(error.message.includes("429")) msg = "⚠️ A IA está sobrecarregada. Tente novamente em alguns segundos.";
+        if(error.message.includes("API key not valid")) msg = "⚠️ Erro de chave de API. Verifique as configurações.";
         appendMessage('ai', msg);
     } finally {
         hideTypingIndicator();

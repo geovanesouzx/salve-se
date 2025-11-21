@@ -21,8 +21,9 @@ import {
     enableIndexedDbPersistence
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
+// --- CORREÇÃO: CHAVE DE API RESTAURADA ---
 const firebaseConfig = {
-    apiKey: "", // Injetado pelo ambiente ou vazio
+    apiKey: "AIzaSyD5Ggqw9FpMS98CHcfXKnghMQNMV5WIVTw",
     authDomain: "salvee-se.firebaseapp.com",
     projectId: "salvee-se",
     storageBucket: "salvee-se.firebasestorage.app",
@@ -35,14 +36,11 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-// Tenta habilitar persistência offline
+// Tenta habilitar persistência offline (ignora erros se não suportado)
 try {
     enableIndexedDbPersistence(db).catch((err) => {
-        if (err.code === 'failed-precondition') {
-            console.log('Persistência falhou: Múltiplas abas abertas.');
-        } else if (err.code === 'unimplemented') {
-            console.log('Persistência não suportada neste navegador.');
-        }
+        // Falhas silenciosas para persistência não travarem o app
+        console.log('Persistência offline:', err.code);
     });
 } catch (e) { console.log("Persistência já ativa ou não suportada"); }
 
@@ -75,12 +73,16 @@ const svgs = {
 };
 
 // ============================================================
-// --- SISTEMA DE CUSTOM UI (CORRIGIDO) ---
+// --- SISTEMA DE CUSTOM UI (DROPDOWNS) ---
 // ============================================================
 
 function initCustomUI() {
-    document.querySelectorAll('select:not(.custom-init)').forEach(createCustomSelect);
-    document.querySelectorAll('input[type="date"]:not(.custom-init)').forEach(createCustomDatePicker);
+    // Só inicializa se os elementos existirem no DOM
+    const selects = document.querySelectorAll('select:not(.custom-init)');
+    if (selects.length > 0) selects.forEach(createCustomSelect);
+    
+    const datePickers = document.querySelectorAll('input[type="date"]:not(.custom-init)');
+    if (datePickers.length > 0) datePickers.forEach(createCustomDatePicker);
 }
 
 function closeAllCustomMenus() {
@@ -88,8 +90,8 @@ function closeAllCustomMenus() {
 }
 
 function createCustomSelect(select) {
-    if (select.classList.contains('custom-init')) return;
-    select.classList.add('custom-init', 'hidden'); // Esconde o select original
+    if (!select || select.classList.contains('custom-init')) return;
+    select.classList.add('custom-init', 'hidden');
 
     const wrapper = document.createElement('div');
     wrapper.className = 'relative inline-block w-full';
@@ -100,7 +102,6 @@ function createCustomSelect(select) {
 
     const labelSpan = document.createElement('span');
     
-    // Função robusta para atualizar o rótulo visual
     const updateLabel = () => {
         if (select.options.length > 0 && select.selectedIndex >= 0) {
             labelSpan.innerText = select.options[select.selectedIndex].text;
@@ -112,11 +113,7 @@ function createCustomSelect(select) {
     };
     
     updateLabel();
-
-    // Listener para quando o valor muda via código (JS) ou via trigger manual
     select.addEventListener('change', updateLabel);
-    
-    // Método exposto para forçar atualização
     select.refreshCustomUI = updateLabel;
 
     trigger.appendChild(labelSpan);
@@ -126,7 +123,6 @@ function createCustomSelect(select) {
         e.preventDefault();
         e.stopPropagation();
         
-        // Se já estiver aberto, fecha
         const existingMenu = document.querySelector('.custom-floating-menu');
         if (existingMenu && existingMenu.dataset.triggerId === select.id) {
             closeAllCustomMenus();
@@ -140,7 +136,6 @@ function createCustomSelect(select) {
         menu.className = 'custom-floating-menu fixed z-[9999] bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-lg shadow-2xl animate-scale-in flex flex-col overflow-hidden';
         menu.dataset.triggerId = select.id || 'temp-' + Date.now();
         
-        // Posicionamento inteligente
         const spaceBelow = window.innerHeight - rect.bottom;
         const menuHeight = Math.min(select.options.length * 40 + 10, 250);
         
@@ -148,7 +143,6 @@ function createCustomSelect(select) {
         menu.style.left = rect.left + 'px';
         
         if (spaceBelow < menuHeight && rect.top > menuHeight) {
-             // Abre para cima se faltar espaço embaixo
             menu.style.bottom = (window.innerHeight - rect.top + 4) + 'px';
             menu.style.top = 'auto';
         } else {
@@ -169,22 +163,15 @@ function createCustomSelect(select) {
 
             item.addEventListener('click', (ev) => {
                 ev.stopPropagation();
-                
-                // 1. Atualiza o valor do select original
                 select.value = opt.value;
                 select.selectedIndex = index;
-                
-                // 2. Atualiza o rótulo visual IMEDIATAMENTE
                 labelSpan.innerText = opt.text;
                 labelSpan.classList.remove('text-gray-400');
                 
-                // 3. Dispara evento change para outros scripts ouvindo
                 const event = new Event('change', { bubbles: true });
                 select.dispatchEvent(event);
-                
                 menu.remove();
             });
-            
             menu.appendChild(item);
         });
 
@@ -197,10 +184,9 @@ function createCustomSelect(select) {
                 window.removeEventListener('resize', closeHandler);
             }
         };
-        
         setTimeout(() => {
             document.addEventListener('click', closeHandler);
-            window.addEventListener('resize', () => menu.remove()); // Fecha ao redimensionar
+            window.addEventListener('resize', () => menu.remove());
         }, 0);
     };
 
@@ -209,7 +195,7 @@ function createCustomSelect(select) {
 }
 
 function createCustomDatePicker(input) {
-    if (input.classList.contains('custom-init')) return;
+    if (!input || input.classList.contains('custom-init')) return;
     input.classList.add('custom-init', 'hidden');
 
     const wrapper = document.createElement('div');
@@ -226,7 +212,6 @@ function createCustomDatePicker(input) {
     const textSpan = document.createElement('span');
     const updateDisplay = () => {
         if (input.value) {
-            // Correção de fuso horário simples para exibição
             const parts = input.value.split('-');
             if(parts.length === 3) {
                 textSpan.innerText = `${parts[2]}/${parts[1]}/${parts[0]}`;
@@ -240,7 +225,7 @@ function createCustomDatePicker(input) {
     updateDisplay();
 
     input.addEventListener('change', updateDisplay);
-    input.addEventListener('input', updateDisplay); // Para garantir updates rápidos
+    input.addEventListener('input', updateDisplay);
 
     trigger.appendChild(iconSpan);
     trigger.appendChild(textSpan);
@@ -250,7 +235,6 @@ function createCustomDatePicker(input) {
         e.stopPropagation();
         closeAllCustomMenus();
 
-        // Usa o picker nativo em mobile para melhor experiência
         if (window.matchMedia("(max-width: 768px)").matches) {
             input.showPicker(); 
             return;
@@ -268,7 +252,6 @@ function createCustomDatePicker(input) {
         }
         calendar.style.left = rect.left + 'px';
 
-        // Lógica de calendário simples
         let dateObj = input.value ? new Date(input.value + 'T00:00:00') : new Date();
         let currentMonth = dateObj.getMonth();
         let currentYear = dateObj.getFullYear();
@@ -333,10 +316,8 @@ function createCustomDatePicker(input) {
                     const monthStr = String(month + 1).padStart(2, '0');
                     const dayStr = String(d).padStart(2, '0');
                     input.value = `${yearStr}-${monthStr}-${dayStr}`;
-                    
                     const event = new Event('change', { bubbles: true });
                     input.dispatchEvent(event);
-                    
                     calendar.remove();
                 };
                 daysContainer.appendChild(dayBtn);
@@ -366,17 +347,18 @@ function createCustomDatePicker(input) {
 
 const sessionActive = localStorage.getItem('salvese_session_active');
 
+// CORREÇÃO: Timeout aumentado para 3000ms e verificação robusta
 const forceLoadTimeout = setTimeout(() => {
     const loadingScreen = document.getElementById('loading-screen');
     if (loadingScreen && !loadingScreen.classList.contains('hidden')) {
-        console.warn("Firebase demorou. Verificando modo offline...");
+        console.warn("Timeout de carregamento. Forçando entrada...");
         if (sessionActive === 'true') {
             loadAppOfflineMode();
         } else {
             showLoginScreen();
         }
     }
-}, 2000);
+}, 3000);
 
 onAuthStateChanged(auth, async (user) => {
     clearTimeout(forceLoadTimeout);
@@ -432,8 +414,10 @@ function showAppInterface() {
     updateUserInterfaceInfo();
     refreshAllUI();
 
-    // Inicializa os dropdowns customizados com um pequeno delay para garantir que o DOM existe
-    setTimeout(initCustomUI, 300);
+    // Inicializa UI customizada com segurança
+    setTimeout(() => {
+        try { initCustomUI(); } catch(e) { console.log("Custom UI falhou, usando nativo"); }
+    }, 300);
 
     if (loadingScreen && !loadingScreen.classList.contains('hidden')) {
         loadingScreen.classList.add('opacity-0');
@@ -608,7 +592,8 @@ function refreshAllUI() {
     if (window.renderSettings) window.renderSettings();
 }
 
-// ... (Modal functions unchanged) ...
+// ... (Rest of the file logic remains similar, ensuring all UI functions are present) ...
+
 function openCustomInputModal(title, placeholder, initialValue, onConfirm) {
     const modal = document.getElementById('custom-input-modal');
     const modalTitle = document.getElementById('custom-modal-title');
@@ -902,7 +887,7 @@ window.renderSettings = function () {
 
             <div class="text-center pt-4 pb-8">
                  <p class="text-xs text-gray-300 dark:text-gray-600 font-mono">ID: ${currentUser.uid.substring(0, 8)}...</p>
-                 <p class="text-xs text-gray-300 dark:text-gray-600 mt-1">Salve-se UFRB v2.3 (Fixed)</p>
+                 <p class="text-xs text-gray-300 dark:text-gray-600 mt-1">Salve-se UFRB v2.3 (Key Fixed)</p>
             </div>
         </div>
     `;

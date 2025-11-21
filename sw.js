@@ -1,4 +1,5 @@
-const CACHE_NAME = 'salvese-v26.0-fixes'; 
+// Versão atualizada para forçar recarregamento do script.js novo
+const CACHE_NAME = 'salvese-v27-fixes'; 
 const URLS_TO_CACHE = [
     './',
     './index.html',

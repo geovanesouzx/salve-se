@@ -1,4 +1,4 @@
-const CACHE_NAME = 'salvese-v12.0-ai-super-update'; // Versão incrementada
+const CACHE_NAME = 'salvese-v13.0-new-chat-ui'; // Versão incrementada
 const URLS_TO_CACHE = [
     './',
     './index.html',

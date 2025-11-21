@@ -30,7 +30,7 @@ const firebaseConfig = {
   appId: "1:132544174908:web:00c6aa4855cc18ed2cdc39"
 };
 
-// Configuração da IA (Gemini) - ATUALIZADO COM NOVA CHAVE
+// Configuração da IA (Gemini)
 const apiKey = "AIzaSyAZgpqT4iz9NgLzpYJsIvc4tgeaJ1qHUaI"; 
 const GEMINI_MODEL = "gemini-2.5-flash-preview-09-2025";
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
@@ -260,17 +260,21 @@ window.sendIAMessage = async function() {
     const message = input.value.trim();
     const container = document.getElementById('chat-messages-container');
     const sendBtn = document.getElementById('chat-send-btn');
-    const typingIndicator = document.getElementById('chat-typing-indicator');
+    // A referência fixa ao indicador é removida aqui para ser tratada dinamicamente
 
     if (!message) return;
 
+    // Adiciona mensagem do usuário
     appendMessage('user', message);
     input.value = '';
     input.disabled = true;
     sendBtn.disabled = true;
-    container.scrollTop = container.scrollHeight;
+    
+    // Scroll imediato
+    if(container) container.scrollTop = container.scrollHeight;
 
-    if(typingIndicator) typingIndicator.classList.remove('hidden');
+    // Mostrar indicador de digitação no FINAL da lista
+    showTypingIndicator();
 
     const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -445,13 +449,92 @@ LISTA DE COMANDOS JSON (action e params):
         if(error.message.includes("500")) msg = "⚠️ Instabilidade no servidor da IA (500).";
         appendMessage('ai', msg);
     } finally {
-        if(typingIndicator) typingIndicator.classList.add('hidden');
+        // Remover indicador de digitação
+        hideTypingIndicator();
         input.disabled = false;
         sendBtn.disabled = false;
         input.focus();
-        container.scrollTop = container.scrollHeight;
+        if(container) container.scrollTop = container.scrollHeight;
     }
 };
+
+// ============================================================
+// --- AUXILIARES DE CHAT (INDICADOR DE DIGITAÇÃO & UI) ---
+// ============================================================
+
+function showTypingIndicator() {
+    const container = document.getElementById('chat-messages-container');
+    if (!container) return;
+
+    // Remove se já existir (para garantir que vá para o final)
+    hideTypingIndicator();
+
+    const div = document.createElement('div');
+    div.id = 'dynamic-typing-indicator';
+    div.className = 'flex gap-2 max-w-[90%] animate-fade-in-up mt-2';
+    div.innerHTML = `
+        <div class="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center flex-shrink-0 text-white text-xs shadow-sm mt-auto mb-1">
+            <i class="fas fa-robot animate-pulse"></i>
+        </div>
+        <div class="bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder rounded-2xl rounded-tl-none px-4 py-3 shadow-sm flex items-center gap-1">
+            <div class="w-1.5 h-1.5 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce"></div>
+            <div class="w-1.5 h-1.5 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce" style="animation-delay: 0.1s"></div>
+            <div class="w-1.5 h-1.5 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce" style="animation-delay: 0.2s"></div>
+        </div>
+    `;
+    container.appendChild(div);
+    container.scrollTop = container.scrollHeight;
+}
+
+function hideTypingIndicator() {
+    const existing = document.getElementById('dynamic-typing-indicator');
+    if (existing) existing.remove();
+}
+
+function appendMessage(sender, text) {
+    const container = document.getElementById('chat-messages-container');
+    if (!container) return;
+
+    chatHistory.push({ role: sender, text: text });
+    if (chatHistory.length > 20) chatHistory.shift();
+
+    const div = document.createElement('div');
+    div.className = `flex w-full ${sender === 'user' ? 'justify-end' : 'justify-start'} mb-4 animate-scale-in group`;
+    
+    // Horário da mensagem
+    const time = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    const formattedText = text.replace(/\n/g, '<br>');
+
+    if (sender === 'user') {
+        div.innerHTML = `
+            <div class="flex flex-col items-end max-w-[85%]">
+                <div class="bg-indigo-600 text-white rounded-2xl rounded-br-sm px-4 py-3 shadow-md text-sm leading-relaxed relative">
+                    ${formattedText}
+                </div>
+                <span class="text-[10px] text-gray-400 mt-1 mr-1 opacity-0 group-hover:opacity-100 transition-opacity">${time}</span>
+            </div>
+        `;
+    } else {
+        const mdText = formattedText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        div.innerHTML = `
+            <div class="flex gap-3 max-w-[90%]">
+                <div class="flex-shrink-0 flex flex-col justify-end">
+                    <div class="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-xs shadow-sm">
+                        <i class="fas fa-robot"></i>
+                    </div>
+                </div>
+                <div class="flex flex-col items-start">
+                    <div class="bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder text-gray-800 dark:text-gray-200 rounded-2xl rounded-bl-sm px-4 py-3 shadow-sm text-sm leading-relaxed">
+                        ${mdText}
+                    </div>
+                    <span class="text-[10px] text-gray-400 mt-1 ml-1 opacity-0 group-hover:opacity-100 transition-opacity">Salve-se IA • ${time}</span>
+                </div>
+            </div>
+        `;
+    }
+    container.appendChild(div);
+    container.scrollTop = container.scrollHeight;
+}
 
 // ============================================================
 // --- EXECUÇÃO DE COMANDOS IA (O CÉREBRO DO SISTEMA) ---
@@ -688,39 +771,6 @@ async function executeAICommand(cmd) {
     }
 
     appendMessage('ai', feedback);
-}
-
-function appendMessage(sender, text) {
-    const container = document.getElementById('chat-messages-container');
-    if (!container) return;
-
-    chatHistory.push({ role: sender, text: text });
-    if (chatHistory.length > 20) chatHistory.shift();
-
-    const div = document.createElement('div');
-    div.className = `flex w-full ${sender === 'user' ? 'justify-end' : 'justify-start'} mb-4 animate-scale-in`;
-    const formattedText = text.replace(/\n/g, '<br>');
-
-    if (sender === 'user') {
-        div.innerHTML = `
-            <div class="max-w-[80%] bg-indigo-600 text-white rounded-2xl rounded-tr-none px-4 py-3 shadow-md">
-                <p class="text-sm leading-relaxed">${formattedText}</p>
-            </div>
-        `;
-    } else {
-        const mdText = formattedText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-        div.innerHTML = `
-            <div class="flex gap-2 max-w-[90%]">
-                <div class="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center flex-shrink-0 text-white text-xs shadow-sm mt-1">
-                    <i class="fas fa-robot"></i>
-                </div>
-                <div class="bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder text-gray-800 dark:text-gray-200 rounded-2xl rounded-tl-none px-4 py-3 shadow-sm">
-                    <p class="text-sm leading-relaxed">${mdText}</p>
-                </div>
-            </div>
-        `;
-    }
-    container.appendChild(div);
 }
 
 // ============================================================

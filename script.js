@@ -22,7 +22,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 const firebaseConfig = {
-    apiKey: "AIzaSyD5Ggqw9FpMS98CHcfXKnghMQNMV5WIVTw",
+    apiKey: "", // Injetado pelo ambiente ou vazio
     authDomain: "salvee-se.firebaseapp.com",
     projectId: "salvee-se",
     storageBucket: "salvee-se.firebasestorage.app",
@@ -88,7 +88,8 @@ function closeAllCustomMenus() {
 }
 
 function createCustomSelect(select) {
-    select.classList.add('custom-init', 'hidden');
+    if (select.classList.contains('custom-init')) return;
+    select.classList.add('custom-init', 'hidden'); // Esconde o select original
 
     const wrapper = document.createElement('div');
     wrapper.className = 'relative inline-block w-full';
@@ -99,20 +100,23 @@ function createCustomSelect(select) {
 
     const labelSpan = document.createElement('span');
     
+    // Função robusta para atualizar o rótulo visual
     const updateLabel = () => {
         if (select.options.length > 0 && select.selectedIndex >= 0) {
             labelSpan.innerText = select.options[select.selectedIndex].text;
+            labelSpan.classList.remove('text-gray-400');
         } else {
             labelSpan.innerText = 'Selecione';
+            labelSpan.classList.add('text-gray-400');
         }
     };
     
     updateLabel();
 
-    // Listener para atualizações via código (JS)
+    // Listener para quando o valor muda via código (JS) ou via trigger manual
     select.addEventListener('change', updateLabel);
     
-    // Método acessível externamente para forçar atualização (útil quando options mudam dinamicamente)
+    // Método exposto para forçar atualização
     select.refreshCustomUI = updateLabel;
 
     trigger.appendChild(labelSpan);
@@ -121,21 +125,42 @@ function createCustomSelect(select) {
     trigger.onclick = (e) => {
         e.preventDefault();
         e.stopPropagation();
+        
+        // Se já estiver aberto, fecha
+        const existingMenu = document.querySelector('.custom-floating-menu');
+        if (existingMenu && existingMenu.dataset.triggerId === select.id) {
+            closeAllCustomMenus();
+            return;
+        }
+        
         closeAllCustomMenus();
 
         const rect = trigger.getBoundingClientRect();
         const menu = document.createElement('div');
-        menu.className = 'custom-floating-menu fixed z-[9999] bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-lg shadow-2xl animate-scale-in';
+        menu.className = 'custom-floating-menu fixed z-[9999] bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-lg shadow-2xl animate-scale-in flex flex-col overflow-hidden';
+        menu.dataset.triggerId = select.id || 'temp-' + Date.now();
+        
+        // Posicionamento inteligente
+        const spaceBelow = window.innerHeight - rect.bottom;
+        const menuHeight = Math.min(select.options.length * 40 + 10, 250);
+        
+        menu.style.width = rect.width + 'px';
+        menu.style.left = rect.left + 'px';
+        
+        if (spaceBelow < menuHeight && rect.top > menuHeight) {
+             // Abre para cima se faltar espaço embaixo
+            menu.style.bottom = (window.innerHeight - rect.top + 4) + 'px';
+            menu.style.top = 'auto';
+        } else {
+            menu.style.top = (rect.bottom + 4) + 'px';
+        }
         
         menu.style.maxHeight = '250px';
         menu.style.overflowY = 'auto';
-        menu.style.top = (rect.bottom + 4) + 'px';
-        menu.style.left = rect.left + 'px';
-        menu.style.width = rect.width + 'px';
 
-        Array.from(select.options).forEach(opt => {
+        Array.from(select.options).forEach((opt, index) => {
             const item = document.createElement('div');
-            item.className = 'px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer transition flex items-center gap-2 border-b border-gray-50 dark:border-neutral-700/50 last:border-0';
+            item.className = 'px-4 py-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-indigo-50 dark:hover:bg-indigo-900/40 hover:text-indigo-600 dark:hover:text-indigo-300 cursor-pointer transition flex items-center gap-2 border-b border-gray-50 dark:border-neutral-700/50 last:border-0 shrink-0';
             item.innerText = opt.text;
 
             if (opt.value === select.value) {
@@ -145,14 +170,16 @@ function createCustomSelect(select) {
             item.addEventListener('click', (ev) => {
                 ev.stopPropagation();
                 
-                // 1. Atualiza valor
+                // 1. Atualiza o valor do select original
                 select.value = opt.value;
+                select.selectedIndex = index;
                 
-                // 2. Atualiza visual IMEDIATAMENTE (Correção do bug "não muda")
+                // 2. Atualiza o rótulo visual IMEDIATAMENTE
                 labelSpan.innerText = opt.text;
+                labelSpan.classList.remove('text-gray-400');
                 
-                // 3. Dispara evento change para listeners externos
-                const event = new Event('change');
+                // 3. Dispara evento change para outros scripts ouvindo
+                const event = new Event('change', { bubbles: true });
                 select.dispatchEvent(event);
                 
                 menu.remove();
@@ -164,12 +191,17 @@ function createCustomSelect(select) {
         document.body.appendChild(menu);
 
         const closeHandler = (evt) => {
-            if (!menu.contains(evt.target) && evt.target !== trigger) {
+            if (!menu.contains(evt.target) && !trigger.contains(evt.target)) {
                 menu.remove();
                 document.removeEventListener('click', closeHandler);
+                window.removeEventListener('resize', closeHandler);
             }
         };
-        setTimeout(() => document.addEventListener('click', closeHandler), 0);
+        
+        setTimeout(() => {
+            document.addEventListener('click', closeHandler);
+            window.addEventListener('resize', () => menu.remove()); // Fecha ao redimensionar
+        }, 0);
     };
 
     wrapper.appendChild(trigger);
@@ -177,6 +209,7 @@ function createCustomSelect(select) {
 }
 
 function createCustomDatePicker(input) {
+    if (input.classList.contains('custom-init')) return;
     input.classList.add('custom-init', 'hidden');
 
     const wrapper = document.createElement('div');
@@ -193,9 +226,12 @@ function createCustomDatePicker(input) {
     const textSpan = document.createElement('span');
     const updateDisplay = () => {
         if (input.value) {
-            const d = new Date(input.value + 'T00:00:00');
-            textSpan.innerText = d.toLocaleDateString('pt-BR');
-            textSpan.classList.remove('text-gray-400');
+            // Correção de fuso horário simples para exibição
+            const parts = input.value.split('-');
+            if(parts.length === 3) {
+                textSpan.innerText = `${parts[2]}/${parts[1]}/${parts[0]}`;
+                textSpan.classList.remove('text-gray-400');
+            }
         } else {
             textSpan.innerText = 'Selecione uma data';
             textSpan.classList.add('text-gray-400');
@@ -204,17 +240,7 @@ function createCustomDatePicker(input) {
     updateDisplay();
 
     input.addEventListener('change', updateDisplay);
-    
-    const descriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'valueAsDate');
-    Object.defineProperty(input, 'valueAsDate', {
-        set: function(val) {
-            descriptor.set.call(this, val);
-            updateDisplay();
-        },
-        get: function() {
-            return descriptor.get.call(this);
-        }
-    });
+    input.addEventListener('input', updateDisplay); // Para garantir updates rápidos
 
     trigger.appendChild(iconSpan);
     trigger.appendChild(textSpan);
@@ -224,28 +250,28 @@ function createCustomDatePicker(input) {
         e.stopPropagation();
         closeAllCustomMenus();
 
+        // Usa o picker nativo em mobile para melhor experiência
+        if (window.matchMedia("(max-width: 768px)").matches) {
+            input.showPicker(); 
+            return;
+        }
+
         const rect = trigger.getBoundingClientRect();
         const calendar = document.createElement('div');
         calendar.className = 'custom-floating-menu fixed z-[9999] p-4 bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-xl shadow-2xl animate-scale-in w-64';
 
         const spaceBelow = window.innerHeight - rect.bottom;
-        if (spaceBelow < 300) {
+        if (spaceBelow < 320) {
             calendar.style.bottom = (window.innerHeight - rect.top + 4) + 'px';
         } else {
             calendar.style.top = (rect.bottom + 4) + 'px';
         }
+        calendar.style.left = rect.left + 'px';
 
-        if (window.innerWidth < 640) {
-            calendar.style.left = '50%';
-            calendar.style.transform = 'translateX(-50%)';
-            calendar.style.top = '50%';
-            calendar.style.marginTop = '-150px';
-        } else {
-            calendar.style.left = rect.left + 'px';
-        }
-
-        let currentMonth = input.value ? new Date(input.value + 'T00:00:00').getMonth() : new Date().getMonth();
-        let currentYear = input.value ? new Date(input.value + 'T00:00:00').getFullYear() : new Date().getFullYear();
+        // Lógica de calendário simples
+        let dateObj = input.value ? new Date(input.value + 'T00:00:00') : new Date();
+        let currentMonth = dateObj.getMonth();
+        let currentYear = dateObj.getFullYear();
 
         const renderCalendar = (month, year) => {
             calendar.innerHTML = '';
@@ -254,7 +280,7 @@ function createCustomDatePicker(input) {
 
             const prevBtn = document.createElement('button');
             prevBtn.innerHTML = '&lt;';
-            prevBtn.className = 'p-1 hover:bg-gray-100 dark:hover:bg-neutral-700 rounded text-gray-600 dark:text-gray-300';
+            prevBtn.className = 'p-1 hover:bg-gray-100 dark:hover:bg-neutral-700 rounded text-gray-600 dark:text-gray-300 font-bold w-8 h-8';
             prevBtn.onclick = (e) => { e.stopPropagation(); renderCalendar(month === 0 ? 11 : month - 1, month === 0 ? year - 1 : year); };
 
             const title = document.createElement('span');
@@ -263,7 +289,7 @@ function createCustomDatePicker(input) {
 
             const nextBtn = document.createElement('button');
             nextBtn.innerHTML = '&gt;';
-            nextBtn.className = 'p-1 hover:bg-gray-100 dark:hover:bg-neutral-700 rounded text-gray-600 dark:text-gray-300';
+            nextBtn.className = 'p-1 hover:bg-gray-100 dark:hover:bg-neutral-700 rounded text-gray-600 dark:text-gray-300 font-bold w-8 h-8';
             nextBtn.onclick = (e) => { e.stopPropagation(); renderCalendar(month === 11 ? 0 : month + 1, month === 11 ? year + 1 : year); };
 
             header.appendChild(prevBtn);
@@ -294,11 +320,6 @@ function createCustomDatePicker(input) {
                 dayBtn.innerText = d;
                 dayBtn.className = 'w-8 h-8 rounded-full flex items-center justify-center hover:bg-indigo-50 dark:hover:bg-neutral-700 text-gray-700 dark:text-gray-300 transition';
 
-                const today = new Date();
-                if (d === today.getDate() && month === today.getMonth() && year === today.getFullYear()) {
-                    dayBtn.classList.add('border', 'border-indigo-500', 'text-indigo-500', 'font-bold');
-                }
-
                 if (input.value) {
                     const sel = new Date(input.value + 'T00:00:00');
                     if (d === sel.getDate() && month === sel.getMonth() && year === sel.getFullYear()) {
@@ -308,13 +329,12 @@ function createCustomDatePicker(input) {
 
                 dayBtn.onclick = (e) => {
                     e.stopPropagation();
-                    const selectedDate = new Date(year, month, d);
-                    const yearStr = selectedDate.getFullYear();
-                    const monthStr = String(selectedDate.getMonth() + 1).padStart(2, '0');
-                    const dayStr = String(selectedDate.getDate()).padStart(2, '0');
+                    const yearStr = year;
+                    const monthStr = String(month + 1).padStart(2, '0');
+                    const dayStr = String(d).padStart(2, '0');
                     input.value = `${yearStr}-${monthStr}-${dayStr}`;
                     
-                    const event = new Event('change');
+                    const event = new Event('change', { bubbles: true });
                     input.dispatchEvent(event);
                     
                     calendar.remove();
@@ -412,7 +432,8 @@ function showAppInterface() {
     updateUserInterfaceInfo();
     refreshAllUI();
 
-    setTimeout(initCustomUI, 100);
+    // Inicializa os dropdowns customizados com um pequeno delay para garantir que o DOM existe
+    setTimeout(initCustomUI, 300);
 
     if (loadingScreen && !loadingScreen.classList.contains('hidden')) {
         loadingScreen.classList.add('opacity-0');
@@ -587,6 +608,7 @@ function refreshAllUI() {
     if (window.renderSettings) window.renderSettings();
 }
 
+// ... (Modal functions unchanged) ...
 function openCustomInputModal(title, placeholder, initialValue, onConfirm) {
     const modal = document.getElementById('custom-input-modal');
     const modalTitle = document.getElementById('custom-modal-title');
@@ -788,7 +810,6 @@ window.changePassword = function() {
     );
 }
 
-// === RENDERIZAÇÃO DA TELA DE CONFIGURAÇÕES (VERSÃO UNIFICADA) ===
 window.renderSettings = function () {
     const container = document.getElementById('settings-content');
     if (!container || !userProfile) return;
@@ -881,7 +902,7 @@ window.renderSettings = function () {
 
             <div class="text-center pt-4 pb-8">
                  <p class="text-xs text-gray-300 dark:text-gray-600 font-mono">ID: ${currentUser.uid.substring(0, 8)}...</p>
-                 <p class="text-xs text-gray-300 dark:text-gray-600 mt-1">Salve-se UFRB v2.2 (Clean UI)</p>
+                 <p class="text-xs text-gray-300 dark:text-gray-600 mt-1">Salve-se UFRB v2.3 (Fixed)</p>
             </div>
         </div>
     `;
@@ -906,6 +927,8 @@ window.toggleTheme = function () {
         document.documentElement.classList.add('dark');
         localStorage.setItem('theme', 'dark');
     }
+    // Recarrega a agenda para aplicar as novas cores de contraste
+    if(window.renderSchedule) window.renderSchedule();
 }
 
 const manifest = {
@@ -1264,21 +1287,21 @@ window.renderSchedule = function () {
                 const palette = colorPalettes[colorKey] || colorPalettes['indigo'];
 
                 const card = document.createElement('div');
-                card.className = "relative rounded-xl p-4 cursor-pointer active:scale-[0.98] transition-transform overflow-hidden group";
-                card.style.backgroundColor = `rgba(${palette[500]}, 0.12)`;
-
+                // CORREÇÃO DO MODO ESCURO: Usando classes do Tailwind para cores dinâmicas em vez de RGB inline
+                card.className = `relative rounded-xl p-4 cursor-pointer active:scale-[0.98] transition-transform overflow-hidden group bg-${colorKey}-50 dark:bg-${colorKey}-900/20`;
+                
                 card.innerHTML = `
                     <div class="absolute left-0 top-2 bottom-2 w-1.5 rounded-r-full" style="background-color: rgb(${palette[500]})"></div>
                     <div class="pl-3 flex justify-between items-start">
                         <div class="flex-1 pr-2">
-                            <h4 class="font-bold text-xl leading-tight mb-1" style="color: rgb(${palette[700]}); filter: brightness(0.8) contrast(1.5);">${aula.name}</h4>
+                            <h4 class="font-bold text-xl leading-tight mb-1 text-${colorKey}-700 dark:text-${colorKey}-300">${aula.name}</h4>
                             <div class="dark:text-gray-200 text-gray-900 font-medium">
-                                <p class="text-base font-medium opacity-90" style="color: rgb(${palette[600]})">${aula.prof}</p>
+                                <p class="text-base font-medium opacity-90 text-${colorKey}-600 dark:text-${colorKey}-400">${aula.prof}</p>
                                 <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">${aula.room}</p>
                             </div>
                         </div>
                         <div class="text-right flex flex-col items-end">
-                             <div class="text-sm font-bold opacity-80 mb-0.5" style="color: rgb(${palette[700]})">${aula.start}</div>
+                             <div class="text-sm font-bold opacity-80 mb-0.5 text-${colorKey}-700 dark:text-${colorKey}-300">${aula.start}</div>
                              <div class="text-sm opacity-60 dark:text-gray-400">${aula.end}</div>
                         </div>
                     </div>
@@ -1299,7 +1322,7 @@ window.renderSchedule = function () {
 
     let tableHTML = `
         <div class="overflow-x-auto">
-            <table class="w-full text-sm border-collapse">
+            <table class="w-full text-sm border-collapse schedule-table">
                 <thead class="bg-gray-50 dark:bg-neutral-900 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider">
                     <tr>
                         <th class="p-4 text-left w-40 border-b dark:border-darkborder sticky left-0 bg-gray-50 dark:bg-neutral-900 z-10">Horário</th>
@@ -1332,24 +1355,26 @@ window.renderSchedule = function () {
 
                 const colorKey = foundClass.color || 'indigo';
                 const palette = colorPalettes[colorKey] || colorPalettes['indigo'];
-                const bgStyle = `background-color: rgba(${palette[500]}, 0.15)`;
+                
+                // CORREÇÃO CONTRASTE DARK MODE DESKTOP
+                // Usando classes utilitárias dinâmicas do Tailwind para o texto escuro/claro
+                const bgClass = `bg-${colorKey}-50 dark:bg-${colorKey}-900/20`;
                 const borderStyle = `border-left: 4px solid rgb(${palette[500]})`;
-                const textStyle = `color: rgb(${palette[700]})`;
-
+                
                 tableHTML += `
                     <td rowspan="${span}" class="p-1 align-top h-full border-l border-gray-100 dark:border-neutral-800 relative group cursor-pointer hover:brightness-95 dark:hover:brightness-110 transition" onclick="openEditClassModal('${foundClass.id}')">
-                        <div class="h-full w-full rounded p-2 flex flex-col justify-center text-left shadow-sm" style="${bgStyle}; ${borderStyle}">
-                            <p class="text-sm font-bold truncate" style="${textStyle}">${foundClass.name}</p>
-                            <p class="text-xs text-gray-600 dark:text-gray-300 truncate opacity-80">${foundClass.prof}</p>
-                            <p class="text--[10px] text-gray-500 dark:text-gray-400 truncate mt-1 bg-white/50 dark:bg-black/20 rounded w-fit px-1">${foundClass.room}</p>
+                        <div class="h-full w-full rounded p-2 flex flex-col justify-center text-left shadow-sm ${bgClass}" style="${borderStyle}">
+                            <p class="text-sm font-bold truncate text-${colorKey}-700 dark:text-${colorKey}-300">${foundClass.name}</p>
+                            <p class="text-xs truncate opacity-90 text-${colorKey}-600 dark:text-${colorKey}-400">${foundClass.prof}</p>
+                            <p class="text-[10px] text-gray-500 dark:text-gray-400 truncate mt-1 bg-white/50 dark:bg-black/20 rounded w-fit px-1">${foundClass.room}</p>
                         </div>
                     </td>
                 `;
             } else {
                 tableHTML += `
-                    <td class="p-1 border-l border-gray-100 dark:border-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-800 transition cursor-pointer group" onclick="openAddClassModal('${day}', '${slot.start}')">
-                        <div class="w-full h-full flex items-center justify-center opacity-0 group-hover:opacity-100 text-gray-300 dark:text-neutral-600">
-                            <i class="fas fa-plus text-xs"></i>
+                    <td class="p-1 border-l border-gray-100 dark:border-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-800 transition cursor-pointer group schedule-cell" onclick="openAddClassModal('${day}', '${slot.start}')">
+                        <div class="add-btn-minimal">
+                            <i class="fas fa-plus"></i>
                         </div>
                     </td>
                 `;
@@ -1370,15 +1395,24 @@ window.openAddClassModal = function (day, startHourStr) {
     document.getElementById('modal-title').innerText = "Adicionar Aula";
     document.getElementById('btn-delete-class').classList.add('hidden');
 
-    if (day) document.getElementById('class-day').value = day;
-    else {
+    if (day) {
+        const daySelect = document.getElementById('class-day');
+        daySelect.value = day;
+        if(daySelect.refreshCustomUI) daySelect.refreshCustomUI();
+    } else {
         const todayIndex = new Date().getDay();
         const map = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
-        if (todayIndex > 0 && todayIndex < 7) document.getElementById('class-day').value = map[todayIndex];
+        if (todayIndex > 0 && todayIndex < 7) {
+            const daySelect = document.getElementById('class-day');
+            daySelect.value = map[todayIndex];
+            if(daySelect.refreshCustomUI) daySelect.refreshCustomUI();
+        }
     }
 
     if (startHourStr) {
-        document.getElementById('class-start').value = startHourStr;
+        const startSelect = document.getElementById('class-start');
+        startSelect.value = startHourStr;
+        if(startSelect.refreshCustomUI) startSelect.refreshCustomUI();
         updateEndTime(2);
     }
     toggleModal(true);
@@ -1394,9 +1428,19 @@ window.openEditClassModal = function (id) {
     document.getElementById('class-name').value = classItem.name;
     document.getElementById('class-prof').value = classItem.prof;
     document.getElementById('class-room').value = classItem.room;
-    document.getElementById('class-day').value = classItem.day;
-    document.getElementById('class-start').value = classItem.start;
-    document.getElementById('class-end').value = classItem.end;
+    
+    const daySelect = document.getElementById('class-day');
+    daySelect.value = classItem.day;
+    if(daySelect.refreshCustomUI) daySelect.refreshCustomUI();
+
+    const startSelect = document.getElementById('class-start');
+    startSelect.value = classItem.start;
+    if(startSelect.refreshCustomUI) startSelect.refreshCustomUI();
+
+    const endSelect = document.getElementById('class-end');
+    endSelect.value = classItem.end;
+    if(endSelect.refreshCustomUI) endSelect.refreshCustomUI();
+
     window.selectedColor = classItem.color || 'cyan';
     renderColorPicker();
     toggleModal(true);
@@ -1457,7 +1501,13 @@ window.performDeleteClass = function () {
 
 function resetModalFields() {
     document.getElementById('class-id').value = ''; document.getElementById('class-name').value = ''; document.getElementById('class-prof').value = '';
-    document.getElementById('class-room').value = ''; document.getElementById('class-day').value = 'seg'; window.selectedColor = 'cyan';
+    document.getElementById('class-room').value = ''; 
+    
+    const daySelect = document.getElementById('class-day');
+    daySelect.value = 'seg';
+    if(daySelect.refreshCustomUI) daySelect.refreshCustomUI();
+    
+    window.selectedColor = 'cyan';
 
     const startSel = document.getElementById('class-start');
     const endSel = document.getElementById('class-end');
@@ -1504,6 +1554,8 @@ window.toggleModal = function (show) {
         history.pushState({ modal: 'class' }, null, '#class-modal');
         modal.classList.remove('hidden');
         setTimeout(() => { modal.classList.remove('opacity-0'); content.classList.remove('scale-95'); content.classList.add('scale-100'); }, 10);
+        // Garante que os dropdowns dentro do modal sejam inicializados
+        setTimeout(initCustomUI, 100);
     } else {
         modal.classList.add('opacity-0');
         content.classList.remove('scale-100');
@@ -1655,6 +1707,7 @@ window.showReminderForm = function () {
     prioSelect.value = 'medium';
     if (prioSelect.refreshCustomUI) prioSelect.refreshCustomUI();
 
+    // Garante a inicialização do UI customizado para os novos elementos
     setTimeout(initCustomUI, 50);
 }
 

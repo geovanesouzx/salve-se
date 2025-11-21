@@ -13,7 +13,7 @@
     <link rel="apple-touch-icon" href="https://files.catbox.moe/pmdtq6.png">
 
     <!-- CSS Externo -->
-    <link rel="stylesheet" href="style.css?v=13">
+    <link rel="stylesheet" href="style.css?v=14">
 
     <!-- Tailwind CSS (Configurado para Variáveis Dinâmicas) -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -178,6 +178,15 @@
                 
                 <div class="pt-6"></div>
                 <p class="px-3 text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Ferramentas</p>
+
+                <!-- NOVO BOTÃO IA -->
+                <a onclick="switchPage('ia')" id="nav-ia" class="nav-item flex items-center px-3 py-2.5 text-sm font-medium rounded-md cursor-pointer text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-darkhover transition-colors group">
+                    <div class="w-5 h-5 mr-3 rounded bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-[10px]">
+                        <i class="fas fa-robot"></i>
+                    </div>
+                    Salve-se IA
+                    <span class="ml-auto bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-300 py-0.5 px-2 rounded-full text-[10px] font-bold uppercase tracking-wide">Novo</span>
+                </a>
                 
                 <a onclick="switchPage('calc')" id="nav-calc" class="nav-item flex items-center px-3 py-2.5 text-sm font-medium rounded-md cursor-pointer text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-darkhover transition-colors">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3"><rect width="16" height="20" x="4" y="2" rx="2"/><line x1="8" x2="16" y1="6" y2="6"/><line x1="16" x2="16" y1="14" y2="18"/><path d="M16 10h.01"/><path d="M12 10h.01"/><path d="M8 10h.01"/><path d="M12 14h.01"/><path d="M8 14h.01"/><path d="M12 18h.01"/><path d="M8 18h.01"/></svg>
@@ -301,6 +310,19 @@
                     </a>
 
                     <hr class="border-gray-200 dark:border-neutral-800 my-2">
+
+                    <!-- Mobile IA Link -->
+                    <a onclick="switchPage('ia'); document.getElementById('mobile-menu').classList.add('-translate-x-full')" class="block px-4 py-3 rounded-lg hover:bg-gray-50 dark:hover:bg-neutral-800 text-gray-600 dark:text-gray-400 font-medium transition bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800/30">
+                        <div class="flex items-center gap-3">
+                            <div class="w-5 h-5 rounded bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-[10px]">
+                                <i class="fas fa-robot"></i>
+                            </div>
+                            Salve-se IA
+                        </div>
+                    </a>
+
+                    <hr class="border-gray-200 dark:border-neutral-800 my-2">
+
                       <a onclick="switchPage('calc'); document.getElementById('mobile-menu').classList.add('-translate-x-full')" class="block px-4 py-3 rounded-lg hover:bg-gray-50 dark:hover:bg-neutral-800 text-gray-600 dark:text-gray-400 font-medium transition">
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3 inline-block"><rect width="16" height="20" x="4" y="2" rx="2"/><line x1="8" x2="16" y1="6" y2="6"/><line x1="16" x2="16" y1="14" y2="18"/><path d="M16 10h.01"/><path d="M12 10h.01"/><path d="M8 10h.01"/><path d="M12 14h.01"/><path d="M8 14h.01"/><path d="M12 18h.01"/><path d="M8 18h.01"/></svg>
                         Calculadora
@@ -456,6 +478,51 @@
                         <button onclick="switchPage('onibus')" class="p-4 bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder rounded-xl hover:border-orange-500 dark:hover:border-orange-500 transition text-left group shadow-sm">
                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-400 group-hover:text-orange-500 mb-3 transition-colors"><path d="M4 6 2 7"></path><path d="M10 6h4"></path><path d="m22 7-2-1"></path><rect width="16" height="16" x="4" y="3" rx="2"></path><path d="M4 11h16"></path><path d="M8 15h.01"></path><path d="M16 15h.01"></path><path d="M6 19v2"></path><path d="M18 21v-2"></path></svg>
                             <p class="font-bold text-gray-700 dark:text-gray-200">Circular</p>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- NOVA VIEW IA -->
+                <div id="view-ia" class="hidden fade-in flex flex-col h-[calc(100vh-8rem)] md:h-[calc(100vh-8rem)] relative">
+                    <!-- Header/Disclaimer -->
+                    <div class="text-center mb-4">
+                        <div class="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-2 text-white text-xl shadow-lg shadow-indigo-500/30">
+                            <i class="fas fa-robot"></i>
+                        </div>
+                        <h2 class="font-bold text-gray-800 dark:text-white">Salve-se IA</h2>
+                        <p class="text-xs text-gray-400">Baseado no Gemini • Pode cometer erros</p>
+                    </div>
+
+                    <!-- Chat History -->
+                    <div id="chat-messages-container" class="flex-1 overflow-y-auto p-2 space-y-4 pr-2 scroll-smooth">
+                        <!-- Welcome Message -->
+                        <div class="flex gap-2 max-w-[90%] animate-fade-in-up">
+                            <div class="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center flex-shrink-0 text-white text-xs shadow-sm mt-1">
+                                <i class="fas fa-robot"></i>
+                            </div>
+                            <div class="bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder text-gray-800 dark:text-gray-200 rounded-2xl rounded-tl-none px-4 py-3 shadow-sm">
+                                <p class="text-sm leading-relaxed">Olá! Sou sua assistente virtual. Posso ajudar com resumos, dúvidas sobre a UFRB ou organizar sua rotina. Em que posso ajudar?</p>
+                            </div>
+                        </div>
+                        
+                        <!-- Typing Indicator (Hidden by default) -->
+                        <div id="chat-typing-indicator" class="hidden flex gap-2 max-w-[90%]">
+                             <div class="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center flex-shrink-0 text-white text-xs shadow-sm mt-1">
+                                <i class="fas fa-robot"></i>
+                            </div>
+                            <div class="bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder rounded-2xl rounded-tl-none px-4 py-4 shadow-sm flex items-center gap-1">
+                                <div class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce"></div>
+                                <div class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.1s"></div>
+                                <div class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.2s"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Input Area -->
+                    <div class="mt-4 relative">
+                        <input type="text" id="chat-input" class="w-full bg-white dark:bg-neutral-800 border border-gray-300 dark:border-neutral-700 rounded-xl pl-4 pr-12 py-3.5 shadow-sm focus:ring-2 focus:ring-indigo-500 outline-none transition dark:text-white" placeholder="Digite sua mensagem..." onkeypress="if(event.key === 'Enter') sendIAMessage()">
+                        <button id="chat-send-btn" onclick="sendIAMessage()" class="absolute right-2 top-2 bottom-2 bg-indigo-600 hover:bg-indigo-700 text-white w-10 rounded-lg flex items-center justify-center transition disabled:opacity-50 disabled:cursor-not-allowed">
+                            <i class="fas fa-paper-plane"></i>
                         </button>
                     </div>
                 </div>

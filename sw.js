@@ -1,4 +1,4 @@
-const CACHE_NAME = 'salvese-v9.0-refined-ui'; // Versão incrementada
+const CACHE_NAME = 'salvese-v10.0-ai'; // Versão incrementada para ativar a IA
 const URLS_TO_CACHE = [
     './',
     './index.html',
@@ -49,10 +49,11 @@ self.addEventListener('activate', event => {
 
 // 3. Interceptação (AGORA INCLUINDO FIREBASE JS)
 self.addEventListener('fetch', event => {
-    // Ignora APENAS chamadas de dados (Firestore/Auth API), mas permite os SCRIPTS JS
+    // Ignora APENAS chamadas de dados (Firestore/Auth API/Gemini), mas permite os SCRIPTS JS
     const url = event.request.url;
     if (url.includes('firestore.googleapis.com') || 
         url.includes('googleapis.com/auth') || 
+        url.includes('generativelanguage.googleapis.com') || // Permitir IA Gemini
         (url.includes('firebase') && !url.endsWith('.js')) ||
         url.includes('api.imgur.com')) { // Ignora API de upload
         return; 

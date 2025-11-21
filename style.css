@@ -74,3 +74,6 @@ body { font-family: 'Inter', sans-serif; transition: background-color 0.3s, colo
 
 /* Glass effect for modal backdrops if needed */
 .backdrop-blur-sm { backdrop-filter: blur(4px); }
+
+/* Smooth scrolling for chat */
+.scroll-smooth { scroll-behavior: smooth; }

@@ -30,6 +30,10 @@ const firebaseConfig = {
   appId: "1:132544174908:web:00c6aa4855cc18ed2cdc39"
 };
 
+// Configuração da IA (Gemini)
+const GEMINI_API_KEY = "AIzaSyCE_fEn7sQiOKDCZbicb_v3ujPkERmmomI";
+const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+
 // Inicializa Firebase
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -59,6 +63,8 @@ let tasksData = JSON.parse(localStorage.getItem('salvese_tasks')) || [];
 let remindersData = JSON.parse(localStorage.getItem('salvese_reminders')) || [];
 let selectedClassIdToDelete = null;
 let currentTaskFilter = 'all'; 
+let chatHistory = []; // Histórico da conversa com a IA
+let currentViewContext = 'home'; // Contexto atual para a IA
 
 // ============================================================
 // --- ÍCONES SVG ---
@@ -71,7 +77,8 @@ const svgs = {
     lock: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`,
     cloud: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19c0-3.037-2.463-5.5-5.5-5.5S6.5 15.963 6.5 19"/><path d="M12 13.5V4"/><path d="M7 9l5-5 5 5"/></svg>`,
     logout: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>`,
-    chevron: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`
+    chevron: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`,
+    ai: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 1 0 10 10H12V2z"/><path d="M12 2a10 10 0 0 1 10 10"/><path d="M12 12L2 12"/><path d="M12 12L12 22"/></svg>`
 };
 
 // ============================================================
@@ -195,6 +202,9 @@ function showProfileSetupScreen() {
 }
 
 window.switchPage = function(pageId, addToHistory = true) {
+    // Armazena o contexto para a IA
+    currentViewContext = pageId;
+
     document.querySelectorAll('[id^="view-"]').forEach(el => el.classList.add('hidden'));
     const target = document.getElementById(`view-${pageId}`);
     if (target) target.classList.remove('hidden');
@@ -215,16 +225,165 @@ window.switchPage = function(pageId, addToHistory = true) {
         }
     });
 
-    const titles = { home: 'Página Principal', onibus: 'Transporte', calc: 'Calculadora', pomo: 'Modo Foco', todo: 'Tarefas', email: 'Templates', aulas: 'Grade Horária', config: 'Configurações' };
+    const titles = { 
+        home: 'Página Principal', 
+        onibus: 'Transporte', 
+        calc: 'Calculadora', 
+        pomo: 'Modo Foco', 
+        todo: 'Tarefas', 
+        email: 'Templates', 
+        aulas: 'Grade Horária', 
+        config: 'Configurações',
+        ia: 'Salve-se IA' // Novo título
+    };
     const pageTitleEl = document.getElementById('page-title');
     if (pageTitleEl) pageTitleEl.innerText = titles[pageId] || 'Salve-se UFRB';
     
     if(pageId === 'aulas' && window.renderSchedule) window.renderSchedule();
     if(pageId === 'config' && window.renderSettings) window.renderSettings();
+    
+    // Scroll automático para o fim do chat se entrar na IA
+    if(pageId === 'ia') {
+        const chatContainer = document.getElementById('chat-messages-container');
+        if(chatContainer) chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
 
     if(addToHistory) {
         history.pushState({view: pageId}, null, `#${pageId}`);
     }
+}
+
+// ============================================================
+// --- INTEGRAÇÃO SALVE-SE IA (GEMINI) ---
+// ============================================================
+
+window.sendIAMessage = async function() {
+    const input = document.getElementById('chat-input');
+    const message = input.value.trim();
+    const container = document.getElementById('chat-messages-container');
+    const sendBtn = document.getElementById('chat-send-btn');
+    const typingIndicator = document.getElementById('chat-typing-indicator');
+
+    if (!message) return;
+
+    // 1. Adicionar mensagem do usuário
+    appendMessage('user', message);
+    input.value = '';
+    input.disabled = true;
+    sendBtn.disabled = true;
+    
+    // Scroll para baixo
+    container.scrollTop = container.scrollHeight;
+
+    // 2. Mostrar indicador de digitação
+    if(typingIndicator) typingIndicator.classList.remove('hidden');
+
+    try {
+        // Preparar o contexto da conversa
+        let contextPrompt = `
+Você é a "Salve-se IA", uma assistente virtual inteligente integrada ao painel do estudante "Salve-se UFRB".
+Seu tom é amigável, direto e útil. Você ajuda estudantes universitários.
+Contexto atual do usuário: Ele está na aba "${currentViewContext}".
+        `;
+
+        // Adicionar dados relevantes ao contexto se necessário
+        if (currentViewContext === 'aulas') {
+            contextPrompt += `\nO usuário tem ${scheduleData.length} aulas cadastradas.`;
+        } else if (currentViewContext === 'todo') {
+            const pending = tasksData.filter(t => !t.done).length;
+            contextPrompt += `\nO usuário tem ${pending} tarefas pendentes.`;
+        }
+
+        // Construir payload para Gemini
+        const contents = [
+            {
+                role: "user",
+                parts: [{ text: contextPrompt }]
+            },
+            ...chatHistory.map(msg => ({
+                role: msg.role === 'user' ? 'user' : 'model',
+                parts: [{ text: msg.text }]
+            })),
+            {
+                role: "user",
+                parts: [{ text: message }]
+            }
+        ];
+
+        // Chamada Fetch para API REST do Gemini
+        const response = await fetch(GEMINI_API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                contents: contents,
+                generationConfig: {
+                    temperature: 0.7,
+                    maxOutputTokens: 800,
+                }
+            })
+        });
+
+        const data = await response.json();
+        
+        if (data.error) {
+            throw new Error(data.error.message);
+        }
+
+        const aiResponseText = data.candidates[0].content.parts[0].text;
+
+        // 3. Adicionar resposta da IA
+        if(typingIndicator) typingIndicator.classList.add('hidden');
+        appendMessage('ai', aiResponseText);
+
+    } catch (error) {
+        console.error("Erro IA:", error);
+        if(typingIndicator) typingIndicator.classList.add('hidden');
+        appendMessage('ai', "Desculpe, tive um problema de conexão. Pode tentar novamente?");
+    } finally {
+        input.disabled = false;
+        sendBtn.disabled = false;
+        input.focus();
+        container.scrollTop = container.scrollHeight;
+    }
+};
+
+function appendMessage(sender, text) {
+    const container = document.getElementById('chat-messages-container');
+    if (!container) return;
+
+    // Salvar no histórico (limitar a 20 mensagens para não estourar tokens)
+    chatHistory.push({ role: sender, text: text });
+    if (chatHistory.length > 20) chatHistory.shift();
+
+    const div = document.createElement('div');
+    div.className = `flex w-full ${sender === 'user' ? 'justify-end' : 'justify-start'} mb-4 animate-scale-in`;
+
+    // Formatação simples de texto (quebra de linha)
+    const formattedText = text.replace(/\n/g, '<br>');
+
+    if (sender === 'user') {
+        div.innerHTML = `
+            <div class="max-w-[80%] bg-indigo-600 text-white rounded-2xl rounded-tr-none px-4 py-3 shadow-md">
+                <p class="text-sm leading-relaxed">${formattedText}</p>
+            </div>
+        `;
+    } else {
+        // Efeito simples de markdown para negrito
+        const mdText = formattedText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        
+        div.innerHTML = `
+            <div class="flex gap-2 max-w-[90%]">
+                <div class="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center flex-shrink-0 text-white text-xs shadow-sm mt-1">
+                    <i class="fas fa-robot"></i>
+                </div>
+                <div class="bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder text-gray-800 dark:text-gray-200 rounded-2xl rounded-tl-none px-4 py-3 shadow-sm">
+                    <p class="text-sm leading-relaxed">${mdText}</p>
+                </div>
+            </div>
+        `;
+    }
+
+    container.appendChild(div);
 }
 
 // ============================================================
@@ -660,7 +819,7 @@ window.changePassword = function() {
     if (currentUser && currentUser.email) {
         openCustomConfirmModal(
             "Redefinir Senha",
-            `Enviar e-mail de redefinição de senha para ${currentUser.email}?`,
+            "Enviar e-mail de redefinição de senha para " + currentUser.email + "?",
             async () => {
                 try {
                     await sendPasswordResetEmail(auth, currentUser.email);
@@ -1385,8 +1544,8 @@ window.updateNextClassWidget = function() {
             </div>
         `;
     } else {
-        const msg = scheduleData.length === 0
-            ? "Adicione aulas na Grade Horária."
+        const msg = scheduleData.length === 0 
+            ? "Adicione aulas na Grade Horária." 
             : "Você está livre pelo resto do dia!";
         const icon = scheduleData.length === 0 ? "fas fa-plus-circle" : "fas fa-couch";
         const action = scheduleData.length === 0 ? "onclick=\"switchPage('aulas'); openAddClassModal()\" class='cursor-pointer hover:opacity-80 transition'" : "";
@@ -1727,7 +1886,7 @@ window.toggleTimer = function() {
     else {
         isRunning1 = true; btn.innerHTML = '<i class="fas fa-pause"></i>'; btn.classList.replace('bg-indigo-600', 'bg-red-600'); btn.classList.replace('hover:bg-indigo-700', 'hover:bg-red-700');
         timerInterval1 = setInterval(() => {
-            timeLeft1--; if (timeLeft1 <= 0) {
+            timeLeft1--; if (timeLeft1 <= 0) { 
                 clearInterval(timerInterval1); isRunning1 = false; showModal('Tempo', 'O tempo acabou!'); toggleTimer(); return;
             } updateTimerDisplay();
         }, 1000);

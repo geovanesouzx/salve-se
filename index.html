@@ -13,7 +13,7 @@
     <link rel="apple-touch-icon" href="https://files.catbox.moe/pmdtq6.png">
 
     <!-- CSS Externo -->
-    <link rel="stylesheet" href="style.css?v=24">
+    <link rel="stylesheet" href="style.css?v=25">
 
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -379,10 +379,11 @@
 
                 <!-- DASHBOARD -->
                 <div id="view-home" class="fade-in max-w-6xl mx-auto space-y-6">
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <!-- GRID UNIFICADA PARA CORREÇÃO DE ORDENAÇÃO E REFLOW -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         
                         <!-- CARD ONIBUS -->
-                        <div id="widget-bus" class="bg-white dark:bg-darkcard rounded-xl border border-gray-200 dark:border-darkborder shadow-sm relative overflow-hidden flex flex-col transition-all duration-300">
+                        <div id="widget-bus" class="bg-white dark:bg-darkcard rounded-xl border border-gray-200 dark:border-darkborder shadow-sm relative overflow-hidden flex flex-col transition-all duration-300 h-full min-h-[220px]">
                             <div class="p-5 pb-2 flex justify-between items-start">
                                 <div>
                                     <div class="flex items-center gap-2 mb-1">
@@ -400,7 +401,7 @@
                         </div>
 
                         <!-- CARD TAREFAS INTELIGENTE -->
-                        <div id="widget-tasks" class="bg-white dark:bg-darkcard rounded-xl border border-gray-200 dark:border-darkborder shadow-sm p-6 flex flex-col h-full">
+                        <div id="widget-tasks" class="bg-white dark:bg-darkcard rounded-xl border border-gray-200 dark:border-darkborder shadow-sm p-6 flex flex-col h-full min-h-[220px]">
                             <div class="flex justify-between items-center mb-4">
                                 <div class="flex items-center gap-2">
                                     <div class="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
@@ -419,7 +420,7 @@
                         </div>
 
                         <!-- Quick Actions -->
-                        <div id="widget-quick" class="bg-gradient-to-br from-indigo-600 to-violet-700 rounded-xl p-6 text-white shadow-lg relative overflow-hidden flex flex-col justify-between">
+                        <div id="widget-quick" class="bg-gradient-to-br from-indigo-600 to-violet-700 rounded-xl p-6 text-white shadow-lg relative overflow-hidden flex flex-col justify-between min-h-[220px]">
                              <div class="absolute bottom-0 right-0 opacity-10 text-8xl transform translate-x-4 translate-y-4">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
                             </div>
@@ -437,11 +438,7 @@
                                 </button>
                             </div>
                         </div>
-                    </div>
 
-                    <!-- SEGUNDA LINHA DE WIDGETS -->
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        
                         <!-- CARD PRÓXIMA AULA -->
                         <div id="widget-class" class="bg-white dark:bg-darkcard rounded-xl border border-gray-200 dark:border-darkborder shadow-sm p-6 flex flex-col min-h-[200px]">
                             <div class="flex justify-between items-start mb-3">
@@ -489,7 +486,7 @@
                             </div>
                         </div>
 
-                        <!-- NOVO: CARD ANOTAÇÕES RECENTES (7º Widget) -->
+                        <!-- CARD ANOTAÇÕES RECENTES (7º Widget) -->
                         <div id="widget-notes" class="bg-white dark:bg-darkcard rounded-xl border border-gray-200 dark:border-darkborder shadow-sm p-6 flex flex-col min-h-[200px]">
                             <div class="flex justify-between items-center mb-3">
                                 <div class="flex items-center gap-2">

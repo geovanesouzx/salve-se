@@ -1,4 +1,4 @@
-const CACHE_NAME = 'salvese-v24.0-widgets-update'; 
+const CACHE_NAME = 'salvese-v25.0-fixes'; 
 const URLS_TO_CACHE = [
     './',
     './index.html',
@@ -53,7 +53,7 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
     const url = event.request.url;
     
-    // IMPORTANTE: Ignorar APIs dinâmicas
+    // IMPORTANTE: Ignorar APIs dinâmicas para garantir dados frescos
     if (url.includes('firestore.googleapis.com') || 
         url.includes('googleapis.com/auth') || 
         url.includes('generativelanguage.googleapis.com') || // Gemini
@@ -66,7 +66,7 @@ self.addEventListener('fetch', event => {
     event.respondWith(
         caches.match(event.request).then(cachedResponse => {
             // Estratégia: Stale-While-Revalidate
-            // Retorna o cache se existir, mas busca atualização em background
+            // Retorna o cache se existir, mas busca atualização em background para a próxima visita
             const fetchPromise = fetch(event.request).then(networkResponse => {
                 if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
                      const responseToCache = networkResponse.clone();

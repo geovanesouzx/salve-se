@@ -192,7 +192,7 @@ function showAppInterface() {
     
     updateAIWidgetUI();
     applyWidgetVisibility(); 
-    applyAllWidgetStyles(); // APLICAÇÃO DE ESTILOS
+    applyAllWidgetStyles(); 
 }
 
 function showLoginScreen() {
@@ -391,6 +391,7 @@ window.setWidgetStyle = function(widgetId, styleKey) {
     showModal("Estilo Aplicado", "O visual do widget foi atualizado.");
 }
 
+// CORREÇÃO: Esta função foi simplificada para não quebrar elementos internos (bug da cor branca)
 function applyAllWidgetStyles() {
     Object.entries(widgetStyles).forEach(([id, styleKey]) => {
         const widget = document.getElementById(id);
@@ -407,37 +408,23 @@ function applyAllWidgetStyles() {
         widget.className = `rounded-xl border p-6 flex flex-col h-full relative overflow-hidden group transition-all duration-300 ${preset.class}`;
         
         if(styleKey !== 'default') {
-             // Adiciona classe para controle CSS
+             // Adiciona classe para controle CSS (que deve lidar com a cor branca globalmente)
             widget.classList.add('widget-custom-dark');
             
-            const textElements = widget.querySelectorAll('h3, p, span, i, div');
-            textElements.forEach(el => {
-                // Ignora filhos que devem manter sua cor (como cards internos de tarefas ou lembretes)
-                if(!el.closest('.bg-white') && !el.closest('.bg-gray-50')) {
-                    if(el.classList.contains('text-gray-800') || el.classList.contains('text-gray-500') || el.classList.contains('text-indigo-600')) {
-                        el.classList.add('!text-white', '!opacity-90');
-                    }
-                }
-            });
+            // Removido loop que forçava !text-white em tudo.
+            // Agora confiamos no CSS .widget-custom-dark { color: white } e nas exceções do CSS.
             
-            const icons = widget.querySelectorAll('svg, i');
-            icons.forEach(icon => {
-                 if(!icon.closest('.bg-white') && !icon.closest('.bg-gray-50')) {
-                    icon.classList.add('!text-white');
-                    icon.style.color = 'white';
-                 }
-            });
-             // Remove classes antigas dos controles para garantir visibilidade
+             // Ajusta controles para garantir visibilidade
             const controls = widget.querySelector('.widget-controls');
             if(controls) {
                 controls.className = "widget-controls absolute top-3 right-3 flex gap-2 z-20 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 dark:bg-black/60 backdrop-blur-sm rounded-lg p-1 shadow-sm";
             }
         } else {
-            const forcedElements = widget.querySelectorAll('.\\!text-white, .\\!opacity-90');
-            forcedElements.forEach(el => el.classList.remove('!text-white', '!opacity-90'));
-            
-            widget.classList.add('bg-white', 'dark:bg-darkcard', 'border-gray-200', 'dark:border-darkborder', 'shadow-sm');
+            // Remove a classe de controle customizada
             widget.classList.remove('widget-custom-dark');
+            
+            // Adiciona estilos padrão
+            widget.classList.add('bg-white', 'dark:bg-darkcard', 'border-gray-200', 'dark:border-darkborder', 'shadow-sm');
         }
         
         // Re-injeta controles se necessário (segurança)
@@ -452,10 +439,12 @@ window.toggleWidget = function(widgetId) {
     if(!widget) return;
 
     if(hiddenWidgets.includes(widgetId)) {
+        // Remove da lista de ocultos
         hiddenWidgets = hiddenWidgets.filter(id => id !== widgetId);
         widget.classList.remove('hidden');
         showModal("Widget Restaurado", "O widget voltou para a tela principal.");
     } else {
+        // Adiciona à lista de ocultos
         hiddenWidgets.push(widgetId);
         widget.classList.add('hidden');
         
@@ -465,7 +454,10 @@ window.toggleWidget = function(widgetId) {
         document.body.appendChild(toast);
         setTimeout(() => toast.remove(), 3000);
     }
+    
+    // Salva e força a reaplicação imediata da visibilidade para evitar bugs de layout
     saveData();
+    applyWidgetVisibility(); 
     if(currentViewContext === 'ocultos') renderHiddenWidgetsPage();
 }
 
@@ -616,6 +608,7 @@ window.sendIAMessage = async function() {
             aiProvider: currentAIProvider
         };
 
+        // CORREÇÃO: Adicionado suporte para deleção de itens no prompt do sistema
         let systemInstructionText = `
 Você é a "Salve-se IA", assistente da UFRB. 
 CONTEXTO ATUAL: ${JSON.stringify(contextData)}
@@ -627,6 +620,7 @@ REGRAS CRÍTICAS:
    - Ao usar "update_note", envie o CONTEÚDO COMPLETO da nota (antigo + novo), a menos que o usuário peça para apagar.
    - Não use Markdown (ex: **negrito**, \n). Use tags HTML.
 3. Você pode ocultar, mostrar ou personalizar widgets.
+4. Você pode criar e APAGAR tarefas, lembretes e notas.
 
 FORMATO JSON:
 {
@@ -637,8 +631,10 @@ FORMATO JSON:
 COMANDOS:
 - "navigate": { "page": "home|aulas|onibus|todo|pomo|calc|email|config|notas|ocultos" }
 - "create_task": { "text": "...", "priority": "normal", "category": "geral" }
+- "delete_task": { "text": "texto aproximado da tarefa" }
 - "create_class": { "name": "...", "day": "seg", "start": "00:00", "end": "00:00", "room": "..." }
 - "create_reminder": { "desc": "...", "date": "YYYY-MM-DD", "prio": "medium" }
+- "delete_reminder": { "desc": "texto aproximado do lembrete" }
 - "add_grade": { "value": 8.5, "weight": 1 }
 - "toggle_theme": {}
 - "create_note": { "title": "...", "content": "HTML Content Here" } 
@@ -851,6 +847,15 @@ async function executeAICommand(cmd) {
             saveData();
             break;
 
+        // CORREÇÃO: Comando de deletar tarefas
+        case 'delete_task':
+            if(p.text) {
+                const initialLen = tasksData.length;
+                tasksData = tasksData.filter(t => !t.text.toLowerCase().includes(p.text.toLowerCase()));
+                if(tasksData.length < initialLen) saveData();
+            }
+            break;
+
         case 'create_class':
             scheduleData.push({ id: Date.now().toString() + Math.random(), name: p.name, prof: p.prof || 'N/A', room: p.room || 'N/A', day: p.day, start: p.start, end: p.end, color: 'indigo' });
             saveData();
@@ -865,6 +870,15 @@ async function executeAICommand(cmd) {
         case 'create_reminder':
              remindersData.push({ id: Date.now().toString() + Math.random(), desc: p.desc, date: p.date, prio: p.prio || 'medium', createdAt: Date.now() });
              saveData();
+             break;
+
+        // CORREÇÃO: Comando de deletar lembretes
+        case 'delete_reminder':
+             if(p.desc) {
+                 const initLen = remindersData.length;
+                 remindersData = remindersData.filter(r => !r.desc.toLowerCase().includes(p.desc.toLowerCase()));
+                 if(remindersData.length < initLen) saveData();
+             }
              break;
         
         case 'add_grade':
@@ -899,7 +913,7 @@ async function executeAICommand(cmd) {
              setAIProvider(p.provider);
              break;
 
-        // --- COMANDOS DE NOTAS (ATUALIZADO) ---
+        // --- COMANDOS DE NOTAS ---
         case 'create_note':
              const newNoteId = Date.now().toString();
              const formattedNewContent = formatAIContent(p.content);
@@ -920,7 +934,6 @@ async function executeAICommand(cmd) {
              const targetId = p.id || activeNoteId;
              const noteToUpdate = notesData.find(n => n.id === targetId);
              if(noteToUpdate) {
-                 // Garante que a formatação seja aplicada
                  noteToUpdate.content = formatAIContent(p.content); 
                  noteToUpdate.updatedAt = Date.now();
                  saveData();
@@ -1135,13 +1148,10 @@ function refreshAllUI() {
     if (window.updateNextClassWidget) window.updateNextClassWidget();
     if (window.renderSettings) window.renderSettings();
     if (window.updateAIWidgetUI) window.updateAIWidgetUI();
-    if (window.updateNotesWidget) window.updateNotesWidget(); // Atualiza widget de notas
+    if (window.updateNotesWidget) window.updateNotesWidget(); 
     
-    // Se estiver com uma nota aberta, não renderize a lista, apenas atualize o conteúdo se mudou na nuvem
-    // (Lógica simplificada: renderNotes() cuida disso)
     if (window.renderNotes && currentViewContext === 'notas') window.renderNotes(false); 
     
-    // Re-inject controls after refresh
     injectWidgetControls();
 }
 
@@ -1195,7 +1205,7 @@ window.manualBackup = async function() {
 }
 
 // ============================================================
-// --- FUNCIONALIDADE: NOTAS E EDITOR RICO (CORRIGIDO) ---
+// --- FUNCIONALIDADE: NOTAS E EDITOR RICO ---
 // ============================================================
 
 window.renderNotes = function(forceRender = true) {

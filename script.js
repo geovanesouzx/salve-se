@@ -38,13 +38,11 @@ const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__f
 // --- CONFIGURAÇÃO DAS IAs ---
 // ============================================================
 
-// A NOVA chave que você forneceu para a IA:
-const apiKey = "AIzaSyBmttgqGCdUwlZbtrbZYigxIu0HUbAFMLo";
+// NOVA CHAVE ADICIONADA:
+const apiKey = "AIzaSyCVGN5yxdscAjDgOcXTZgsb4qy3Ucy0Ve8";
 
-// ATENÇÃO: O modelo "2.5" não existe na API pública. 
-// O "gemini-1.5-flash" é a versão correta, super rápida e atualizada.
+// MODELO CORRETO (O 2.5 não existe na API pública, usamos o 1.5 Flash que é o rápido/grátis)
 const GEMINI_MODEL = "gemini-1.5-flash";
-
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
 
 const GROQ_API_KEY = "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";
@@ -648,36 +646,35 @@ window.sendIAMessage = async function () {
             aiProvider: currentAIProvider
         };
 
-        // PROMPT ATUALIZADO COM COMANDOS DE "DELETE ALL"
+        // PROMPT DO SISTEMA
         let systemInstructionText = `
 VOCÊ É O CÉREBRO DO APP "SALVE-SE UFRB".
 Sua função é executar ações no app baseadas no pedido do usuário.
 
 CONTEXTO: ${JSON.stringify(contextData)}
 
-ESTRUTURA DE RESPOSTA OBRIGATÓRIA (JSON PURO):
+ESTRUTURA OBRIGATÓRIA (JSON):
 {
-  "message": "Texto curto e simpático para o usuário",
+  "message": "Texto curto para o usuário",
   "commands": [
     { "action": "NOME_DA_ACAO", "params": { ... } }
   ]
 }
 
-LISTA DE AÇÕES PERMITIDAS:
+AÇÕES:
 - "create_task": { "text": "...", "priority": "normal|medium|high", "category": "geral|estudo|trabalho" }
-- "delete_task": { "text": "texto para buscar e apagar" }
-- "delete_all_tasks": {}  <-- PARA APAGAR TODAS AS TAREFAS
+- "delete_task": { "text": "texto para buscar" }
+- "delete_all_tasks": {} 
 
 - "create_reminder": { "desc": "...", "date": "YYYY-MM-DD", "prio": "medium" }
-- "delete_reminder": { "desc": "texto para buscar e apagar" }
-- "delete_all_reminders": {} <-- PARA APAGAR TODOS OS LEMBRETES
+- "delete_reminder": { "desc": "texto para buscar" }
+- "delete_all_reminders": {} 
 
-- "create_note": { "title": "...", "content": "Conteúdo HTML" }
+- "create_note": { "title": "...", "content": "HTML" }
 - "navigate": { "page": "home|todo|aulas|notas|onibus|calc|pomo" }
 
 REGRAS:
-1. Se o usuário pedir para apagar TUDO (lembretes ou tarefas), use os comandos "delete_all_...".
-2. Responda APENAS JSON válido.
+1. Responda APENAS JSON válido.
 `;
 
         let messagesPayload = [];
@@ -707,14 +704,13 @@ REGRAS:
                     response_format: { type: "json_object" }
                 })
             });
-
             const data = await response.json();
             if (data.error) throw new Error(data.error.message);
             aiResponseText = data.choices[0].message.content;
 
         } else {
             // Lógica do Gemini
-            if (!apiKey) throw new Error("API Key do Gemini ausente.");
+            if (!apiKey) throw new Error("API Key do Gemini está vazia.");
 
             const geminiContents = [{ role: "user", parts: [{ text: systemInstructionText + "\n\nUsuário: " + message }] }];
 
@@ -731,7 +727,17 @@ REGRAS:
             });
 
             const data = await response.json();
-            if (data.error) throw new Error(data.error.message);
+
+            // TRATAMENTO DE ERRO ESPECÍFICO DO GEMINI
+            if (data.error) {
+                console.error("Erro detalhado Gemini:", data.error);
+                throw new Error(`Gemini API Error: ${data.error.message} (Code: ${data.error.code})`);
+            }
+
+            if (!data.candidates || !data.candidates[0].content) {
+                throw new Error("Gemini não retornou conteúdo. Verifique se o modelo está correto.");
+            }
+
             aiResponseText = data.candidates[0].content.parts[0].text;
         }
 
@@ -759,13 +765,24 @@ REGRAS:
 
         } catch (e) {
             console.error("Erro Parse:", e);
-            appendMessage('ai', "Entendi, mas tive um erro técnico ao processar o comando.");
+            appendMessage('ai', "Erro ao ler o comando da IA. Texto bruto: " + aiResponseText.substring(0, 50) + "...");
         }
 
     } catch (error) {
-        console.error("Erro IA:", error);
-        let msg = "Ops! Erro de conexão.";
-        if (error.message.includes("API Key")) msg = "⚠️ Verifique a API Key.";
+        console.error("Erro REAL da IA:", error);
+
+        // MENSAGENS DE ERRO CLARAS NA TELA
+        let errorMsg = error.message || JSON.stringify(error);
+        let msg = `⚠️ Erro Técnico: ${errorMsg}`;
+
+        if (errorMsg.includes("403") || errorMsg.includes("PERMISSION_DENIED")) {
+            msg = "⚠️ Erro 403 (Permissão): A chave API existe, mas a 'Generative Language API' não foi ativada no Google Cloud.";
+        } else if (errorMsg.includes("404") || errorMsg.includes("not found")) {
+            msg = "⚠️ Erro 404 (Modelo): O modelo 'gemini-1.5-flash' não está disponível para esta chave/conta.";
+        } else if (errorMsg.includes("400") || errorMsg.includes("INVALID_ARGUMENT")) {
+            msg = "⚠️ Erro 400: A chave API é inválida.";
+        }
+
         appendMessage('ai', msg);
     } finally {
         hideTypingIndicator();

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'salvese-v10.0-ai'; // Versão incrementada para ativar a IA
+const CACHE_NAME = 'salvese-v10.1-ai-fix'; // Versão incrementada
 const URLS_TO_CACHE = [
     './',
     './index.html',
@@ -47,22 +47,23 @@ self.addEventListener('activate', event => {
     );
 });
 
-// 3. Interceptação (AGORA INCLUINDO FIREBASE JS)
+// 3. Interceptação
 self.addEventListener('fetch', event => {
-    // Ignora APENAS chamadas de dados (Firestore/Auth API/Gemini), mas permite os SCRIPTS JS
     const url = event.request.url;
+    
+    // IMPORTANTE: Ignorar APIs dinâmicas para evitar cache de respostas JSON
     if (url.includes('firestore.googleapis.com') || 
         url.includes('googleapis.com/auth') || 
         url.includes('generativelanguage.googleapis.com') || // Permitir IA Gemini
         (url.includes('firebase') && !url.endsWith('.js')) ||
-        url.includes('api.imgur.com')) { // Ignora API de upload
+        url.includes('api.imgur.com')) { 
         return; 
     }
 
     event.respondWith(
         caches.match(event.request).then(cachedResponse => {
             const fetchPromise = fetch(event.request).then(networkResponse => {
-                // Atualiza cache em background se tiver internet
+                // Atualiza cache em background se tiver internet e for uma requisição válida
                 if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
                      const responseToCache = networkResponse.clone();
                      caches.open(CACHE_NAME).then(cache => {
@@ -71,7 +72,7 @@ self.addEventListener('fetch', event => {
                 }
                 return networkResponse;
             }).catch(() => {
-                // Falha silenciosa se offline
+                // Falha silenciosa se offline e não houver cache
             });
 
             return cachedResponse || fetchPromise;

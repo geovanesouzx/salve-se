@@ -30,10 +30,10 @@ const firebaseConfig = {
   appId: "1:132544174908:web:00c6aa4855cc18ed2cdc39"
 };
 
-// Configuração da IA (Gemini)
-const GEMINI_API_KEY = "AIzaSyCE_fEn7sQiOKDCZbicb_v3ujPkERmmomI";
-// Usando gemini-1.5-flash (rápido e eficiente)
-const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+// Configuração da IA (Gemini) - Ajustado para o ambiente
+const apiKey = ""; // A chave será injetada pelo ambiente de execução
+const GEMINI_MODEL = "gemini-2.5-flash-preview-09-2025";
+const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
 
 // Inicializa Firebase
 const app = initializeApp(firebaseConfig);
@@ -255,7 +255,7 @@ window.switchPage = function(pageId, addToHistory = true) {
 }
 
 // ============================================================
-// --- INTEGRAÇÃO SALVE-SE IA (GEMINI - DEBUGGED) ---
+// --- INTEGRAÇÃO SALVE-SE IA (GEMINI - CORRIGIDO) ---
 // ============================================================
 
 window.sendIAMessage = async function() {
@@ -279,39 +279,61 @@ window.sendIAMessage = async function() {
     // 2. Mostrar indicador de digitação
     if(typingIndicator) typingIndicator.classList.remove('hidden');
 
+    // Função de Delay para retentativas (Exponencial)
+    const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+    // Função para fazer o fetch com retentativas
+    const fetchWithRetry = async (url, options, retries = 3, backoff = 1000) => {
+        try {
+            const res = await fetch(url, options);
+            if (!res.ok) {
+                // Se for erro de servidor (5xx), tenta de novo. Se for cliente (4xx), lança erro.
+                if (res.status >= 500 && retries > 0) {
+                    await delay(backoff);
+                    return fetchWithRetry(url, options, retries - 1, backoff * 2);
+                }
+                throw new Error(`Erro HTTP: ${res.status}`);
+            }
+            return res.json();
+        } catch (err) {
+            if (retries > 0) {
+                await delay(backoff);
+                return fetchWithRetry(url, options, retries - 1, backoff * 2);
+            }
+            throw err;
+        }
+    };
+
     try {
-        // --- ESTRATÉGIA SEGURA: CONTEXTO NA PRIMEIRA MENSAGEM ---
-        // Em vez de usar "system_instruction" (que às vezes falha dependendo do modelo/conta),
-        // vamos injetar o contexto como a primeira parte da conversa. É mais robusto.
-        
-        let systemPrompt = `
+        // Coleta dados contextuais para a IA ser mais útil
+        const contextData = {
+            telaAtual: currentViewContext,
+            tarefasPendentes: tasksData.filter(t => !t.done).map(t => t.text),
+            aulasHoje: scheduleData.filter(c => {
+                const daysMap = ['dom','seg','ter','qua','qui','sex','sab'];
+                return c.day === daysMap[new Date().getDay()];
+            }).map(c => `${c.name} às ${c.start}`),
+            lembretes: remindersData.slice(0, 3).map(r => `${r.desc} (${r.date})`)
+        };
+
+        // Preparar o contexto (System Instruction)
+        let systemInstructionText = `
 Você é a "Salve-se IA", uma assistente virtual inteligente integrada ao painel do estudante "Salve-se UFRB".
-Seu tom é amigável, direto e útil. Você ajuda estudantes universitários.
-Contexto atual do usuário: Ele está na aba "${currentViewContext}".
+Seu tom é amigável, direto e útil. Você ajuda estudantes universitários da UFRB.
+
+DADOS ATUAIS DO USUÁRIO (Use isso para dar respostas personalizadas):
+- Tela atual: ${contextData.telaAtual}
+- Aulas de Hoje: ${contextData.aulasHoje.length > 0 ? contextData.aulasHoje.join(", ") : "Nenhuma aula hoje."}
+- Tarefas Pendentes: ${contextData.tarefasPendentes.length > 0 ? contextData.tarefasPendentes.join(", ") : "Nenhuma."}
+- Lembretes Próximos: ${contextData.lembretes.length > 0 ? contextData.lembretes.join(", ") : "Nenhum."}
+
+Se o usuário pedir para adicionar uma tarefa ou lembrete, explique que você ainda não tem acesso direto de escrita, mas oriente ele a clicar na aba "Tarefas" ou no botão "+" da tela inicial.
         `;
 
-        if (currentViewContext === 'aulas') {
-            const aulasHoje = scheduleData.length > 0 ? `O usuário tem ${scheduleData.length} aulas cadastradas.` : "O usuário não tem aulas cadastradas ainda.";
-            systemPrompt += `\n${aulasHoje}`;
-        } else if (currentViewContext === 'todo') {
-            const pending = tasksData.filter(t => !t.done).length;
-            systemPrompt += `\nO usuário tem ${pending} tarefas pendentes.`;
-        }
-
-        // Construção do Payload Simplificado
         const contents = [];
-
-        // Se não temos histórico, a primeira mensagem leva o contexto junto
-        if (chatHistory.length === 0) {
-            contents.push({
-                role: "user",
-                parts: [{ text: systemPrompt + "\n\nUsuário disse: " + message }]
-            });
-        } else {
-            // Se temos histórico, recriamos a conversa
-            // A primeira mensagem do histórico SEMPRE deve ser "user" para o Gemini não reclamar
-            
-            // Adicionamos o histórico limpo
+        
+        // Adiciona histórico filtrado
+        if (chatHistory.length > 0) {
             let expectingRole = 'user';
             for (const msg of chatHistory) {
                 if (msg.role === expectingRole) {
@@ -322,42 +344,41 @@ Contexto atual do usuário: Ele está na aba "${currentViewContext}".
                     expectingRole = expectingRole === 'user' ? 'model' : 'user';
                 }
             }
-
-            // Garante que a última não seja user antes de adicionar a nova
-            if (contents.length > 0 && contents[contents.length - 1].role === 'user') {
-                contents.pop();
-            }
-
-            // Adiciona a mensagem atual
-            contents.push({
-                role: "user",
-                parts: [{ text: message }]
-            });
         }
 
-        // Chamada Fetch
-        const response = await fetch(GEMINI_API_URL, {
+        // Segurança: Se a última mensagem no array contents for 'user', removemos ela 
+        if (contents.length > 0 && contents[contents.length - 1].role === 'user') {
+            contents.pop(); 
+        }
+
+        // Adiciona a mensagem atual
+        contents.push({
+            role: "user",
+            parts: [{ text: message }]
+        });
+
+        // Chamada com Retry
+        const data = await fetchWithRetry(GEMINI_API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 contents: contents,
+                systemInstruction: {
+                    parts: [{ text: systemInstructionText }]
+                },
                 generationConfig: {
                     temperature: 0.7,
                     maxOutputTokens: 800,
                 }
             })
         });
-
-        const data = await response.json();
         
         if (data.error) {
-            console.error("Erro da API Gemini:", data.error);
-            // Agora mostramos o erro real para ajudar no diagnóstico
-            throw new Error(`Erro da API (${data.error.code}): ${data.error.message}`);
+            throw new Error(data.error.message || "Erro na API Gemini");
         }
 
         if (!data.candidates || !data.candidates[0].content) {
-             throw new Error("A IA não retornou nenhuma resposta válida.");
+             throw new Error("A IA não retornou nenhuma resposta.");
         }
 
         const aiResponseText = data.candidates[0].content.parts[0].text;
@@ -370,18 +391,12 @@ Contexto atual do usuário: Ele está na aba "${currentViewContext}".
         console.error("Erro IA:", error);
         if(typingIndicator) typingIndicator.classList.add('hidden');
         
-        let errorDisplay = "Ops! Erro de conexão. ";
-        
-        // Diagnóstico específico para o usuário
-        if (error.message.includes("403") || error.message.includes("API key not valid")) {
-            errorDisplay = "⚠️ Erro de Permissão: Sua chave de API parece inválida ou bloqueada pelo Google. Verifique se criou a chave corretamente no AI Studio.";
-        } else if (error.message.includes("400")) {
-            errorDisplay = "⚠️ Erro de Requisição: O Google não entendeu o formato da mensagem. Tente recarregar.";
-        } else {
-            errorDisplay += error.message; // Mostra o erro técnico para sabermos o que é
-        }
+        let userFriendlyError = "Ops! Tive um problema técnico. ";
+        if (error.message.includes("400")) userFriendlyError += "Não entendi o contexto.";
+        else if (error.message.includes("403") || error.message.includes("API key")) userFriendlyError += "Problema de permissão na API.";
+        else userFriendlyError += "Tente novamente em alguns segundos.";
 
-        appendMessage('ai', errorDisplay);
+        appendMessage('ai', userFriendlyError);
     } finally {
         input.disabled = false;
         sendBtn.disabled = false;

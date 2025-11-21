@@ -1,4 +1,4 @@
-const CACHE_NAME = 'salvese-v21.0-widgets-update'; 
+const CACHE_NAME = 'salvese-v23.0-widgets-update'; 
 const URLS_TO_CACHE = [
     './',
     './index.html',

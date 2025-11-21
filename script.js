@@ -69,14 +69,15 @@ let scheduleData = JSON.parse(localStorage.getItem('salvese_schedule')) || [];
 let tasksData = JSON.parse(localStorage.getItem('salvese_tasks')) || [];
 let remindersData = JSON.parse(localStorage.getItem('salvese_reminders')) || [];
 let notesData = JSON.parse(localStorage.getItem('salvese_notes')) || [];
-let hiddenWidgets = JSON.parse(localStorage.getItem('salvese_hidden_widgets')) || []; // NOVO: Widgets ocultos
+let hiddenWidgets = JSON.parse(localStorage.getItem('salvese_hidden_widgets')) || []; 
+let widgetStyles = JSON.parse(localStorage.getItem('salvese_widget_styles')) || {};
 
 let selectedClassIdToDelete = null;
 let currentTaskFilter = 'all'; 
 let chatHistory = []; 
 let currentViewContext = 'home'; 
 let activeNoteId = null; 
-let saveTimeout = null; // Para debounce das notas
+let saveTimeout = null; 
 
 // Conteúdo do Widget da IA (Persistente)
 let aiWidgetContent = localStorage.getItem('salvese_ai_widget') || "Olá! Sou sua IA. Vou postar dicas úteis aqui.";
@@ -180,6 +181,7 @@ function showAppInterface() {
     refreshAllUI();
     
     fixChatLayout();
+    injectWidgetControls(); // INJEÇÃO DE BOTÕES DE PERSONALIZAÇÃO
 
     if(loadingScreen && !loadingScreen.classList.contains('hidden')) {
         loadingScreen.classList.add('opacity-0');
@@ -187,7 +189,8 @@ function showAppInterface() {
     }
     
     updateAIWidgetUI();
-    applyWidgetVisibility(); // Aplica estado dos widgets
+    applyWidgetVisibility(); 
+    applyAllWidgetStyles(); // APLICAÇÃO DE ESTILOS
 }
 
 function showLoginScreen() {
@@ -271,7 +274,7 @@ window.switchPage = function(pageId, addToHistory = true) {
         config: 'Configurações',
         notas: 'Anotações',
         ia: 'Salve-se IA',
-        ocultos: 'Widgets Ocultos' // NOVO
+        ocultos: 'Widgets Ocultos'
     };
     const pageTitleEl = document.getElementById('page-title');
     if (pageTitleEl) pageTitleEl.innerText = titles[pageId] || 'Salve-se UFRB';
@@ -279,7 +282,7 @@ window.switchPage = function(pageId, addToHistory = true) {
     if(pageId === 'aulas' && window.renderSchedule) window.renderSchedule();
     if(pageId === 'config' && window.renderSettings) window.renderSettings();
     if(pageId === 'notas' && window.renderNotes) window.renderNotes();
-    if(pageId === 'ocultos' && window.renderHiddenWidgetsPage) window.renderHiddenWidgetsPage(); // NOVO
+    if(pageId === 'ocultos' && window.renderHiddenWidgetsPage) window.renderHiddenWidgetsPage();
     
     if(pageId === 'ia') {
         fixChatLayout();
@@ -293,7 +296,241 @@ window.switchPage = function(pageId, addToHistory = true) {
 }
 
 // ============================================================
-// --- INTEGRAÇÃO SALVE-SE IA (ATUALIZADA) ---
+// --- GESTÃO DE WIDGETS (Personalização & Ocultar) ---
+// ============================================================
+
+// Mapeamento de Estilos Disponíveis
+const WIDGET_PRESETS = {
+    'default': { label: 'Padrão (Claro/Escuro)', class: 'bg-white dark:bg-darkcard border-gray-200 dark:border-darkborder' },
+    'gradient-indigo': { label: 'Hora de Focar (Roxo)', class: 'bg-gradient-to-br from-indigo-600 to-violet-700 text-white border-transparent shadow-lg !text-white' },
+    'gradient-emerald': { label: 'Natureza (Verde)', class: 'bg-gradient-to-br from-emerald-500 to-teal-600 text-white border-transparent shadow-lg !text-white' },
+    'gradient-sunset': { label: 'Pôr do Sol (Laranja)', class: 'bg-gradient-to-br from-orange-500 to-rose-500 text-white border-transparent shadow-lg !text-white' },
+    'dark-mode': { label: 'Meia-Noite (Preto)', class: 'bg-gray-900 text-white border-gray-800 shadow-lg !text-white' }
+};
+
+// Injeta os botões de controle em cada widget
+function injectWidgetControls() {
+    const widgets = ['widget-bus', 'widget-tasks', 'widget-quick', 'widget-class', 'widget-reminders', 'widget-ai', 'widget-notes'];
+    
+    widgets.forEach(id => {
+        const widget = document.getElementById(id);
+        if(!widget) return;
+
+        // Remove controles antigos se existirem
+        const existingControls = widget.querySelector('.widget-controls');
+        if(existingControls) existingControls.remove();
+
+        // Cria container de controles
+        const controlsDiv = document.createElement('div');
+        controlsDiv.className = "widget-controls absolute top-3 right-3 flex gap-2 z-20 opacity-0 group-hover:opacity-100 transition-opacity bg-white/80 dark:bg-black/50 backdrop-blur-sm rounded-lg p-1 shadow-sm";
+        
+        controlsDiv.innerHTML = `
+            <button onclick="openWidgetCustomizer('${id}')" class="w-6 h-6 flex items-center justify-center text-gray-500 hover:text-indigo-500 dark:text-gray-300 dark:hover:text-indigo-400 transition" title="Personalizar Estilo">
+                <i class="fas fa-palette text-xs"></i>
+            </button>
+            <button onclick="toggleWidget('${id}')" class="w-6 h-6 flex items-center justify-center text-gray-500 hover:text-red-500 dark:text-gray-300 dark:hover:text-red-400 transition" title="Ocultar Widget">
+                <i class="fas fa-eye-slash text-xs"></i>
+            </button>
+        `;
+
+        if(getComputedStyle(widget).position === 'static') widget.style.position = 'relative';
+        widget.classList.add('group'); 
+        
+        widget.appendChild(controlsDiv);
+        
+        const oldButtons = widget.querySelectorAll('button[onclick^="toggleWidget"]');
+        oldButtons.forEach(btn => {
+            if(!btn.closest('.widget-controls')) btn.style.display = 'none';
+        });
+    });
+}
+
+window.openWidgetCustomizer = function(widgetId) {
+    const modal = document.createElement('div');
+    modal.className = "fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm fade-in";
+    modal.id = "customizer-modal";
+    
+    let optionsHtml = '';
+    Object.entries(WIDGET_PRESETS).forEach(([key, preset]) => {
+        optionsHtml += `
+            <button onclick="setWidgetStyle('${widgetId}', '${key}')" class="w-full text-left p-3 rounded-xl border border-gray-200 dark:border-neutral-700 mb-2 hover:scale-[1.02] transition flex items-center gap-3 overflow-hidden group">
+                <div class="w-8 h-8 rounded-full ${preset.class.split(' ').filter(c => c.startsWith('bg-') || c.startsWith('from-')).join(' ')} border border-gray-300 shadow-sm"></div>
+                <span class="font-medium text-gray-700 dark:text-gray-200">${preset.label}</span>
+                ${widgetStyles[widgetId] === key ? '<i class="fas fa-check text-green-500 ml-auto"></i>' : ''}
+            </button>
+        `;
+    });
+
+    modal.innerHTML = `
+        <div class="bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl w-full max-w-sm p-6 m-4 relative animate-scale-in border border-gray-200 dark:border-neutral-800">
+            <button onclick="document.getElementById('customizer-modal').remove()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+                <i class="fas fa-times"></i>
+            </button>
+            <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-1">Personalizar Widget</h3>
+            <p class="text-sm text-gray-500 mb-4">Escolha um estilo visual:</p>
+            <div class="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
+                ${optionsHtml}
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+}
+
+window.setWidgetStyle = function(widgetId, styleKey) {
+    widgetStyles[widgetId] = styleKey;
+    saveData();
+    applyAllWidgetStyles();
+    
+    const modal = document.getElementById('customizer-modal');
+    if(modal) modal.remove();
+    
+    showModal("Estilo Aplicado", "O visual do widget foi atualizado.");
+}
+
+function applyAllWidgetStyles() {
+    Object.entries(widgetStyles).forEach(([id, styleKey]) => {
+        const widget = document.getElementById(id);
+        if(!widget) return;
+        
+        const preset = WIDGET_PRESETS[styleKey];
+        if(!preset) return;
+
+        widget.className = widget.className.replace(/bg-[\w-\/]+|border-[\w-\/]+|text-[\w-\/]+/g, '').trim();
+        widget.classList.remove('bg-white', 'dark:bg-darkcard', 'border-gray-200', 'dark:border-darkborder', 'shadow-sm');
+        
+        widget.className = `rounded-xl border p-6 flex flex-col h-full relative overflow-hidden group transition-all duration-300 ${preset.class}`;
+        
+        if(styleKey !== 'default') {
+            const textElements = widget.querySelectorAll('h3, p, span, i, div');
+            textElements.forEach(el => {
+                if(el.classList.contains('text-gray-800') || el.classList.contains('text-gray-500') || el.classList.contains('text-indigo-600')) {
+                    el.classList.add('!text-white', '!opacity-90');
+                }
+            });
+            
+            const icons = widget.querySelectorAll('svg, i');
+            icons.forEach(icon => {
+                icon.classList.add('!text-white');
+                icon.style.color = 'white';
+            });
+        } else {
+            const forcedElements = widget.querySelectorAll('.\\!text-white, .\\!opacity-90');
+            forcedElements.forEach(el => el.classList.remove('!text-white', '!opacity-90'));
+            
+            widget.classList.add('bg-white', 'dark:bg-darkcard', 'border-gray-200', 'dark:border-darkborder', 'shadow-sm');
+        }
+        
+        const controls = widget.querySelector('.widget-controls');
+        if(controls) {
+            controls.className = "widget-controls absolute top-3 right-3 flex gap-2 z-20 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 dark:bg-black/60 backdrop-blur-sm rounded-lg p-1 shadow-sm";
+            controls.querySelectorAll('button').forEach(btn => btn.className = "w-6 h-6 flex items-center justify-center text-gray-600 hover:text-indigo-600 transition");
+        }
+    });
+}
+
+window.toggleWidget = function(widgetId) {
+    const widget = document.getElementById(widgetId);
+    if(!widget) return;
+
+    if(hiddenWidgets.includes(widgetId)) {
+        hiddenWidgets = hiddenWidgets.filter(id => id !== widgetId);
+        widget.classList.remove('hidden');
+        showModal("Widget Restaurado", "O widget voltou para a tela principal.");
+    } else {
+        hiddenWidgets.push(widgetId);
+        widget.classList.add('hidden');
+        
+        const toast = document.createElement('div');
+        toast.className = "fixed bottom-20 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white px-4 py-2 rounded-full text-sm shadow-lg z-[60] animate-fade-in-up flex items-center gap-2";
+        toast.innerHTML = `<span>Widget oculto.</span> <button onclick="switchPage('ocultos')" class="text-indigo-300 font-bold hover:underline">Desfazer</button>`;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 3000);
+    }
+    saveData();
+    if(currentViewContext === 'ocultos') renderHiddenWidgetsPage();
+}
+
+function applyWidgetVisibility() {
+    const allWidgets = ['widget-bus', 'widget-tasks', 'widget-quick', 'widget-class', 'widget-reminders', 'widget-ai', 'widget-notes'];
+    allWidgets.forEach(id => {
+        const el = document.getElementById(id);
+        if(el) {
+            if(hiddenWidgets.includes(id)) el.classList.add('hidden');
+            else el.classList.remove('hidden');
+        }
+    });
+}
+
+window.renderHiddenWidgetsPage = function() {
+    const container = document.getElementById('view-ocultos');
+    if(!container) return;
+
+    container.innerHTML = '';
+    
+    const wrapper = document.createElement('div');
+    wrapper.className = "max-w-4xl mx-auto p-4";
+    
+    const header = document.createElement('div');
+    header.className = "mb-6 flex items-center justify-between";
+    header.innerHTML = `
+        <div>
+            <h2 class="text-2xl font-bold text-gray-800 dark:text-white">Widgets Ocultos</h2>
+            <p class="text-sm text-gray-500">Gerencie o que aparece na sua tela principal.</p>
+        </div>
+        <button onclick="switchPage('home')" class="text-indigo-600 font-bold text-sm">Voltar</button>
+    `;
+    wrapper.appendChild(header);
+
+    if(hiddenWidgets.length === 0) {
+        wrapper.innerHTML += `
+            <div class="flex flex-col items-center justify-center py-20 text-center">
+                <div class="w-20 h-20 bg-gray-100 dark:bg-neutral-800 rounded-full flex items-center justify-center mb-4 text-gray-400">
+                    <i class="fas fa-check text-3xl"></i>
+                </div>
+                <h3 class="text-lg font-bold text-gray-700 dark:text-gray-200">Tudo Visível</h3>
+                <p class="text-gray-500 dark:text-gray-400 text-sm max-w-xs mx-auto">Todos os seus widgets estão ativos na tela principal.</p>
+            </div>
+        `;
+    } else {
+        const grid = document.createElement('div');
+        grid.className = "grid grid-cols-1 md:grid-cols-2 gap-4";
+        
+        const labels = {
+            'widget-bus': { icon: 'bus', name: 'Circular / Ônibus' },
+            'widget-tasks': { icon: 'check-circle', name: 'Tarefas' },
+            'widget-quick': { icon: 'bolt', name: 'Acesso Rápido' },
+            'widget-class': { icon: 'graduation-cap', name: 'Próxima Aula' },
+            'widget-reminders': { icon: 'bell', name: 'Lembretes' },
+            'widget-ai': { icon: 'robot', name: 'Dica da IA' },
+            'widget-notes': { icon: 'sticky-note', name: 'Anotações' }
+        };
+
+        hiddenWidgets.forEach(id => {
+            const info = labels[id] || { icon: 'cube', name: id };
+            const card = document.createElement('div');
+            card.className = "bg-white dark:bg-darkcard p-4 rounded-xl border border-gray-200 dark:border-darkborder flex justify-between items-center shadow-sm group hover:border-indigo-500 transition";
+            card.innerHTML = `
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-lg bg-gray-50 dark:bg-neutral-800 flex items-center justify-center text-gray-500 dark:text-gray-400 group-hover:text-indigo-500 transition">
+                        <i class="fas fa-${info.icon}"></i>
+                    </div>
+                    <span class="font-bold text-gray-700 dark:text-gray-200">${info.name}</span>
+                </div>
+                <button onclick="toggleWidget('${id}')" class="text-xs bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 px-3 py-2 rounded-lg font-bold hover:bg-indigo-100 transition flex items-center gap-2">
+                    <i class="fas fa-plus"></i> Restaurar
+                </button>
+            `;
+            grid.appendChild(card);
+        });
+        wrapper.appendChild(grid);
+    }
+    
+    container.appendChild(wrapper);
+}
+
+// ============================================================
+// --- INTEGRAÇÃO SALVE-SE IA (MELHORADA) ---
 // ============================================================
 
 window.setAIProvider = function(provider) {
@@ -318,6 +555,15 @@ function updateAISelectorUI() {
     }
 }
 
+// Função para formatar conteúdo da IA (Quebras de linha para HTML)
+function formatAIContent(text) {
+    if (!text) return "";
+    // Se o texto já parece ter HTML, não mexe muito
+    if (text.includes("<br>") || text.includes("<p>")) return text;
+    // Converte quebras de linha em <br> e envolve em parágrafos se necessário
+    return text.split('\n').filter(line => line.trim() !== '').map(line => `<p>${line}</p>`).join('');
+}
+
 window.sendIAMessage = async function() {
     const input = document.getElementById('chat-input');
     const message = input.value.trim();
@@ -335,7 +581,6 @@ window.sendIAMessage = async function() {
     showTypingIndicator();
 
     try {
-        // Contexto Expandido
         const contextData = {
             telaAtual: currentViewContext,
             dataAtual: new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }),
@@ -343,8 +588,9 @@ window.sendIAMessage = async function() {
             tarefas: tasksData.map(t => ({ id: t.id, text: t.text, done: t.done, priority: t.priority })),
             aulas: scheduleData.map(c => ({ id: c.id, name: c.name, day: c.day, start: c.start, room: c.room })),
             lembretes: remindersData,
-            // Enviamos apenas os títulos e um pequeno preview
-            notas: notesData.map(n => ({ id: n.id, title: n.title, preview: n.content.substring(0, 50).replace(/<[^>]*>?/gm, '') })),
+            // Resumo das notas
+            notas: notesData.map(n => ({ id: n.id, title: n.title, preview: n.content.substring(0, 100).replace(/<[^>]*>?/gm, '') })),
+            // Nota aberta: conteúdo completo
             notaAberta: activeNoteId ? notesData.find(n => n.id === activeNoteId) : null,
             widgetsOcultos: hiddenWidgets,
             tema: document.documentElement.classList.contains('dark') ? 'Escuro' : 'Claro',
@@ -357,14 +603,16 @@ Você é a "Salve-se IA", assistente da UFRB.
 CONTEXTO ATUAL: ${JSON.stringify(contextData)}
 
 REGRAS CRÍTICAS:
-1. Responda APENAS com JSON.
-2. Você pode criar, atualizar ou resumir notas.
-3. Você pode ocultar ou mostrar widgets se o usuário pedir.
-4. Se estiver com uma nota aberta no contexto ("notaAberta"), você pode sugerir melhorias ou grifar partes.
+1. Responda APENAS com JSON válido.
+2. Para ANOTAÇÕES ("create_note" ou "update_note"):
+   - USE FORMATAÇÃO HTML: <p>, <br>, <b>, <ul>, <li>.
+   - Ao usar "update_note", envie o CONTEÚDO COMPLETO da nota (antigo + novo), a menos que o usuário peça para apagar.
+   - Não use Markdown (ex: **negrito**, \n). Use tags HTML.
+3. Você pode ocultar, mostrar ou personalizar widgets.
 
 FORMATO JSON:
 {
-  "message": "Texto...",
+  "message": "Texto de resposta (pode ter HTML simples)...",
   "commands": [ ... ]
 }
 
@@ -375,14 +623,12 @@ COMANDOS:
 - "create_reminder": { "desc": "...", "date": "YYYY-MM-DD", "prio": "medium" }
 - "add_grade": { "value": 8.5, "weight": 1 }
 - "toggle_theme": {}
-- "create_note": { "title": "...", "content": "..." } 
-- "update_note": { "id": "...", "content": "..." }
-- "hide_widget": { "id": "widget-id" } (IDs: widget-bus, widget-tasks, widget-quick, widget-class, widget-reminders, widget-ai, widget-notes)
+- "create_note": { "title": "...", "content": "HTML Content Here" } 
+- "update_note": { "id": "...", "content": "HTML Content Here (FULL TEXT)" }
+- "hide_widget": { "id": "widget-id" } 
 - "show_widget": { "id": "widget-id" }
+- "style_widget": { "id": "widget-id", "style": "gradient-indigo|gradient-emerald|gradient-sunset|dark-mode|default" }
 - "update_dashboard_widget": { "content": "..." }
-
-Exemplo: "Esconda o widget de ônibus"
-{ "message": "Ocultei o circular.", "commands": [{ "action": "hide_widget", "params": { "id": "widget-bus" } }] }
         `;
 
         let messagesPayload = [];
@@ -635,13 +881,14 @@ async function executeAICommand(cmd) {
              setAIProvider(p.provider);
              break;
 
-        // --- COMANDOS DE NOTAS ---
+        // --- COMANDOS DE NOTAS (ATUALIZADO) ---
         case 'create_note':
              const newNoteId = Date.now().toString();
+             const formattedNewContent = formatAIContent(p.content);
              notesData.push({
                  id: newNoteId,
                  title: p.title || "Nova Nota IA",
-                 content: p.content || "",
+                 content: formattedNewContent || "",
                  updatedAt: Date.now()
              });
              saveData();
@@ -655,13 +902,13 @@ async function executeAICommand(cmd) {
              const targetId = p.id || activeNoteId;
              const noteToUpdate = notesData.find(n => n.id === targetId);
              if(noteToUpdate) {
-                 noteToUpdate.content = p.content; 
+                 // Garante que a formatação seja aplicada
+                 noteToUpdate.content = formatAIContent(p.content); 
                  noteToUpdate.updatedAt = Date.now();
                  saveData();
                  if(activeNoteId === targetId && currentViewContext === 'notas') {
-                     // Atualiza sem recarregar tudo para não perder o foco se o usuário estiver vendo
                      const editor = document.getElementById('editor-content');
-                     if(editor) editor.innerHTML = p.content;
+                     if(editor) editor.innerHTML = noteToUpdate.content;
                  }
              }
              break;
@@ -676,6 +923,12 @@ async function executeAICommand(cmd) {
         case 'show_widget':
              if(p.id && hiddenWidgets.includes(p.id)) {
                 toggleWidget(p.id);
+             }
+             break;
+        
+        case 'style_widget':
+             if(p.id && p.style) {
+                 setWidgetStyle(p.id, p.style);
              }
              break;
 
@@ -718,92 +971,6 @@ if (aiWidgetContent === "Olá! Sou sua IA. Vou postar dicas úteis aqui.") {
     updateAIWidget(tips[Math.floor(Math.random() * tips.length)]);
 }
 
-
-// ============================================================
-// --- FUNCIONALIDADE: GESTÃO DE WIDGETS ---
-// ============================================================
-
-window.toggleWidget = function(widgetId) {
-    const widget = document.getElementById(widgetId);
-    if(!widget) return;
-
-    if(hiddenWidgets.includes(widgetId)) {
-        // Mostrar
-        hiddenWidgets = hiddenWidgets.filter(id => id !== widgetId);
-        widget.classList.remove('hidden');
-    } else {
-        // Ocultar
-        hiddenWidgets.push(widgetId);
-        widget.classList.add('hidden');
-    }
-    saveData();
-    // Se estiver na página de ocultos, atualiza ela
-    if(currentViewContext === 'ocultos') renderHiddenWidgetsPage();
-}
-
-function applyWidgetVisibility() {
-    // Aplica o estado salvo ao carregar
-    const allWidgets = ['widget-bus', 'widget-tasks', 'widget-quick', 'widget-class', 'widget-reminders', 'widget-ai', 'widget-notes'];
-    allWidgets.forEach(id => {
-        const el = document.getElementById(id);
-        if(el) {
-            if(hiddenWidgets.includes(id)) el.classList.add('hidden');
-            else el.classList.remove('hidden');
-        }
-    });
-}
-
-window.renderHiddenWidgetsPage = function() {
-    const container = document.getElementById('view-ocultos');
-    if(!container) return;
-
-    container.innerHTML = '';
-    
-    const wrapper = document.createElement('div');
-    wrapper.className = "max-w-4xl mx-auto";
-    
-    const header = document.createElement('h2');
-    header.className = "text-2xl font-bold text-gray-800 dark:text-white mb-6";
-    header.innerText = "Widgets Ocultos";
-    wrapper.appendChild(header);
-
-    if(hiddenWidgets.length === 0) {
-        wrapper.innerHTML += `
-            <div class="flex flex-col items-center justify-center py-20 text-gray-400">
-                <i class="fas fa-eye-slash text-5xl mb-4 opacity-30"></i>
-                <p>Nenhum widget oculto.</p>
-            </div>
-        `;
-    } else {
-        const grid = document.createElement('div');
-        grid.className = "grid grid-cols-1 md:grid-cols-2 gap-4";
-        
-        const labels = {
-            'widget-bus': 'Circular / Ônibus',
-            'widget-tasks': 'Tarefas',
-            'widget-quick': 'Acesso Rápido',
-            'widget-class': 'Próxima Aula',
-            'widget-reminders': 'Lembretes',
-            'widget-ai': 'Dica da IA',
-            'widget-notes': 'Anotações'
-        };
-
-        hiddenWidgets.forEach(id => {
-            const card = document.createElement('div');
-            card.className = "bg-white dark:bg-darkcard p-6 rounded-xl border border-gray-200 dark:border-darkborder flex justify-between items-center";
-            card.innerHTML = `
-                <span class="font-bold text-gray-700 dark:text-gray-200">${labels[id] || id}</span>
-                <button onclick="toggleWidget('${id}')" class="text-sm bg-indigo-100 text-indigo-600 px-3 py-1.5 rounded-lg font-bold hover:bg-indigo-200 transition">
-                    <i class="fas fa-eye mr-1"></i> Mostrar
-                </button>
-            `;
-            grid.appendChild(card);
-        });
-        wrapper.appendChild(grid);
-    }
-    
-    container.appendChild(wrapper);
-}
 
 // ============================================================
 // --- FUNÇÕES DE USUÁRIO & DADOS ---
@@ -873,7 +1040,8 @@ window.saveUserProfile = async () => {
             tasks: [],
             reminders: [],
             notes: [],
-            hiddenWidgets: [], // Salva estado inicial vazio
+            hiddenWidgets: [], 
+            widgetStyles: {}, // Novo campo
             lastUpdated: new Date().toISOString()
         };
         
@@ -902,15 +1070,18 @@ function initRealtimeSync(uid) {
             localStorage.setItem('salvese_reminders', JSON.stringify(cloudData.reminders || []));
             localStorage.setItem('salvese_notes', JSON.stringify(cloudData.notes || []));
             localStorage.setItem('salvese_hidden_widgets', JSON.stringify(cloudData.hiddenWidgets || []));
+            localStorage.setItem('salvese_widget_styles', JSON.stringify(cloudData.widgetStyles || {}));
 
             scheduleData = cloudData.schedule || [];
             tasksData = cloudData.tasks || [];
             remindersData = cloudData.reminders || [];
             notesData = cloudData.notes || [];
             hiddenWidgets = cloudData.hiddenWidgets || [];
+            widgetStyles = cloudData.widgetStyles || {};
 
             refreshAllUI();
             applyWidgetVisibility();
+            applyAllWidgetStyles(); // Sincroniza estilos
         }
     }, (error) => console.log("Modo offline ou erro de sync:", error.code));
 
@@ -959,9 +1130,11 @@ async function saveData() {
     localStorage.setItem('salvese_reminders', JSON.stringify(remindersData));
     localStorage.setItem('salvese_notes', JSON.stringify(notesData));
     localStorage.setItem('salvese_hidden_widgets', JSON.stringify(hiddenWidgets));
+    localStorage.setItem('salvese_widget_styles', JSON.stringify(widgetStyles));
 
     refreshAllUI();
     applyWidgetVisibility();
+    applyAllWidgetStyles();
 
     if (currentUser) {
         try {
@@ -971,6 +1144,7 @@ async function saveData() {
                 reminders: remindersData,
                 notes: notesData,
                 hiddenWidgets: hiddenWidgets,
+                widgetStyles: widgetStyles,
                 lastUpdated: new Date().toISOString()
             };
             await setDoc(doc(db, "users", currentUser.uid, "data", "appData"), dataToSave, { merge: true });
@@ -1608,7 +1782,7 @@ window.renderSettings = function() {
 
             <div class="text-center pt-4 pb-8">
                  <p class="text-xs text-gray-300 dark:text-gray-600 font-mono">ID: ${currentUser.uid.substring(0,8)}...</p>
-                 <p class="text-xs text-gray-300 dark:text-gray-600 mt-1">Salve-se UFRB v3.1 (Notes Upgrade)</p>
+                 <p class="text-xs text-gray-300 dark:text-gray-600 mt-1">Salve-se UFRB v3.2 (Widget Master)</p>
             </div>
         </div>
     `;

@@ -35,9 +35,10 @@ const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__f
 };
 
 // --- CONFIGURAÇÃO DAS IAs ---
-// CORREÇÃO: Usando 'apiKey' para injeção automática do ambiente
+// CORREÇÃO: Adicione sua API Key do Google abaixo entre as aspas
 const apiKey = ""; 
-const GEMINI_MODEL = "gemini-2.5-flash-preview-09-2025";
+// CORREÇÃO: Atualizado para um modelo estável do Gemini
+const GEMINI_MODEL = "gemini-1.5-flash";
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
 
 const GROQ_API_KEY = "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"; 
@@ -738,8 +739,18 @@ COMANDOS:
             });
 
             const data = await response.json();
-            if (data.error) throw new Error(data.error.message);
-            aiResponseText = data.candidates[0].content.parts[0].text;
+            
+            // CORREÇÃO: Verificação mais segura para evitar erro undefined
+            if (data.error) throw new Error(data.error.message || "Erro desconhecido na API Gemini");
+            
+            // CORREÇÃO: Uso de optional chaining
+            if (data.candidates && data.candidates.length > 0) {
+                aiResponseText = data.candidates[0].content?.parts?.[0]?.text || "";
+            } else {
+                // Se não houver candidatos, pode ser bloqueio de segurança ou erro silencioso
+                if(data.promptFeedback) console.log("Feedback:", data.promptFeedback);
+                throw new Error("A IA não retornou resposta (possível bloqueio de segurança).");
+            }
         }
 
         try {
@@ -771,8 +782,8 @@ COMANDOS:
         console.error("Erro IA:", error);
         let msg = "Ops! Tive um problema técnico.";
         if(error.message.includes("429")) msg = "⚠️ A IA está sobrecarregada. Tente novamente em alguns segundos.";
-        if(error.message.includes("API key not valid")) msg = "⚠️ Erro de chave de API. Verifique as configurações.";
-        appendMessage('ai', msg);
+        if(error.message.includes("API key not valid") || error.message.includes("API_KEY_INVALID")) msg = "⚠️ Erro de chave de API. Verifique se a chave foi configurada corretamente no arquivo script.js.";
+        appendMessage('ai', msg + " <br><small class='text-xs opacity-70'>" + error.message + "</small>");
     } finally {
         hideTypingIndicator();
         input.disabled = false;

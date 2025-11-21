@@ -93,36 +93,41 @@ body { font-family: 'Inter', sans-serif; transition: background-color 0.3s, colo
 .scroll-smooth { scroll-behavior: smooth; }
 
 /* =========================================
-   FIX DE PERSONALIZAÇÃO DE WIDGETS
+   FIX DE PERSONALIZAÇÃO DE WIDGETS (DARK MODE)
    ========================================= */
 
-/* Quando o widget tem um fundo escuro personalizado */
+/* Quando o widget tem um fundo escuro personalizado (via classe .widget-custom-dark) */
 .widget-custom-dark {
     color: white !important;
 }
 
-/* Força ícones e textos de nível superior a serem brancos */
+/* Força ícones e textos principais a serem brancos */
 .widget-custom-dark > div > div > h3,
 .widget-custom-dark > div > div > p,
 .widget-custom-dark > div > h3,
-.widget-custom-dark > h3 {
+.widget-custom-dark > h3,
+.widget-custom-dark h2,
+.widget-custom-dark h3,
+.widget-custom-dark h4 {
     color: rgba(255, 255, 255, 0.95) !important;
 }
 
 /* Ícones soltos no topo do widget */
 .widget-custom-dark > div > div > i,
-.widget-custom-dark > div > i {
+.widget-custom-dark > div > i,
+.widget-custom-dark i {
     color: white !important;
 }
 
 /* SVG's no topo do widget */
 .widget-custom-dark > div > div > svg,
-.widget-custom-dark > div > svg {
+.widget-custom-dark > div > svg,
+.widget-custom-dark svg {
     stroke: white !important;
 }
 
-/* === EXCEÇÕES PARA CARTÕES INTERNOS (Tarefas, Lembretes) === */
-/* Qualquer elemento com fundo branco ou cinza claro dentro do widget escuro DEVE ter texto escuro */
+/* === EXCEÇÕES PARA CARTÕES INTERNOS BRANCOS (Tarefas, Lembretes) === */
+/* Se houver um cartão branco dentro de um widget escuro, o texto dele deve ser escuro */
 
 .widget-custom-dark .bg-white,
 .widget-custom-dark .bg-gray-50,
@@ -147,7 +152,7 @@ body { font-family: 'Inter', sans-serif; transition: background-color 0.3s, colo
     color: #6b7280 !important; /* gray-500 */
 }
 
-/* Inputs dentro de widgets escuros (ex: calculadora se fosse widget) */
+/* Inputs dentro de widgets escuros */
 .widget-custom-dark input,
 .widget-custom-dark select,
 .widget-custom-dark textarea {

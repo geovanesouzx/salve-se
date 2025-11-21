@@ -13,7 +13,7 @@
     <link rel="apple-touch-icon" href="https://files.catbox.moe/pmdtq6.png">
 
     <!-- CSS Externo -->
-    <link rel="stylesheet" href="style.css?v=25">
+    <link rel="stylesheet" href="style.css?v=26">
 
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -78,7 +78,7 @@
             <div class="w-16 h-16 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin absolute top-0 left-0"></div>
         </div>
         <div class="mt-4 flex items-center gap-2 text-indigo-600 dark:text-indigo-400 font-bold text-sm animate-pulse">
-            <img src="https://files.catbox.moe/pmdtq6.png" class="w-5 h-5">
+            <img src="https://files.catbox.moe/pmdtq6.png" class="w-6 h-6">
             <span>Carregando Salve-se...</span>
         </div>
     </div>
@@ -86,12 +86,13 @@
     <!-- TELA 1: LOGIN -->
     <div id="login-screen" class="hidden fixed inset-0 z-50 flex flex-col items-center justify-center bg-white dark:bg-darkbg transition-opacity duration-500">
         <div class="text-center space-y-6 p-8 max-w-md w-full animate-fade-in-up">
-            <div class="w-24 h-24 mx-auto bg-indigo-100 dark:bg-indigo-900/20 rounded-3xl flex items-center justify-center shadow-xl shadow-indigo-200 dark:shadow-none mb-6">
-                <img src="https://files.catbox.moe/pmdtq6.png" class="w-16 h-16 object-contain">
+            <!-- LOGO CORRIGIDA: Maior e sem fundo branco forçado -->
+            <div class="w-32 h-32 mx-auto flex items-center justify-center mb-2">
+                <img src="https://files.catbox.moe/pmdtq6.png" class="w-full h-full object-contain drop-shadow-xl">
             </div>
             
             <div>
-                <h1 class="text-3xl font-black text-gray-900 dark:text-white tracking-tight mb-2">Bem-vindo ao Salve-se UFRB</h1>
+                <h1 class="text-3xl font-black text-gray-900 dark:text-white tracking-tight mb-2">Bem-vindo ao Salve-se</h1>
                 <p class="text-gray-500 dark:text-gray-400 text-sm">Seu painel acadêmico híbrido e inteligente.</p>
             </div>
 
@@ -145,8 +146,9 @@
         <!-- SIDEBAR (Desktop) -->
         <aside class="w-64 bg-white dark:bg-darkcard border-r border-gray-200 dark:border-darkborder flex-col hidden md:flex z-20 shadow-sm theme-transition relative">
             <div class="h-20 flex items-center px-6 border-b border-gray-200 dark:border-darkborder group relative">
-                <div class="w-10 h-10 mr-3 flex-shrink-0 rounded-lg overflow-hidden bg-indigo-50">
-                    <img src="https://files.catbox.moe/pmdtq6.png" alt="Logo" class="w-full h-full object-contain p-1">
+                <!-- LOGO SIDEBAR: Removido fundo, tamanho aumentado -->
+                <div class="w-12 h-12 mr-3 flex-shrink-0">
+                    <img src="https://files.catbox.moe/pmdtq6.png" alt="Logo" class="w-full h-full object-contain">
                 </div>
                 <span class="text-lg font-bold tracking-tight text-gray-800 dark:text-white mr-2">Salve-se UFRB</span>
             </div>
@@ -382,7 +384,7 @@
                     <!-- GRID UNIFICADA PARA CORREÇÃO DE ORDENAÇÃO E REFLOW -->
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         
-                        <!-- CARD ONIBUS -->
+                        <!-- CARD ONIBUS: GIF AUMENTADO -->
                         <div id="widget-bus" class="bg-white dark:bg-darkcard rounded-xl border border-gray-200 dark:border-darkborder shadow-sm relative overflow-hidden flex flex-col transition-all duration-300 h-full min-h-[220px]">
                             <div class="p-5 pb-2 flex justify-between items-start">
                                 <div>
@@ -393,8 +395,9 @@
                                     <h3 class="text-2xl font-bold text-gray-800 dark:text-white" id="dash-bus-title">--:--</h3>
                                     <p class="text-sm text-gray-500 dark:text-gray-400" id="dash-bus-subtitle">...</p>
                                 </div>
-                                <div class="w-12 h-12 flex items-center justify-center rounded-lg bg-indigo-50 dark:bg-neutral-900 border border-indigo-100 dark:border-neutral-800 overflow-hidden">
-                                    <img src="https://www.imagensanimadas.com/data/media/425/onibus-imagem-animada-0001.gif" onerror="this.style.display='none'; this.parentElement.innerHTML='<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'30\' height=\'30\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'currentColor\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\' class=\'text-indigo-300\'><path d=\'M4 6 2 7\'/><path d=\'M10 6h4\'/><path d=\'m22 7-2-1\'/><rect width=\'16\' height=\'16\' x=\'4\' y=\'3\' rx=\'2\'/><path d=\'M4 11h16\'/><path d=\'M8 15h.01\'/><path d=\'M16 15h.01\'/><path d=\'M6 19v2\'/><path d=\'M18 21v-2\'/></svg>'" class="w-full h-full object-contain p-1">
+                                <!-- GIF AUMENTADO PARA w-20 h-20 -->
+                                <div class="w-24 h-24 flex items-center justify-center rounded-lg bg-indigo-50 dark:bg-neutral-900 border border-indigo-100 dark:border-neutral-800 overflow-hidden">
+                                    <img src="https://www.imagensanimadas.com/data/media/425/onibus-imagem-animada-0001.gif" onerror="this.style.display='none'; this.parentElement.innerHTML='<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'30\' height=\'30\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'currentColor\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\' class=\'text-indigo-300\'><path d=\'M4 6 2 7\'/><path d=\'M10 6h4\'/><path d=\'m22 7-2-1\'/><rect width=\'16\' height=\'16\' x=\'4\' y=\'3\' rx=\'2\'/><path d=\'M4 11h16\'/><path d=\'M8 15h.01\'/><path d=\'M16 15h.01\'/><path d=\'M6 19v2\'/><path d=\'M18 21v-2\'/></svg>'" class="w-full h-full object-contain">
                                 </div>
                             </div>
                             <div id="bus-dynamic-area" class="p-5 pt-2 flex-1 flex flex-col justify-end min-h-[120px]"></div>
@@ -706,7 +709,7 @@
                 </div>
 
                 <!-- VIEW DE NOTAS -->
-                <div id="view-notas" class="hidden fade-in h-full"></div>
+                <div id="view-notas" class="hidden fade-in h-full w-full"></div>
 
                 <div id="view-email" class="hidden fade-in max-w-5xl mx-auto">
                     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[500px]">
@@ -733,7 +736,7 @@
                 <!-- NOVA VIEW DE WIDGETS OCULTOS -->
                 <div id="view-ocultos" class="hidden fade-in w-full"></div>
 
-                <div id="view-aulas" class="hidden fade-in"></div>
+                <div id="view-aulas" class="hidden fade-in w-full"></div>
             </main>
         </div>
     </div>

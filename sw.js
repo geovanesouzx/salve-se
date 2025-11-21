@@ -1,4 +1,4 @@
-const CACHE_NAME = 'salvese-v5.1-final-tasks'; // Versão atualizada para forçar limpeza de cache e carregar novas funcionalidades
+const CACHE_NAME = 'salvese-v9.0-refined-ui'; // Versão incrementada
 const URLS_TO_CACHE = [
     './',
     './index.html',
@@ -9,11 +9,11 @@ const URLS_TO_CACHE = [
     'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap',
     'https://files.catbox.moe/pmdtq6.png',
     'https://media.tenor.com/q9CixI3CcrkAAAAj/dance.gif',
-    'https://media.tenor.com/IVh7YxGaB_4AAAAM/nerd-emoji.gif',
-    'https://media.tenor.com/qL2ySe3uUgQAAAAj/gatto.gif'
+    'https://media.tenor.com/qL2ySe3uUgQAAAAj/gatto.gif',
+    'https://www.svgrepo.com/show/475656/google-color.svg'
 ];
 
-// 1. Instalação: Cacheia o básico imediatamente
+// 1. Instalação
 self.addEventListener('install', event => {
     self.skipWaiting();
     event.waitUntil(
@@ -31,7 +31,7 @@ self.addEventListener('install', event => {
     );
 });
 
-// 2. Ativação: Limpa caches antigos (VERSÃO ANTERIOR SERÁ APAGADA AQUI)
+// 2. Ativação e Limpeza
 self.addEventListener('activate', event => {
     const cacheWhitelist = [CACHE_NAME];
     event.waitUntil(
@@ -39,7 +39,6 @@ self.addEventListener('activate', event => {
             return Promise.all(
                 cacheNames.map(cacheName => {
                     if (cacheWhitelist.indexOf(cacheName) === -1) {
-                        console.log('Deletando cache antigo:', cacheName);
                         return caches.delete(cacheName);
                     }
                 })
@@ -48,32 +47,33 @@ self.addEventListener('activate', event => {
     );
 });
 
-// 3. Interceptação: ESTRATÉGIA NETWORK FIRST (Rede Primeiro)
-// Prioriza a internet para sempre mostrar a versão mais recente.
+// 3. Interceptação (AGORA INCLUINDO FIREBASE JS)
 self.addEventListener('fetch', event => {
+    // Ignora APENAS chamadas de dados (Firestore/Auth API), mas permite os SCRIPTS JS
+    const url = event.request.url;
+    if (url.includes('firestore.googleapis.com') || 
+        url.includes('googleapis.com/auth') || 
+        (url.includes('firebase') && !url.endsWith('.js')) ||
+        url.includes('api.imgur.com')) { // Ignora API de upload
+        return; 
+    }
+
     event.respondWith(
-        fetch(event.request)
-            .then(networkResponse => {
-                // Se a resposta da rede for válida, atualiza o cache
-                if (networkResponse && networkResponse.status === 200) {
-                    const responseToCache = networkResponse.clone();
-                    caches.open(CACHE_NAME).then(cache => {
-                        cache.put(event.request, responseToCache);
-                    });
+        caches.match(event.request).then(cachedResponse => {
+            const fetchPromise = fetch(event.request).then(networkResponse => {
+                // Atualiza cache em background se tiver internet
+                if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
+                     const responseToCache = networkResponse.clone();
+                     caches.open(CACHE_NAME).then(cache => {
+                         cache.put(event.request, responseToCache);
+                     });
                 }
                 return networkResponse;
-            })
-            .catch(() => {
-                // Se falhar (offline), usa o cache
-                return caches.match(event.request).then(cachedResponse => {
-                    if (cachedResponse) {
-                        return cachedResponse;
-                    }
-                    // Fallback para navegação
-                    if (event.request.mode === 'navigate') {
-                        return caches.match('./index.html');
-                    }
-                });
-            })
+            }).catch(() => {
+                // Falha silenciosa se offline
+            });
+
+            return cachedResponse || fetchPromise;
+        })
     );
 });

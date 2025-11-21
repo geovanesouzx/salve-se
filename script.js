@@ -30,11 +30,11 @@ const firebaseConfig = {
   appId: "1:132544174908:web:00c6aa4855cc18ed2cdc39"
 };
 
-// Configuração da IA (Gemini)
-const apiKey = ""; // A chave será injetada pelo ambiente ou usar a hardcoded abaixo se necessário, mas por segurança deixe vazia se for usar a do prompt anterior
-const HARDCODED_API_KEY = "AIzaSyCXIMgQMP_P95FJ_vmUp05n7Z99U02fBdo"; // Mantida do seu código original
+// Configuração da IA (Gemini) - CORRIGIDO: Usando a injeção do ambiente
+const apiKey = ""; 
 const GEMINI_MODEL = "gemini-2.5-flash-preview-09-2025";
-const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${HARDCODED_API_KEY}`;
+// Agora usa a variável apiKey correta em vez da hardcoded que expirou
+const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
 
 // Inicializa Firebase
 const app = initializeApp(firebaseConfig);
@@ -279,6 +279,10 @@ window.sendIAMessage = async function() {
         try {
             const res = await fetch(url, options);
             if (!res.ok) {
+                // Se for erro 429 (Too Many Requests), não adianta retentar muito rápido
+                if (res.status === 429) {
+                    throw new Error("Limite de requisições atingido (429). Tente novamente em instantes.");
+                }
                 if (res.status >= 500 && retries > 0) {
                     await delay(backoff);
                     return fetchWithRetry(url, options, retries - 1, backoff * 2);
@@ -287,7 +291,7 @@ window.sendIAMessage = async function() {
             }
             return res.json();
         } catch (err) {
-            if (retries > 0) {
+            if (retries > 0 && !err.message.includes("429")) {
                 await delay(backoff);
                 return fetchWithRetry(url, options, retries - 1, backoff * 2);
             }
@@ -438,6 +442,8 @@ LISTA DE COMANDOS JSON (action e params):
         console.error("Erro IA:", error);
         let msg = "Ops! Tive um problema técnico.";
         if(error.message.includes("API key")) msg = "Chave de API inválida.";
+        if(error.message.includes("429")) msg = "⚠️ Limite de uso da IA atingido (429). Aguarde um pouco.";
+        if(error.message.includes("500")) msg = "⚠️ Instabilidade no servidor da IA (500).";
         appendMessage('ai', msg);
     } finally {
         if(typingIndicator) typingIndicator.classList.add('hidden');

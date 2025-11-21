@@ -1,7 +1,7 @@
 // ============================================================
 // --- CONFIGURAÇÃO FIREBASE & IMPORTAÇÕES ---
 // ============================================================
-import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { 
     getAuth, 
     signInWithPopup, 
@@ -12,7 +12,7 @@ import {
     sendPasswordResetEmail,
     signInWithCustomToken,
     signInAnonymously
-} from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 import { 
     getFirestore, 
     doc, 
@@ -22,7 +22,7 @@ import {
     onSnapshot, 
     enableIndexedDbPersistence,
     collection
-} from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 // Use as variáveis globais do ambiente se disponíveis
 const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
@@ -34,11 +34,9 @@ const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__f
   appId: "1:132544174908:web:00c6aa4855cc18ed2cdc39"
 };
 
-// Identificador da Aplicação para o ambiente isolado
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'salve-se-ufrb-default';
-
 // --- CONFIGURAÇÃO DAS IAs ---
-const apiKey = ""; // A chave será injetada pelo ambiente
+// CORREÇÃO: Usando 'apiKey' para injeção automática do ambiente
+const apiKey = ""; 
 const GEMINI_MODEL = "gemini-2.5-flash-preview-09-2025";
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
 
@@ -65,30 +63,6 @@ try {
     });
 } catch (e) { 
     console.log("Persistência já ativa ou não suportada"); 
-}
-
-// ============================================================
-// --- HELPER FUNCTIONS (FIRESTORE PATHS) ---
-// ============================================================
-
-// Função para obter coleção de usuários (Privado)
-function getUserCollectionPath(uid, collectionName) {
-    return collection(db, 'artifacts', appId, 'users', uid, collectionName);
-}
-
-// Função para obter documento de usuário (Privado)
-function getUserDocPath(uid, collectionName, docId) {
-    return doc(db, 'artifacts', appId, 'users', uid, collectionName, docId);
-}
-
-// Função para obter coleção pública (Publico - ex: usernames)
-function getPublicCollectionPath(collectionName) {
-    return collection(db, 'artifacts', appId, 'public', 'data', collectionName);
-}
-
-// Função para obter documento público
-function getPublicDocPath(collectionName, docId) {
-    return doc(db, 'artifacts', appId, 'public', 'data', collectionName, docId);
 }
 
 // ============================================================
@@ -156,12 +130,7 @@ const forceLoadTimeout = setTimeout(() => {
 const initAuth = async () => {
     if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
         await signInWithCustomToken(auth, __initial_auth_token);
-    } else {
-        // Se não houver token customizado, tenta anônimo se não houver usuário
-        if (!auth.currentUser) {
-             // await signInAnonymously(auth); // Opcional: Forçar anônimo se desejar login automático
-        }
-    }
+    } 
 };
 initAuth();
 
@@ -173,8 +142,7 @@ onAuthStateChanged(auth, async (user) => {
         localStorage.setItem('salvese_session_active', 'true');
 
         try {
-            // CORREÇÃO: Usar o caminho correto do Sandbox
-            const docRef = getUserDocPath(user.uid, 'profile', 'main');
+            const docRef = doc(db, "users", user.uid);
             const docSnap = await getDoc(docRef); 
 
             if (docSnap.exists()) {
@@ -745,10 +713,10 @@ COMANDOS:
             aiResponseText = data.choices[0].message.content;
 
         } else {
-            // GEMINI Integration
-            // A chave é injetada automaticamente no ambiente, mas a verificação manual anterior estava bloqueando
-            // Agora confiamos que o ambiente injetará a chave ou a URL correta.
-            
+            if (!apiKey && !GEMINI_API_URL.includes("key=")) {
+                 throw new Error("Chave de API do Gemini não configurada. Use o provider 'Llama' ou adicione a chave.");
+            }
+
             const geminiContents = recentHistory.map(msg => ({
                 role: msg.role === 'user' ? 'user' : 'model',
                 parts: [{ text: msg.text }]
@@ -771,8 +739,7 @@ COMANDOS:
 
             const data = await response.json();
             if (data.error) throw new Error(data.error.message);
-            aiResponseText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (!aiResponseText) throw new Error("Sem resposta da IA");
+            aiResponseText = data.candidates[0].content.parts[0].text;
         }
 
         try {
@@ -1094,8 +1061,7 @@ window.saveUserProfile = async () => {
     }
 
     try {
-        // CORREÇÃO: Usar caminho público
-        const usernameRef = getPublicDocPath('usernames', handleInput);
+        const usernameRef = doc(db, "usernames", handleInput);
         const usernameSnap = await getDoc(usernameRef);
 
         if (usernameSnap.exists()) {
@@ -1103,7 +1069,7 @@ window.saveUserProfile = async () => {
             return;
         }
 
-        await setDoc(usernameRef, { uid: currentUser.uid });
+        await setDoc(doc(db, "usernames", handleInput), { uid: currentUser.uid });
         
         const profileData = {
             handle: handleInput,
@@ -1115,8 +1081,7 @@ window.saveUserProfile = async () => {
             lastHandleChange: Date.now()
         };
         
-        // CORREÇÃO: Usar caminho específico do usuário
-        await setDoc(getUserDocPath(currentUser.uid, 'profile', 'main'), profileData);
+        await setDoc(doc(db, "users", currentUser.uid), profileData);
 
         const initialData = {
             schedule: [],
@@ -1128,7 +1093,7 @@ window.saveUserProfile = async () => {
             lastUpdated: new Date().toISOString()
         };
         
-        await setDoc(getUserDocPath(currentUser.uid, 'data', 'appData'), initialData);
+        await setDoc(doc(db, "users", currentUser.uid, "data", "appData"), initialData);
 
         userProfile = profileData;
         localStorage.setItem('salvese_session_active', 'true');
@@ -1144,7 +1109,7 @@ window.saveUserProfile = async () => {
 };
 
 function initRealtimeSync(uid) {
-    const dataRef = getUserDocPath(uid, 'data', 'appData');
+    const dataRef = doc(db, "users", uid, "data", "appData");
     unsubscribeData = onSnapshot(dataRef, (doc) => {
         if (doc.exists()) {
             const cloudData = doc.data();
@@ -1168,7 +1133,7 @@ function initRealtimeSync(uid) {
         }
     }, (error) => console.log("Modo offline ou erro de sync:", error.code));
 
-    onSnapshot(getUserDocPath(uid, 'profile', 'main'), (docSnap) => {
+    onSnapshot(doc(db, "users", uid), (docSnap) => {
         if(docSnap.exists()) {
             userProfile = docSnap.data();
             localStorage.setItem('salvese_user_profile', JSON.stringify(userProfile));
@@ -1230,7 +1195,7 @@ async function saveData() {
                 widgetStyles: widgetStyles,
                 lastUpdated: new Date().toISOString()
             };
-            await setDoc(getUserDocPath(currentUser.uid, 'data', 'appData'), dataToSave, { merge: true });
+            await setDoc(doc(db, "users", currentUser.uid, "data", "appData"), dataToSave, { merge: true });
         } catch (e) {
             console.log("Salvamento local ok. Nuvem pendente.");
         }
@@ -1568,7 +1533,7 @@ window.editName = function() {
                 if(!currentUser) return showModal("Erro", "Você precisa estar online.");
                 
                 try {
-                    await setDoc(getUserDocPath(currentUser.uid, 'profile', 'main'), { displayName: newName.trim() }, { merge: true });
+                    await setDoc(doc(db, "users", currentUser.uid), { displayName: newName.trim() }, { merge: true });
                     await updateProfile(currentUser, { displayName: newName.trim() });
                     showModal("Sucesso", "Nome alterado com sucesso!");
                 } catch (e) {
@@ -1610,7 +1575,7 @@ window.editHandle = function() {
                 `Deseja alterar para @${cleanHandle}? Essa ação não pode ser desfeita por 7 dias.`,
                 async () => {
                     try {
-                        const newHandleRef = getPublicDocPath('usernames', cleanHandle);
+                        const newHandleRef = doc(db, "usernames", cleanHandle);
                         const docSnap = await getDoc(newHandleRef);
                         
                         if (docSnap.exists()) {
@@ -1620,10 +1585,10 @@ window.editHandle = function() {
                         await setDoc(newHandleRef, { uid: currentUser.uid });
                         
                         if (userProfile.handle) {
-                            await deleteDoc(getPublicDocPath('usernames', userProfile.handle));
+                            await deleteDoc(doc(db, "usernames", userProfile.handle));
                         }
 
-                        await setDoc(getUserDocPath(currentUser.uid, 'profile', 'main'), { 
+                        await setDoc(doc(db, "users", currentUser.uid), { 
                             handle: cleanHandle,
                             lastHandleChange: Date.now()
                         }, { merge: true });
@@ -1648,7 +1613,7 @@ window.editSemester = function() {
         async (newSemester) => {
             if (newSemester !== null && currentUser) {
                 try {
-                    await setDoc(getUserDocPath(currentUser.uid, 'profile', 'main'), { semester: newSemester }, { merge: true });
+                    await setDoc(doc(db, "users", currentUser.uid), { semester: newSemester }, { merge: true });
                 } catch (e) {
                     showModal("Erro", "Erro ao salvar semestre: " + e.message);
                 }
@@ -1692,7 +1657,7 @@ window.changePhoto = function() {
                 const newUrl = data.data.link;
 
                 await updateProfile(currentUser, { photoURL: newUrl });
-                await setDoc(getUserDocPath(currentUser.uid, 'profile', 'main'), { photoURL: newUrl }, { merge: true });
+                await setDoc(doc(db, "users", currentUser.uid), { photoURL: newUrl }, { merge: true });
                 
                 const genericModal = document.getElementById('generic-modal');
                 if(genericModal && !genericModal.classList.contains('hidden')) closeGenericModal();

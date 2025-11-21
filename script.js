@@ -763,9 +763,21 @@ REGRAS:
         }
 
     } catch (error) {
-        console.error("Erro IA:", error);
-        let msg = "Ops! Erro de conexão.";
-        if (error.message.includes("API Key")) msg = "⚠️ Verifique a API Key.";
+        console.error("Erro REAL da IA:", error);
+
+        // MODIFICAÇÃO: Mostra o erro técnico na tela para sabermos o que é
+        let errorMsg = error.message || JSON.stringify(error);
+
+        let msg = `⚠️ Erro Técnico: ${errorMsg}`;
+
+        if (errorMsg.includes("403") || errorMsg.includes("permission")) {
+            msg = "⚠️ Erro 403: A API 'Generative Language' não está ativada no Google Cloud para essa chave.";
+        } else if (errorMsg.includes("404") || errorMsg.includes("not found")) {
+            msg = "⚠️ Erro 404: O modelo 'gemini-1.5-flash' não foi encontrado ou a chave está errada.";
+        } else if (errorMsg.includes("400")) {
+            msg = "⚠️ Erro 400: Requisição inválida (verifique o console).";
+        }
+
         appendMessage('ai', msg);
     } finally {
         hideTypingIndicator();
@@ -775,38 +787,6 @@ REGRAS:
         scrollToBottom();
     }
 };
-
-function scrollToBottom() {
-    const container = document.getElementById('chat-messages-container');
-    if (container) {
-        requestAnimationFrame(() => {
-            container.scrollTop = container.scrollHeight;
-        });
-    }
-}
-
-function showTypingIndicator() {
-    const container = document.getElementById('chat-messages-container');
-    if (!container) return;
-
-    hideTypingIndicator();
-
-    const div = document.createElement('div');
-    div.id = 'dynamic-typing-indicator';
-    div.className = 'flex gap-2 max-w-[90%] animate-fade-in-up mt-2 mb-4';
-    div.innerHTML = `
-        <div class="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center flex-shrink-0 text-white text-xs shadow-sm mt-auto mb-1">
-            <i class="fas fa-robot animate-pulse"></i>
-        </div>
-        <div class="bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder rounded-2xl rounded-tl-none px-4 py-3 shadow-sm flex items-center gap-1">
-            <div class="w-1.5 h-1.5 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce"></div>
-            <div class="w-1.5 h-1.5 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce" style="animation-delay: 0.1s"></div>
-            <div class="w-1.5 h-1.5 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce" style="animation-delay: 0.2s"></div>
-        </div>
-    `;
-    container.appendChild(div);
-    scrollToBottom();
-}
 
 function hideTypingIndicator() {
     const existing = document.getElementById('dynamic-typing-indicator');

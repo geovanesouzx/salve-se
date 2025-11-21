@@ -30,10 +30,9 @@ const firebaseConfig = {
   appId: "1:132544174908:web:00c6aa4855cc18ed2cdc39"
 };
 
-// Configuração da IA (Gemini) - CORRIGIDO: Usando a injeção do ambiente
-const apiKey = ""; 
+// Configuração da IA (Gemini) - ATUALIZADO COM NOVA CHAVE
+const apiKey = "AIzaSyAZgpqT4iz9NgLzpYJsIvc4tgeaJ1qHUaI"; 
 const GEMINI_MODEL = "gemini-2.5-flash-preview-09-2025";
-// Agora usa a variável apiKey correta em vez da hardcoded que expirou
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
 
 // Inicializa Firebase

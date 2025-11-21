@@ -34,17 +34,24 @@ const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__f
     appId: "1:132544174908:web:00c6aa4855cc18ed2cdc39"
 };
 
+/// ============================================================
 // --- CONFIGURAÇÃO DAS IAs ---
-const apiKey = "AIzaSyAZgpqT4iz9NgLzpYJsIvc4tgeaJ1qHUaI"; // Sua chave
+// ============================================================
 
-// MUDANÇA AQUI: Usando o modelo estável 1.5 Flash
+// A NOVA chave que você forneceu para a IA:
+const apiKey = "AIzaSyBmttgqGCdUwlZbtrbZYigxIu0HUbAFMLo";
+
+// ATENÇÃO: O modelo "2.5" não existe na API pública. 
+// O "gemini-1.5-flash" é a versão correta, super rápida e atualizada.
 const GEMINI_MODEL = "gemini-1.5-flash";
+
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
 
 const GROQ_API_KEY = "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";
 const GROQ_MODEL = "llama-3.3-70b-versatile";
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 
+// Controle de qual IA está ativa
 let currentAIProvider = 'gemini';
 
 // Inicializa Firebase

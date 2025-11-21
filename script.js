@@ -1,6 +1,7 @@
 // ============================================================
 // --- CONFIGURAÇÃO FIREBASE & IMPORTAÇÕES ---
 // ============================================================
+// CORREÇÃO: URLs limpas sem formatação Markdown que causava o travamento
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { 
     getAuth, 
@@ -249,16 +250,11 @@ function showProfileSetupScreen() {
 window.fixChatLayout = function() {
     const viewIA = document.getElementById('view-ia');
     const messageContainer = document.getElementById('chat-messages-container');
-    // CORREÇÃO: Melhor seletor para encontrar o container do input
-    const inputContainer = viewIA ? viewIA.querySelector('.w-full.p-4.border-t') : null;
+    const inputContainer = viewIA ? viewIA.querySelector('.absolute.bottom-0') : null;
     
     if (viewIA) {
-        // CORREÇÃO CRÍTICA: Removido "hidden" da string de classes. 
-        // Se esta função rodar, a view DEVE ser visível (flex).
-        viewIA.className = "fade-in flex flex-col h-full relative bg-gray-50 dark:bg-darkbg overflow-hidden";
-        
-        // Forçar altura correta
-        viewIA.style.height = "calc(100vh - 4rem)"; // Ajuste para header mobile/desktop
+        viewIA.className = "hidden fade-in flex flex-col h-full relative bg-gray-50 dark:bg-darkbg overflow-hidden";
+        viewIA.style.height = "calc(100vh - 4rem)"; 
 
         if(messageContainer) {
             messageContainer.className = "flex-1 overflow-y-auto p-4 space-y-4 scroll-smooth";
@@ -321,7 +317,6 @@ window.switchPage = function(pageId, addToHistory = true) {
     }
     
     if(pageId === 'ia') {
-        // Agora é seguro chamar isso, pois o bug do 'hidden' foi corrigido
         fixChatLayout();
         scrollToBottom();
         setTimeout(scrollToBottom, 100); 

@@ -2,50 +2,51 @@
 // --- CONFIGURAÇÃO FIREBASE & IMPORTAÇÕES ---
 // ============================================================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { 
-    getAuth, 
-    signInWithPopup, 
-    GoogleAuthProvider, 
-    onAuthStateChanged, 
-    signOut, 
-    updateProfile, 
+import {
+    getAuth,
+    signInWithPopup,
+    GoogleAuthProvider,
+    onAuthStateChanged,
+    signOut,
+    updateProfile,
     sendPasswordResetEmail,
     signInWithCustomToken,
     signInAnonymously
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-import { 
-    getFirestore, 
-    doc, 
-    setDoc, 
-    getDoc, 
-    deleteDoc, 
-    onSnapshot, 
+import {
+    getFirestore,
+    doc,
+    setDoc,
+    getDoc,
+    deleteDoc,
+    onSnapshot,
     enableIndexedDbPersistence,
     collection
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 // Use as variáveis globais do ambiente se disponíveis
 const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
-  apiKey: "AIzaSyD5Ggqw9FpMS98CHcfXKnghMQNMV5WIVTw",
-  authDomain: "salvee-se.firebaseapp.com",
-  projectId: "salvee-se",
-  storageBucket: "salvee-se.firebasestorage.app",
-  messagingSenderId: "132544174908",
-  appId: "1:132544174908:web:00c6aa4855cc18ed2cdc39"
+    apiKey: "AIzaSyD5Ggqw9FpMS98CHcfXKnghMQNMV5WIVTw",
+    authDomain: "salvee-se.firebaseapp.com",
+    projectId: "salvee-se",
+    storageBucket: "salvee-se.firebasestorage.app",
+    messagingSenderId: "132544174908",
+    appId: "1:132544174908:web:00c6aa4855cc18ed2cdc39"
 };
 
 // --- CONFIGURAÇÃO DAS IAs ---
-// CORREÇÃO: Usando 'apiKey' para injeção automática do ambiente
-const apiKey = ""; 
+// A chave do Gemini que você enviou:
+const apiKey = "AIzaSyAZgpqT4iz9NgLzpYJsIvc4tgeaJ1qHUaI";
+
 const GEMINI_MODEL = "gemini-2.5-flash-preview-09-2025";
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
 
-const GROQ_API_KEY = "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"; 
-const GROQ_MODEL = "llama-3.3-70b-versatile"; 
+const GROQ_API_KEY = "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";
+const GROQ_MODEL = "llama-3.3-70b-versatile";
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 
 // Controle de qual IA está ativa
-let currentAIProvider = 'gemini'; 
+let currentAIProvider = 'gemini';
 
 // Inicializa Firebase
 const app = initializeApp(firebaseConfig);
@@ -61,8 +62,8 @@ try {
             console.warn("O navegador não suporta persistência.");
         }
     });
-} catch (e) { 
-    console.log("Persistência já ativa ou não suportada"); 
+} catch (e) {
+    console.log("Persistência já ativa ou não suportada");
 }
 
 // ============================================================
@@ -77,7 +78,7 @@ let scheduleData = JSON.parse(localStorage.getItem('salvese_schedule')) || [];
 let tasksData = JSON.parse(localStorage.getItem('salvese_tasks')) || [];
 let remindersData = JSON.parse(localStorage.getItem('salvese_reminders')) || [];
 let notesData = JSON.parse(localStorage.getItem('salvese_notes')) || [];
-let hiddenWidgets = JSON.parse(localStorage.getItem('salvese_hidden_widgets')) || []; 
+let hiddenWidgets = JSON.parse(localStorage.getItem('salvese_hidden_widgets')) || [];
 let widgetStyles = JSON.parse(localStorage.getItem('salvese_widget_styles')) || {};
 
 // Configurações de Visualização
@@ -85,11 +86,11 @@ let scheduleViewMode = localStorage.getItem('salvese_schedule_mode') || 'table';
 
 // Estados Temporários
 let selectedClassIdToDelete = null;
-let currentTaskFilter = 'all'; 
-let chatHistory = []; 
-let currentViewContext = 'home'; 
-let activeNoteId = null; 
-let saveTimeout = null; 
+let currentTaskFilter = 'all';
+let chatHistory = [];
+let currentViewContext = 'home';
+let activeNoteId = null;
+let saveTimeout = null;
 
 // Conteúdo do Widget da IA
 let aiWidgetContent = localStorage.getItem('salvese_ai_widget') || "Olá! Sou sua IA. Vou postar dicas úteis aqui.";
@@ -119,7 +120,7 @@ const forceLoadTimeout = setTimeout(() => {
     const loadingScreen = document.getElementById('loading-screen');
     if (loadingScreen && !loadingScreen.classList.contains('hidden')) {
         if (sessionActive === 'true') {
-            loadAppOfflineMode(); 
+            loadAppOfflineMode();
         } else {
             showLoginScreen();
         }
@@ -130,7 +131,7 @@ const forceLoadTimeout = setTimeout(() => {
 const initAuth = async () => {
     if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
         await signInWithCustomToken(auth, __initial_auth_token);
-    } 
+    }
 };
 initAuth();
 
@@ -143,18 +144,18 @@ onAuthStateChanged(auth, async (user) => {
 
         try {
             const docRef = doc(db, "users", user.uid);
-            const docSnap = await getDoc(docRef); 
+            const docSnap = await getDoc(docRef);
 
             if (docSnap.exists()) {
                 userProfile = docSnap.data();
                 if (!userProfile.semester) userProfile.semester = "N/A";
                 localStorage.setItem('salvese_user_profile', JSON.stringify(userProfile));
-                showAppInterface(); 
-                initRealtimeSync(user.uid); 
+                showAppInterface();
+                initRealtimeSync(user.uid);
             } else {
                 if (user.isAnonymous) {
-                     userProfile = { displayName: 'Visitante', handle: 'visitante', semester: 'N/A' };
-                     showAppInterface();
+                    userProfile = { displayName: 'Visitante', handle: 'visitante', semester: 'N/A' };
+                    showAppInterface();
                 } else {
                     showProfileSetupScreen();
                 }
@@ -168,7 +169,7 @@ onAuthStateChanged(auth, async (user) => {
     } else {
         currentUser = null;
         userProfile = null;
-        if(unsubscribeData) unsubscribeData();
+        if (unsubscribeData) unsubscribeData();
 
         if (sessionActive === 'true' && !navigator.onLine) {
             loadAppOfflineMode();
@@ -199,31 +200,31 @@ function showAppInterface() {
     const appContent = document.querySelector('.app-content-wrapper');
     const loadingScreen = document.getElementById('loading-screen');
 
-    if(loginScreen) loginScreen.classList.add('hidden');
-    if(profileScreen) profileScreen.classList.add('hidden');
-    if(appContent) appContent.classList.remove('hidden');
+    if (loginScreen) loginScreen.classList.add('hidden');
+    if (profileScreen) profileScreen.classList.add('hidden');
+    if (appContent) appContent.classList.remove('hidden');
 
     updateUserInterfaceInfo();
     refreshAllUI();
-    
+
     // Força a chamada inicial para ajustar layout se já estiver na home
-    if(currentViewContext === 'home') {
+    if (currentViewContext === 'home') {
         const main = document.querySelector('main');
-        if(main) {
+        if (main) {
             main.className = "flex-1 overflow-y-auto p-4 md:p-8 pb-24 md:pb-8";
         }
     }
-    
+
     injectWidgetControls();
 
-    if(loadingScreen && !loadingScreen.classList.contains('hidden')) {
+    if (loadingScreen && !loadingScreen.classList.contains('hidden')) {
         loadingScreen.classList.add('opacity-0');
         setTimeout(() => loadingScreen.classList.add('hidden'), 500);
     }
-    
+
     updateAIWidgetUI();
-    applyWidgetVisibility(); 
-    applyAllWidgetStyles(); 
+    applyWidgetVisibility();
+    applyAllWidgetStyles();
 }
 
 function showLoginScreen() {
@@ -232,11 +233,11 @@ function showLoginScreen() {
     const appContent = document.querySelector('.app-content-wrapper');
     const loadingScreen = document.getElementById('loading-screen');
 
-    if(loginScreen) loginScreen.classList.remove('hidden');
-    if(profileScreen) profileScreen.classList.add('hidden');
-    if(appContent) appContent.classList.add('hidden');
+    if (loginScreen) loginScreen.classList.remove('hidden');
+    if (profileScreen) profileScreen.classList.add('hidden');
+    if (appContent) appContent.classList.add('hidden');
 
-    if(loadingScreen && !loadingScreen.classList.contains('hidden')) {
+    if (loadingScreen && !loadingScreen.classList.contains('hidden')) {
         loadingScreen.classList.add('opacity-0');
         setTimeout(() => loadingScreen.classList.add('hidden'), 500);
     }
@@ -248,47 +249,47 @@ function showProfileSetupScreen() {
     const appContent = document.querySelector('.app-content-wrapper');
     const loadingScreen = document.getElementById('loading-screen');
 
-    if(loginScreen) loginScreen.classList.add('hidden');
-    if(profileScreen) profileScreen.classList.remove('hidden');
-    if(appContent) appContent.classList.add('hidden');
-    if(loadingScreen) loadingScreen.classList.add('hidden');
+    if (loginScreen) loginScreen.classList.add('hidden');
+    if (profileScreen) profileScreen.classList.remove('hidden');
+    if (appContent) appContent.classList.add('hidden');
+    if (loadingScreen) loadingScreen.classList.add('hidden');
 }
 
-window.fixChatLayout = function() {
+window.fixChatLayout = function () {
     // Esta função agora apenas garante que a view esteja visível
     // O layout principal é controlado pelo switchPage modificando o <main>
     const viewIA = document.getElementById('view-ia');
     const messageContainer = document.getElementById('chat-messages-container');
     const inputContainer = viewIA ? viewIA.querySelector('.w-full.p-4.border-t') : null;
-    
+
     if (viewIA) {
         // Remove 'hidden' se estiver presente
         viewIA.classList.remove('hidden');
         viewIA.classList.add('flex');
-        
-        // A altura agora é 100% do pai (<main>), que não tem padding
-        viewIA.style.height = "100%"; 
 
-        if(messageContainer) {
+        // A altura agora é 100% do pai (<main>), que não tem padding
+        viewIA.style.height = "100%";
+
+        if (messageContainer) {
             messageContainer.className = "flex-1 overflow-y-auto p-4 space-y-4 scroll-smooth";
-            messageContainer.style.paddingBottom = "20px"; 
+            messageContainer.style.paddingBottom = "20px";
         }
-        
+
         if (inputContainer) {
-             inputContainer.className = "flex-none w-full p-4 bg-white dark:bg-darkcard border-t border-gray-200 dark:border-darkborder z-20";
-             inputContainer.style.position = "relative"; 
-             inputContainer.style.bottom = "auto";
+            inputContainer.className = "flex-none w-full p-4 bg-white dark:bg-darkcard border-t border-gray-200 dark:border-darkborder z-20";
+            inputContainer.style.position = "relative";
+            inputContainer.style.bottom = "auto";
         }
     }
 }
 
-window.switchPage = function(pageId, addToHistory = true) {
+window.switchPage = function (pageId, addToHistory = true) {
     currentViewContext = pageId;
 
     // CORREÇÃO DE LAYOUT: Ajustar o container <main> dependendo da tela
     const mainContainer = document.querySelector('main');
-    if(mainContainer) {
-        if(pageId === 'ia') {
+    if (mainContainer) {
+        if (pageId === 'ia') {
             // Na IA, removemos padding e scroll do main para o chat gerenciar seu próprio scroll
             mainContainer.className = "flex-1 flex flex-col h-full overflow-hidden p-0 bg-gray-50 dark:bg-darkbg";
         } else {
@@ -310,20 +311,20 @@ window.switchPage = function(pageId, addToHistory = true) {
         link.classList.remove('bg-indigo-50', 'text-indigo-600', 'dark:bg-indigo-900/50', 'dark:text-indigo-300');
         link.classList.add('text-gray-600', 'dark:text-gray-400');
 
-        if(link.getAttribute('onclick') && link.getAttribute('onclick').includes(`'${pageId}'`)) {
-             link.classList.add('bg-indigo-50', 'text-indigo-600', 'dark:bg-indigo-900/50', 'dark:text-indigo-300');
-             link.classList.remove('text-gray-600', 'dark:text-gray-400');
+        if (link.getAttribute('onclick') && link.getAttribute('onclick').includes(`'${pageId}'`)) {
+            link.classList.add('bg-indigo-50', 'text-indigo-600', 'dark:bg-indigo-900/50', 'dark:text-indigo-300');
+            link.classList.remove('text-gray-600', 'dark:text-gray-400');
         }
     });
 
-    const titles = { 
-        home: 'Página Principal', 
-        onibus: 'Transporte', 
-        calc: 'Calculadora', 
-        pomo: 'Modo Foco', 
-        todo: 'Tarefas', 
-        email: 'Templates', 
-        aulas: 'Grade Horária', 
+    const titles = {
+        home: 'Página Principal',
+        onibus: 'Transporte',
+        calc: 'Calculadora',
+        pomo: 'Modo Foco',
+        todo: 'Tarefas',
+        email: 'Templates',
+        aulas: 'Grade Horária',
         config: 'Configurações',
         notas: 'Anotações',
         ia: 'Salve-se IA',
@@ -331,24 +332,24 @@ window.switchPage = function(pageId, addToHistory = true) {
     };
     const pageTitleEl = document.getElementById('page-title');
     if (pageTitleEl) pageTitleEl.innerText = titles[pageId] || 'Salve-se UFRB';
-    
-    if(pageId === 'aulas' && window.renderSchedule) window.renderSchedule();
-    if(pageId === 'config' && window.renderSettings) window.renderSettings();
-    if(pageId === 'notas' && window.renderNotes) window.renderNotes();
-    if(pageId === 'ocultos' && window.renderHiddenWidgetsPage) window.renderHiddenWidgetsPage();
-    if(pageId === 'home') {
-        applyWidgetVisibility(); 
+
+    if (pageId === 'aulas' && window.renderSchedule) window.renderSchedule();
+    if (pageId === 'config' && window.renderSettings) window.renderSettings();
+    if (pageId === 'notas' && window.renderNotes) window.renderNotes();
+    if (pageId === 'ocultos' && window.renderHiddenWidgetsPage) window.renderHiddenWidgetsPage();
+    if (pageId === 'home') {
+        applyWidgetVisibility();
         refreshAllUI();
     }
-    
-    if(pageId === 'ia') {
+
+    if (pageId === 'ia') {
         fixChatLayout();
         scrollToBottom();
-        setTimeout(scrollToBottom, 100); 
+        setTimeout(scrollToBottom, 100);
     }
 
-    if(addToHistory) {
-        history.pushState({view: pageId}, null, `#${pageId}`);
+    if (addToHistory) {
+        history.pushState({ view: pageId }, null, `#${pageId}`);
     }
 }
 
@@ -366,17 +367,17 @@ const WIDGET_PRESETS = {
 
 function injectWidgetControls() {
     const widgets = ['widget-bus', 'widget-tasks', 'widget-quick', 'widget-class', 'widget-reminders', 'widget-ai', 'widget-notes'];
-    
+
     widgets.forEach(id => {
         const widget = document.getElementById(id);
-        if(!widget) return;
+        if (!widget) return;
 
         const existingControls = widget.querySelector('.widget-controls');
-        if(existingControls) existingControls.remove();
+        if (existingControls) existingControls.remove();
 
         const controlsDiv = document.createElement('div');
         controlsDiv.className = "widget-controls absolute top-3 right-3 flex gap-2 z-20 opacity-0 group-hover:opacity-100 transition-opacity bg-white/80 dark:bg-black/50 backdrop-blur-sm rounded-lg p-1 shadow-sm";
-        
+
         controlsDiv.innerHTML = `
             <button onclick="openWidgetCustomizer('${id}')" class="w-6 h-6 flex items-center justify-center text-gray-500 hover:text-indigo-500 dark:text-gray-300 dark:hover:text-indigo-400 transition" title="Personalizar Estilo">
                 <i class="fas fa-palette text-xs"></i>
@@ -386,23 +387,23 @@ function injectWidgetControls() {
             </button>
         `;
 
-        if(getComputedStyle(widget).position === 'static') widget.style.position = 'relative';
-        widget.classList.add('group'); 
-        
+        if (getComputedStyle(widget).position === 'static') widget.style.position = 'relative';
+        widget.classList.add('group');
+
         widget.appendChild(controlsDiv);
-        
+
         const oldButtons = widget.querySelectorAll('button[onclick^="toggleWidget"]');
         oldButtons.forEach(btn => {
-            if(!btn.closest('.widget-controls')) btn.style.display = 'none';
+            if (!btn.closest('.widget-controls')) btn.style.display = 'none';
         });
     });
 }
 
-window.openWidgetCustomizer = function(widgetId) {
+window.openWidgetCustomizer = function (widgetId) {
     const modal = document.createElement('div');
     modal.className = "fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm fade-in";
     modal.id = "customizer-modal";
-    
+
     let optionsHtml = '';
     Object.entries(WIDGET_PRESETS).forEach(([key, preset]) => {
         optionsHtml += `
@@ -426,86 +427,86 @@ window.openWidgetCustomizer = function(widgetId) {
             </div>
         </div>
     `;
-    
+
     document.body.appendChild(modal);
 }
 
-window.setWidgetStyle = function(widgetId, styleKey) {
+window.setWidgetStyle = function (widgetId, styleKey) {
     widgetStyles[widgetId] = styleKey;
     saveData();
     applyAllWidgetStyles();
-    
+
     const modal = document.getElementById('customizer-modal');
-    if(modal) modal.remove();
-    
+    if (modal) modal.remove();
+
     showModal("Estilo Aplicado", "O visual do widget foi atualizado.");
 }
 
 function applyAllWidgetStyles() {
     Object.entries(widgetStyles).forEach(([id, styleKey]) => {
         const widget = document.getElementById(id);
-        if(!widget) return;
-        
+        if (!widget) return;
+
         const preset = WIDGET_PRESETS[styleKey];
-        if(!preset) return;
+        if (!preset) return;
 
         widget.className = widget.className.replace(/bg-[\w-\/]+|border-[\w-\/]+|text-[\w-\/]+|widget-mode-\w+/g, '').trim();
         widget.classList.remove('bg-white', 'dark:bg-darkcard', 'border-gray-200', 'dark:border-darkborder', 'shadow-sm');
-        
-        if(!widget.className.includes('rounded-xl')) widget.classList.add('rounded-xl');
-        if(!widget.className.includes('flex')) widget.classList.add('flex', 'flex-col');
-        
+
+        if (!widget.className.includes('rounded-xl')) widget.classList.add('rounded-xl');
+        if (!widget.className.includes('flex')) widget.classList.add('flex', 'flex-col');
+
         const isHidden = widget.classList.contains('hidden');
         widget.className = `rounded-xl border p-6 flex flex-col h-full min-h-[200px] relative overflow-hidden group transition-all duration-300 ${preset.class} ${isHidden ? 'hidden' : ''}`;
-        
-        if(styleKey !== 'default') {
+
+        if (styleKey !== 'default') {
             widget.classList.add('widget-custom-dark');
-            
+
             const controls = widget.querySelector('.widget-controls');
-            if(controls) {
+            if (controls) {
                 controls.className = "widget-controls absolute top-3 right-3 flex gap-2 z-20 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 dark:bg-black/60 backdrop-blur-sm rounded-lg p-1 shadow-sm";
             }
         } else {
             widget.classList.remove('widget-custom-dark');
             widget.classList.add('bg-white', 'dark:bg-darkcard', 'border-gray-200', 'dark:border-darkborder', 'shadow-sm');
         }
-        
+
         if (!widget.querySelector('.widget-controls')) {
             injectWidgetControls();
         }
     });
 }
 
-window.toggleWidget = function(widgetId) {
+window.toggleWidget = function (widgetId) {
     const widget = document.getElementById(widgetId);
-    if(!widget) return;
+    if (!widget) return;
 
-    if(hiddenWidgets.includes(widgetId)) {
+    if (hiddenWidgets.includes(widgetId)) {
         hiddenWidgets = hiddenWidgets.filter(id => id !== widgetId);
         widget.classList.remove('hidden');
         showModal("Widget Restaurado", "O widget voltou para a tela principal.");
     } else {
         hiddenWidgets.push(widgetId);
         widget.classList.add('hidden');
-        
+
         const toast = document.createElement('div');
         toast.className = "fixed bottom-20 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white px-4 py-2 rounded-full text-sm shadow-lg z-[60] animate-fade-in-up flex items-center gap-2";
         toast.innerHTML = `<span>Widget oculto.</span> <button onclick="switchPage('ocultos')" class="text-indigo-300 font-bold hover:underline">Desfazer</button>`;
         document.body.appendChild(toast);
         setTimeout(() => toast.remove(), 3000);
     }
-    
+
     saveData();
-    applyWidgetVisibility(); 
-    if(currentViewContext === 'ocultos') renderHiddenWidgetsPage();
+    applyWidgetVisibility();
+    if (currentViewContext === 'ocultos') renderHiddenWidgetsPage();
 }
 
 function applyWidgetVisibility() {
     const allWidgets = ['widget-bus', 'widget-tasks', 'widget-quick', 'widget-class', 'widget-reminders', 'widget-ai', 'widget-notes'];
     allWidgets.forEach(id => {
         const el = document.getElementById(id);
-        if(el) {
-            if(hiddenWidgets.includes(id)) {
+        if (el) {
+            if (hiddenWidgets.includes(id)) {
                 el.classList.add('hidden');
             } else {
                 el.classList.remove('hidden');
@@ -514,15 +515,15 @@ function applyWidgetVisibility() {
     });
 }
 
-window.renderHiddenWidgetsPage = function() {
+window.renderHiddenWidgetsPage = function () {
     const container = document.getElementById('view-ocultos');
-    if(!container) return;
+    if (!container) return;
 
     container.innerHTML = '';
-    
+
     const wrapper = document.createElement('div');
     wrapper.className = "max-w-4xl mx-auto p-4";
-    
+
     const header = document.createElement('div');
     header.className = "mb-6 flex items-center justify-between";
     header.innerHTML = `
@@ -534,7 +535,7 @@ window.renderHiddenWidgetsPage = function() {
     `;
     wrapper.appendChild(header);
 
-    if(hiddenWidgets.length === 0) {
+    if (hiddenWidgets.length === 0) {
         wrapper.innerHTML += `
             <div class="flex flex-col items-center justify-center py-20 text-center">
                 <div class="w-20 h-20 bg-gray-100 dark:bg-neutral-800 rounded-full flex items-center justify-center mb-4 text-gray-400">
@@ -547,7 +548,7 @@ window.renderHiddenWidgetsPage = function() {
     } else {
         const grid = document.createElement('div');
         grid.className = "grid grid-cols-1 md:grid-cols-2 gap-4";
-        
+
         const labels = {
             'widget-bus': { icon: 'bus', name: 'Circular / Ônibus' },
             'widget-tasks': { icon: 'check-circle', name: 'Tarefas' },
@@ -577,7 +578,7 @@ window.renderHiddenWidgetsPage = function() {
         });
         wrapper.appendChild(grid);
     }
-    
+
     container.appendChild(wrapper);
 }
 
@@ -585,7 +586,7 @@ window.renderHiddenWidgetsPage = function() {
 // --- INTEGRAÇÃO IA ---
 // ============================================================
 
-window.setAIProvider = function(provider) {
+window.setAIProvider = function (provider) {
     currentAIProvider = provider;
     const feedback = provider === 'gemini' ? "Gemini (Google) ativado." : "Llama 3.3 (Groq) ativada.";
     showModal("IA Alterada", feedback);
@@ -595,9 +596,9 @@ window.setAIProvider = function(provider) {
 function updateAISelectorUI() {
     const btnGemini = document.getElementById('btn-ai-gemini');
     const btnGroq = document.getElementById('btn-ai-groq');
-    
-    if(btnGemini && btnGroq) {
-        if(currentAIProvider === 'gemini') {
+
+    if (btnGemini && btnGroq) {
+        if (currentAIProvider === 'gemini') {
             btnGemini.classList.add('ring-2', 'ring-indigo-500');
             btnGroq.classList.remove('ring-2', 'ring-indigo-500');
         } else {
@@ -613,7 +614,7 @@ function formatAIContent(text) {
     return text.split('\n').filter(line => line.trim() !== '').map(line => `<p>${line}</p>`).join('');
 }
 
-window.sendIAMessage = async function() {
+window.sendIAMessage = async function () {
     const input = document.getElementById('chat-input');
     const message = input.value.trim();
     const container = document.getElementById('chat-messages-container');
@@ -625,65 +626,57 @@ window.sendIAMessage = async function() {
     input.value = '';
     input.disabled = true;
     sendBtn.disabled = true;
-    
+
     scrollToBottom();
     showTypingIndicator();
 
     try {
+        // Contexto simplificado para economizar tokens e focar a IA
         const contextData = {
-            telaAtual: currentViewContext,
-            dataAtual: new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }),
+            tela: currentViewContext,
+            data: new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
             user: userProfile ? userProfile.displayName : 'Usuário',
-            tarefas: tasksData.map(t => ({ id: t.id, text: t.text, done: t.done, priority: t.priority })),
-            aulas: scheduleData.map(c => ({ id: c.id, name: c.name, day: c.day, start: c.start, room: c.room })),
-            lembretes: remindersData,
-            notas: notesData.map(n => ({ id: n.id, title: n.title, preview: n.content.substring(0, 100).replace(/<[^>]*>?/gm, '') })),
-            notaAberta: activeNoteId ? notesData.find(n => n.id === activeNoteId) : null,
-            widgetsOcultos: hiddenWidgets,
-            tema: document.documentElement.classList.contains('dark') ? 'Escuro' : 'Claro',
-            widgetContent: aiWidgetContent,
+            tarefas: tasksData.map(t => t.text), // Manda só texto para economizar token
+            lembretes: remindersData.map(r => r.desc),
+            aulas_hoje: scheduleData.filter(c => c.day === ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'][new Date().getDay()]).map(c => c.name),
+            widgets_ocultos: hiddenWidgets,
             aiProvider: currentAIProvider
         };
 
+        // PROMPT REFORÇADO PARA FORÇAR COMANDOS
         let systemInstructionText = `
-Você é a "Salve-se IA", assistente da UFRB. 
-CONTEXTO ATUAL: ${JSON.stringify(contextData)}
+VOCÊ É O CÉREBRO DO APP "SALVE-SE UFRB".
+Sua função é executar ações no app baseadas no pedido do usuário.
 
-REGRAS CRÍTICAS:
-1. Responda APENAS com JSON válido.
-2. Para ANOTAÇÕES ("create_note" ou "update_note"):
-   - USE FORMATAÇÃO HTML: <p>, <br>, <b>, <ul>, <li>.
-   - Ao usar "update_note", envie o CONTEÚDO COMPLETO da nota (antigo + novo), a menos que o usuário peça para apagar.
-3. Você pode ocultar, mostrar ou personalizar widgets.
-4. Você pode criar e APAGAR tarefas, lembretes e notas.
+CONTEXTO: ${JSON.stringify(contextData)}
 
-FORMATO JSON:
+ESTRUTURA DE RESPOSTA OBRIGATÓRIA (JSON PURO):
 {
-  "message": "Texto de resposta (pode ter HTML simples)...",
-  "commands": [ ... ]
+  "message": "Texto curto e simpático para o usuário (use HTML básico se precisar: <b>, <br>)",
+  "commands": [
+    { "action": "NOME_DA_ACAO", "params": { ... } }
+  ]
 }
 
-COMANDOS:
-- "navigate": { "page": "home|aulas|onibus|todo|pomo|calc|email|config|notas|ocultos" }
-- "create_task": { "text": "...", "priority": "normal", "category": "geral" }
-- "delete_task": { "text": "texto aproximado da tarefa" }
-- "create_class": { "name": "...", "day": "seg", "start": "00:00", "end": "00:00", "room": "..." }
+LISTA DE AÇÕES (Use exatamente estes nomes):
+- "create_task": { "text": "...", "priority": "normal|medium|high", "category": "geral|estudo|trabalho" }
 - "create_reminder": { "desc": "...", "date": "YYYY-MM-DD", "prio": "medium" }
-- "delete_reminder": { "desc": "texto aproximado do lembrete" }
-- "add_grade": { "value": 8.5, "weight": 1 }
-- "toggle_theme": {}
-- "create_note": { "title": "...", "content": "HTML Content Here" } 
-- "update_note": { "id": "...", "content": "HTML Content Here (FULL TEXT)" }
-- "hide_widget": { "id": "widget-id" } 
-- "show_widget": { "id": "widget-id" }
-- "style_widget": { "id": "widget-id", "style": "gradient-indigo|gradient-emerald|gradient-sunset|dark-mode|default" }
-- "update_dashboard_widget": { "content": "..." }
-        `;
+- "create_note": { "title": "...", "content": "Conteúdo HTML" }
+- "create_class": { "name": "...", "day": "seg|ter|qua|qui|sex|sab", "start": "00:00", "end": "00:00", "room": "..." }
+- "navigate": { "page": "home|todo|aulas|notas|onibus|calc|pomo" }
+- "hide_widget": { "id": "widget-tasks|widget-bus|..." }
+- "show_widget": { "id": "widget-tasks|widget-bus|..." }
+
+REGRAS FATAIS:
+1. SE O USUÁRIO PEDIR PARA CRIAR ALGO, O ARRAY "commands" NÃO PODE ESTAR VAZIO.
+2. NÃO responda com markdown (sem \`\`\`json). Responda apenas o JSON cru.
+3. Se for criar tarefa/lembrete, confirme no campo "message" que foi feito.
+`;
 
         let messagesPayload = [];
         messagesPayload.push({ role: "system", content: systemInstructionText });
 
-        const recentHistory = chatHistory.slice(-6); 
+        const recentHistory = chatHistory.slice(-4);
         recentHistory.forEach(msg => {
             messagesPayload.push({ role: msg.role === 'user' ? 'user' : 'assistant', content: msg.text });
         });
@@ -702,9 +695,9 @@ COMANDOS:
                 body: JSON.stringify({
                     model: GROQ_MODEL,
                     messages: messagesPayload,
-                    temperature: 0.3, 
-                    max_tokens: 2048,
-                    response_format: { type: "json_object" } 
+                    temperature: 0.1, // Temperatura baixa para ser mais "robótico" e preciso no JSON
+                    max_tokens: 1024,
+                    response_format: { type: "json_object" }
                 })
             });
 
@@ -713,26 +706,21 @@ COMANDOS:
             aiResponseText = data.choices[0].message.content;
 
         } else {
+            // Lógica do Gemini (Só funciona se tiver API Key)
             if (!apiKey && !GEMINI_API_URL.includes("key=")) {
-                 throw new Error("Chave de API do Gemini não configurada. Use o provider 'Llama' ou adicione a chave.");
+                throw new Error("Configure a API Key do Gemini ou mude para Llama.");
             }
 
-            const geminiContents = recentHistory.map(msg => ({
-                role: msg.role === 'user' ? 'user' : 'model',
-                parts: [{ text: msg.text }]
-            }));
-            geminiContents.push({ role: "user", parts: [{ text: message }] });
+            const geminiContents = [{ role: "user", parts: [{ text: systemInstructionText + "\n\nUsuário: " + message }] }];
 
             const response = await fetch(GEMINI_API_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     contents: geminiContents,
-                    systemInstruction: { parts: [{ text: systemInstructionText }] },
-                    generationConfig: { 
-                        temperature: 0.4, 
-                        maxOutputTokens: 2048,
-                        responseMimeType: "application/json" 
+                    generationConfig: {
+                        temperature: 0.1,
+                        responseMimeType: "application/json"
                     }
                 })
             });
@@ -742,36 +730,54 @@ COMANDOS:
             aiResponseText = data.candidates[0].content.parts[0].text;
         }
 
+        // --- PARSEAMENTO ROBUSTO DE JSON ---
         try {
+            console.log("Resposta bruta da IA:", aiResponseText); // Para debug
+
+            // 1. Tenta limpar markdown
             let cleanText = aiResponseText.replace(/```json/g, '').replace(/```/g, '').trim();
-            const responseJson = JSON.parse(cleanText);
-            
-            if (responseJson.message) {
-                appendMessage('ai', responseJson.message);
-            } else if (!responseJson.commands || responseJson.commands.length === 0) {
-                appendMessage('ai', "Entendido.");
+
+            // 2. Se a IA mandou texto antes do JSON, tenta achar o primeiro '{' e o último '}'
+            const firstBracket = cleanText.indexOf('{');
+            const lastBracket = cleanText.lastIndexOf('}');
+            if (firstBracket !== -1 && lastBracket !== -1) {
+                cleanText = cleanText.substring(firstBracket, lastBracket + 1);
             }
 
+            const responseJson = JSON.parse(cleanText);
+
+            // Exibe a mensagem da IA
+            if (responseJson.message) {
+                appendMessage('ai', responseJson.message);
+            } else {
+                appendMessage('ai', "Feito.");
+            }
+
+            // Executa os comandos
             if (responseJson.commands && Array.isArray(responseJson.commands)) {
+                console.log("Comandos encontrados:", responseJson.commands.length);
                 for (const cmd of responseJson.commands) {
                     await executeAICommand(cmd);
-                    await new Promise(r => setTimeout(r, 300)); 
+                    await new Promise(r => setTimeout(r, 300));
                 }
             } else if (responseJson.action) {
+                // Suporte legado para formato de ação única
                 await executeAICommand(responseJson);
+            } else {
+                console.warn("Nenhum comando encontrado no JSON da IA");
             }
 
         } catch (e) {
             console.error("Erro Parse JSON IA:", e);
-            const cleanText = aiResponseText.replace(/[\{\}\[\]"]/g, '').substring(0, 150);
-            appendMessage('ai', "Tive um erro ao processar o comando, mas aqui está a resposta bruta: " + cleanText + "...");
+            console.log("Texto que falhou:", aiResponseText);
+            // Se falhar o JSON, mostra o texto cru como fallback, mas avisa
+            appendMessage('ai', aiResponseText.replace(/[\{\}\[\]"]/g, ''));
         }
 
     } catch (error) {
         console.error("Erro IA:", error);
-        let msg = "Ops! Tive um problema técnico.";
-        if(error.message.includes("429")) msg = "⚠️ A IA está sobrecarregada. Tente novamente em alguns segundos.";
-        if(error.message.includes("API key not valid")) msg = "⚠️ Erro de chave de API. Verifique as configurações.";
+        let msg = "Ops! Erro de conexão.";
+        if (error.message.includes("API Key")) msg = "⚠️ API Key do Gemini ausente.";
         appendMessage('ai', msg);
     } finally {
         hideTypingIndicator();
@@ -784,7 +790,7 @@ COMANDOS:
 
 function scrollToBottom() {
     const container = document.getElementById('chat-messages-container');
-    if(container) {
+    if (container) {
         requestAnimationFrame(() => {
             container.scrollTop = container.scrollHeight;
         });
@@ -828,9 +834,9 @@ function appendMessage(sender, text) {
 
     const div = document.createElement('div');
     div.className = `flex w-full ${sender === 'user' ? 'justify-end' : 'justify-start'} mb-4 animate-scale-in group`;
-    
+
     const time = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-    
+
     const formattedText = text
         .replace(/\n/g, '<br>')
         .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
@@ -871,7 +877,7 @@ async function executeAICommand(cmd) {
     console.log("Executando comando IA:", cmd);
     const p = cmd.params || {};
 
-    switch(cmd.action) {
+    switch (cmd.action) {
         case 'update_dashboard_widget':
             updateAIWidget(p.content);
             break;
@@ -882,10 +888,10 @@ async function executeAICommand(cmd) {
             break;
 
         case 'delete_task':
-            if(p.text) {
+            if (p.text) {
                 const initialLen = tasksData.length;
                 tasksData = tasksData.filter(t => !t.text.toLowerCase().includes(p.text.toLowerCase()));
-                if(tasksData.length < initialLen) saveData();
+                if (tasksData.length < initialLen) saveData();
             }
             break;
 
@@ -899,95 +905,95 @@ async function executeAICommand(cmd) {
                 switchPage(p.page);
             }
             break;
-        
+
         case 'create_reminder':
-             remindersData.push({ id: Date.now().toString() + Math.random(), desc: p.desc, date: p.date, prio: p.prio || 'medium', createdAt: Date.now() });
-             saveData();
-             break;
+            remindersData.push({ id: Date.now().toString() + Math.random(), desc: p.desc, date: p.date, prio: p.prio || 'medium', createdAt: Date.now() });
+            saveData();
+            break;
 
         case 'delete_reminder':
-             if(p.desc) {
-                 const initLen = remindersData.length;
-                 remindersData = remindersData.filter(r => !r.desc.toLowerCase().includes(p.desc.toLowerCase()));
-                 if(remindersData.length < initLen) saveData();
-             }
-             break;
-        
+            if (p.desc) {
+                const initLen = remindersData.length;
+                remindersData = remindersData.filter(r => !r.desc.toLowerCase().includes(p.desc.toLowerCase()));
+                if (remindersData.length < initLen) saveData();
+            }
+            break;
+
         case 'add_grade':
-             if(currentViewContext !== 'calc') switchPage('calc');
-             setTimeout(() => {
-                 const inputs = document.querySelectorAll('.grade-input');
-                 const weights = document.querySelectorAll('.weight-input');
-                 let found = false;
-                 for(let i=0; i<inputs.length; i++) {
-                     if(inputs[i].value === "") {
-                         inputs[i].value = p.value;
-                         if(p.weight) weights[i].value = p.weight;
-                         found = true;
-                         break;
-                     }
-                 }
-                 if(!found) {
-                     addGradeRow();
-                     const newInputs = document.querySelectorAll('.grade-input');
-                     const lastInput = newInputs[newInputs.length-1];
-                     lastInput.value = p.value;
-                 }
-                 calculateAverage();
-             }, 500);
-             break;
+            if (currentViewContext !== 'calc') switchPage('calc');
+            setTimeout(() => {
+                const inputs = document.querySelectorAll('.grade-input');
+                const weights = document.querySelectorAll('.weight-input');
+                let found = false;
+                for (let i = 0; i < inputs.length; i++) {
+                    if (inputs[i].value === "") {
+                        inputs[i].value = p.value;
+                        if (p.weight) weights[i].value = p.weight;
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    addGradeRow();
+                    const newInputs = document.querySelectorAll('.grade-input');
+                    const lastInput = newInputs[newInputs.length - 1];
+                    lastInput.value = p.value;
+                }
+                calculateAverage();
+            }, 500);
+            break;
 
         case 'toggle_theme':
-             toggleTheme();
-             break;
+            toggleTheme();
+            break;
 
         case 'create_note':
-             const newNoteId = Date.now().toString();
-             const formattedNewContent = formatAIContent(p.content);
-             notesData.push({
-                 id: newNoteId,
-                 title: p.title || "Nova Nota IA",
-                 content: formattedNewContent || "",
-                 updatedAt: Date.now()
-             });
-             saveData();
-             if(currentViewContext === 'notas') {
-                 renderNotes();
-                 openNote(newNoteId);
-             }
-             break;
+            const newNoteId = Date.now().toString();
+            const formattedNewContent = formatAIContent(p.content);
+            notesData.push({
+                id: newNoteId,
+                title: p.title || "Nova Nota IA",
+                content: formattedNewContent || "",
+                updatedAt: Date.now()
+            });
+            saveData();
+            if (currentViewContext === 'notas') {
+                renderNotes();
+                openNote(newNoteId);
+            }
+            break;
 
         case 'update_note':
-             const targetId = p.id || activeNoteId;
-             const noteToUpdate = notesData.find(n => n.id === targetId);
-             if(noteToUpdate) {
-                 noteToUpdate.content = formatAIContent(p.content); 
-                 noteToUpdate.updatedAt = Date.now();
-                 saveData();
-                 if(activeNoteId === targetId && currentViewContext === 'notas') {
-                     const editor = document.getElementById('editor-content');
-                     if(editor) editor.innerHTML = noteToUpdate.content;
-                 }
-             }
-             break;
+            const targetId = p.id || activeNoteId;
+            const noteToUpdate = notesData.find(n => n.id === targetId);
+            if (noteToUpdate) {
+                noteToUpdate.content = formatAIContent(p.content);
+                noteToUpdate.updatedAt = Date.now();
+                saveData();
+                if (activeNoteId === targetId && currentViewContext === 'notas') {
+                    const editor = document.getElementById('editor-content');
+                    if (editor) editor.innerHTML = noteToUpdate.content;
+                }
+            }
+            break;
 
         case 'hide_widget':
-             if(p.id && !hiddenWidgets.includes(p.id)) {
+            if (p.id && !hiddenWidgets.includes(p.id)) {
                 toggleWidget(p.id);
-             }
-             break;
+            }
+            break;
 
         case 'show_widget':
-             if(p.id && hiddenWidgets.includes(p.id)) {
+            if (p.id && hiddenWidgets.includes(p.id)) {
                 toggleWidget(p.id);
-             }
-             break;
-        
+            }
+            break;
+
         case 'style_widget':
-             if(p.id && p.style) {
-                 setWidgetStyle(p.id, p.style);
-             }
-             break;
+            if (p.id && p.style) {
+                setWidgetStyle(p.id, p.style);
+            }
+            break;
 
         default:
             console.log("Comando desconhecido:", cmd.action);
@@ -1002,7 +1008,7 @@ function updateAIWidget(content) {
 
 function updateAIWidgetUI() {
     const widgetEl = document.getElementById('ai-widget-content');
-    if(widgetEl) {
+    if (widgetEl) {
         widgetEl.innerHTML = `
             <div class="flex items-start gap-3">
                 <i class="fas fa-lightbulb text-yellow-500 text-xl"></i>
@@ -1036,7 +1042,7 @@ window.loginWithGoogle = async () => {
 window.logoutApp = async () => {
     try {
         await signOut(auth);
-        localStorage.removeItem('salvese_session_active'); 
+        localStorage.removeItem('salvese_session_active');
         location.reload();
     } catch (error) {
         localStorage.removeItem('salvese_session_active');
@@ -1070,7 +1076,7 @@ window.saveUserProfile = async () => {
         }
 
         await setDoc(doc(db, "usernames", handleInput), { uid: currentUser.uid });
-        
+
         const profileData = {
             handle: handleInput,
             displayName: nameInput,
@@ -1080,7 +1086,7 @@ window.saveUserProfile = async () => {
             semester: "N/A",
             lastHandleChange: Date.now()
         };
-        
+
         await setDoc(doc(db, "users", currentUser.uid), profileData);
 
         const initialData = {
@@ -1088,11 +1094,11 @@ window.saveUserProfile = async () => {
             tasks: [],
             reminders: [],
             notes: [],
-            hiddenWidgets: [], 
-            widgetStyles: {}, 
+            hiddenWidgets: [],
+            widgetStyles: {},
             lastUpdated: new Date().toISOString()
         };
-        
+
         await setDoc(doc(db, "users", currentUser.uid, "data", "appData"), initialData);
 
         userProfile = profileData;
@@ -1134,7 +1140,7 @@ function initRealtimeSync(uid) {
     }, (error) => console.log("Modo offline ou erro de sync:", error.code));
 
     onSnapshot(doc(db, "users", uid), (docSnap) => {
-        if(docSnap.exists()) {
+        if (docSnap.exists()) {
             userProfile = docSnap.data();
             localStorage.setItem('salvese_user_profile', JSON.stringify(userProfile));
             updateUserInterfaceInfo();
@@ -1149,11 +1155,11 @@ function updateUserInterfaceInfo() {
     const nameDisplay = document.getElementById('user-display-name');
     const handleDisplay = document.getElementById('user-display-id');
     const sidebarAvatar = document.getElementById('user-avatar-sidebar');
-    
-    if(userProfile) {
-        if(nameDisplay) nameDisplay.innerText = userProfile.displayName;
-        if(handleDisplay) handleDisplay.innerText = "@" + userProfile.handle;
-        if(sidebarAvatar && userProfile.photoURL) sidebarAvatar.src = userProfile.photoURL;
+
+    if (userProfile) {
+        if (nameDisplay) nameDisplay.innerText = userProfile.displayName;
+        if (handleDisplay) handleDisplay.innerText = "@" + userProfile.handle;
+        if (sidebarAvatar && userProfile.photoURL) sidebarAvatar.src = userProfile.photoURL;
     }
 }
 
@@ -1165,10 +1171,10 @@ function refreshAllUI() {
     if (window.updateNextClassWidget) window.updateNextClassWidget();
     if (window.renderSettings) window.renderSettings();
     if (window.updateAIWidgetUI) window.updateAIWidgetUI();
-    if (window.updateNotesWidget) window.updateNotesWidget(); 
-    
-    if (window.renderNotes && currentViewContext === 'notas') window.renderNotes(false); 
-    
+    if (window.updateNotesWidget) window.updateNotesWidget();
+
+    if (window.renderNotes && currentViewContext === 'notas') window.renderNotes(false);
+
     injectWidgetControls();
 }
 
@@ -1202,9 +1208,9 @@ async function saveData() {
     }
 }
 
-window.manualBackup = async function() {
+window.manualBackup = async function () {
     const btn = document.getElementById('btn-manual-backup');
-    if(btn) {
+    if (btn) {
         const originalText = btn.innerHTML;
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando...';
         btn.disabled = true;
@@ -1214,23 +1220,23 @@ window.manualBackup = async function() {
 
     setTimeout(() => {
         showModal('Backup', 'Seus dados foram sincronizados com a nuvem com sucesso!');
-        if(btn) {
+        if (btn) {
             btn.innerHTML = originalText;
             btn.disabled = false;
         }
     }, 800);
 }
 
-window.renderNotes = function(forceRender = true) {
+window.renderNotes = function (forceRender = true) {
     const container = document.getElementById('view-notas');
-    if(!container) return;
+    if (!container) return;
 
-    if(container.innerHTML.trim() === '') forceRender = true;
+    if (container.innerHTML.trim() === '') forceRender = true;
 
     if (!activeNoteId) {
         renderNotesList(container);
     } else {
-        if(forceRender || !document.getElementById('editor-content')) {
+        if (forceRender || !document.getElementById('editor-content')) {
             renderNoteEditor(container, activeNoteId);
         }
     }
@@ -1263,7 +1269,7 @@ function renderNotesList(container) {
         `;
     } else {
         const sortedNotes = [...notesData].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
-        
+
         sortedNotes.forEach(note => {
             const tempDiv = document.createElement('div');
             tempDiv.innerHTML = note.content || "";
@@ -1274,7 +1280,7 @@ function renderNotesList(container) {
             const card = document.createElement('div');
             card.className = "bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder rounded-xl p-5 hover:shadow-lg hover:border-indigo-300 dark:hover:border-indigo-700 transition cursor-pointer group flex flex-col h-48 relative";
             card.onclick = (e) => {
-                if(!e.target.closest('.delete-note-btn')) openNote(note.id);
+                if (!e.target.closest('.delete-note-btn')) openNote(note.id);
             };
 
             card.innerHTML = `
@@ -1299,18 +1305,18 @@ function renderNotesList(container) {
 
 function renderNoteEditor(container, noteId) {
     const note = notesData.find(n => n.id === noteId);
-    if(!note) { activeNoteId = null; renderNotesList(container); return; }
+    if (!note) { activeNoteId = null; renderNotesList(container); return; }
 
     container.innerHTML = '';
     const editorWrapper = document.createElement('div');
-    
+
     editorWrapper.className = "fixed inset-0 z-50 bg-white dark:bg-darkcard md:static md:z-auto md:max-w-4xl md:mx-auto md:h-[calc(100vh-8rem)] flex flex-col md:rounded-xl md:border md:border-gray-200 md:dark:border-darkborder md:shadow-sm overflow-hidden md:m-4";
-    
+
     const toolbar = document.createElement('div');
     toolbar.className = "flex items-center gap-1 p-2 border-b border-gray-200 dark:border-darkborder bg-gray-50 dark:bg-neutral-900 overflow-x-auto no-scrollbar flex-shrink-0";
-    
+
     const createToolBtn = (icon, cmd, val = null, color = null) => `
-        <button onclick="formatText('${cmd}', '${val || ''}')" class="p-2 rounded hover:bg-gray-200 dark:hover:bg-neutral-700 text-gray-600 dark:text-gray-300 transition flex-shrink-0 ${color ? 'text-'+color+'-500' : ''}" title="${cmd}">
+        <button onclick="formatText('${cmd}', '${val || ''}')" class="p-2 rounded hover:bg-gray-200 dark:hover:bg-neutral-700 text-gray-600 dark:text-gray-300 transition flex-shrink-0 ${color ? 'text-' + color + '-500' : ''}" title="${cmd}">
             <i class="fas fa-${icon}"></i>
         </button>
     `;
@@ -1341,8 +1347,8 @@ function renderNoteEditor(container, noteId) {
     titleInput.className = "w-full p-4 text-xl font-bold bg-transparent border-b border-gray-100 dark:border-darkborder outline-none text-gray-900 dark:text-white flex-shrink-0";
     titleInput.placeholder = "Título da Nota";
     titleInput.value = note.title;
-    titleInput.oninput = (e) => { 
-        note.title = e.target.value; 
+    titleInput.oninput = (e) => {
+        note.title = e.target.value;
         debounceSaveNote();
     };
 
@@ -1350,8 +1356,8 @@ function renderNoteEditor(container, noteId) {
     contentDiv.id = 'editor-content';
     contentDiv.contentEditable = true;
     contentDiv.className = "flex-1 p-4 outline-none overflow-y-auto text-gray-800 dark:text-gray-200 text-base leading-relaxed";
-    contentDiv.innerHTML = note.content; 
-    
+    contentDiv.innerHTML = note.content;
+
     contentDiv.oninput = () => {
         note.content = contentDiv.innerHTML;
         note.updatedAt = Date.now();
@@ -1365,15 +1371,15 @@ function renderNoteEditor(container, noteId) {
 }
 
 function debounceSaveNote() {
-    const status = document.getElementById('save-status'); 
-    
+    const status = document.getElementById('save-status');
+
     clearTimeout(saveTimeout);
     saveTimeout = setTimeout(() => {
         saveData();
-    }, 1000); 
+    }, 1000);
 }
 
-window.createNewNote = function() {
+window.createNewNote = function () {
     const newId = Date.now().toString();
     notesData.push({
         id: newId,
@@ -1385,47 +1391,47 @@ window.createNewNote = function() {
     openNote(newId);
 }
 
-window.openNote = function(id) {
+window.openNote = function (id) {
     activeNoteId = id;
-    renderNotes(true); 
+    renderNotes(true);
 }
 
-window.closeNote = function() {
-    saveData(); 
+window.closeNote = function () {
+    saveData();
     activeNoteId = null;
-    renderNotes(true); 
+    renderNotes(true);
 }
 
-window.deleteNote = function(id) {
+window.deleteNote = function (id) {
     openCustomConfirmModal("Excluir Nota", "Tem certeza que deseja apagar esta nota?", () => {
         notesData = notesData.filter(n => n.id !== id);
-        if(activeNoteId === id) activeNoteId = null;
+        if (activeNoteId === id) activeNoteId = null;
         saveData();
         renderNotes(true);
     });
 }
 
-window.formatText = function(cmd, val) {
+window.formatText = function (cmd, val) {
     document.execCommand(cmd, false, val);
     const editor = document.getElementById('editor-content');
-    if(editor) {
+    if (editor) {
         editor.focus();
         editor.dispatchEvent(new Event('input'));
     }
 }
 
-window.updateNotesWidget = function() {
+window.updateNotesWidget = function () {
     const container = document.getElementById('notes-widget-content');
-    if(!container) return;
+    if (!container) return;
 
-    if(notesData.length === 0) {
+    if (notesData.length === 0) {
         container.innerHTML = `
             <p class="text-gray-400 text-sm italic text-center py-4">Nenhuma anotação.</p>
         `;
         return;
     }
 
-    const lastNote = [...notesData].sort((a,b) => b.updatedAt - a.updatedAt)[0];
+    const lastNote = [...notesData].sort((a, b) => b.updatedAt - a.updatedAt)[0];
     const textPreview = lastNote.content.replace(/<[^>]*>?/gm, '').substring(0, 60) + "...";
 
     container.innerHTML = `
@@ -1444,22 +1450,22 @@ function openCustomInputModal(title, placeholder, initialValue, onConfirm) {
     const btnConfirm = document.getElementById('custom-modal-confirm');
     const btnCancel = document.getElementById('custom-modal-cancel');
 
-    if(!modal) return console.error("Modal não encontrado no HTML");
+    if (!modal) return console.error("Modal não encontrado no HTML");
 
     modalTitle.innerText = title;
     modalInput.placeholder = placeholder || "";
     modalInput.value = initialValue || "";
-    
+
     const newBtnConfirm = btnConfirm.cloneNode(true);
     btnConfirm.parentNode.replaceChild(newBtnConfirm, btnConfirm);
-    
+
     const newBtnCancel = btnCancel.cloneNode(true);
     btnCancel.parentNode.replaceChild(newBtnCancel, btnCancel);
 
     newBtnConfirm.addEventListener('click', () => {
         const val = modalInput.value;
         modal.classList.add('hidden');
-        if(onConfirm) onConfirm(val);
+        if (onConfirm) onConfirm(val);
     });
 
     newBtnCancel.addEventListener('click', () => {
@@ -1467,7 +1473,7 @@ function openCustomInputModal(title, placeholder, initialValue, onConfirm) {
     });
 
     modalInput.onkeypress = (e) => {
-        if(e.key === 'Enter') newBtnConfirm.click();
+        if (e.key === 'Enter') newBtnConfirm.click();
     };
 
     modal.classList.remove('hidden');
@@ -1481,20 +1487,20 @@ function openCustomConfirmModal(title, message, onConfirm) {
     const btnYes = document.getElementById('custom-confirm-yes');
     const btnNo = document.getElementById('custom-confirm-no');
 
-    if(!modal) return;
+    if (!modal) return;
 
     modalTitle.innerText = title;
     modalMsg.innerText = message;
 
     const newBtnYes = btnYes.cloneNode(true);
     btnYes.parentNode.replaceChild(newBtnYes, btnYes);
-    
+
     const newBtnNo = btnNo.cloneNode(true);
     btnNo.parentNode.replaceChild(newBtnNo, btnNo);
 
     newBtnYes.addEventListener('click', () => {
         modal.classList.add('hidden');
-        if(onConfirm) onConfirm();
+        if (onConfirm) onConfirm();
     });
 
     newBtnNo.addEventListener('click', () => {
@@ -1504,18 +1510,18 @@ function openCustomConfirmModal(title, message, onConfirm) {
     modal.classList.remove('hidden');
 }
 
-window.showModal = function(title, message) {
+window.showModal = function (title, message) {
     const m = document.getElementById('generic-modal');
     document.getElementById('generic-modal-title').innerText = title;
     document.getElementById('generic-modal-message').innerText = message;
     if (m) {
-        history.pushState({modal: 'generic'}, null, '#alert');
+        history.pushState({ modal: 'generic' }, null, '#alert');
         m.classList.remove('hidden');
         setTimeout(() => { m.classList.remove('opacity-0'); m.firstElementChild.classList.remove('scale-95'); m.firstElementChild.classList.add('scale-100'); }, 10);
     }
 }
 
-window.closeGenericModal = function() {
+window.closeGenericModal = function () {
     const m = document.getElementById('generic-modal');
     if (m) {
         m.classList.add('opacity-0'); m.firstElementChild.classList.remove('scale-100'); m.firstElementChild.classList.add('scale-95');
@@ -1523,15 +1529,15 @@ window.closeGenericModal = function() {
     }
 }
 
-window.editName = function() {
+window.editName = function () {
     openCustomInputModal(
-        "Alterar Nome de Exibição", 
-        "Digite seu novo nome...", 
-        userProfile.displayName, 
+        "Alterar Nome de Exibição",
+        "Digite seu novo nome...",
+        userProfile.displayName,
         async (newName) => {
             if (newName && newName.trim() !== "" && newName !== userProfile.displayName) {
-                if(!currentUser) return showModal("Erro", "Você precisa estar online.");
-                
+                if (!currentUser) return showModal("Erro", "Você precisa estar online.");
+
                 try {
                     await setDoc(doc(db, "users", currentUser.uid), { displayName: newName.trim() }, { merge: true });
                     await updateProfile(currentUser, { displayName: newName.trim() });
@@ -1544,13 +1550,13 @@ window.editName = function() {
     );
 }
 
-window.editHandle = function() {
+window.editHandle = function () {
     if (!userProfile || !currentUser) return;
 
     const lastChange = userProfile.lastHandleChange || 0;
     const now = Date.now();
     const daysSinceLastChange = (now - lastChange) / (1000 * 60 * 60 * 24);
-    
+
     if (daysSinceLastChange < 7 && userProfile.createdAt !== userProfile.lastHandleChange) {
         const daysLeft = Math.ceil(7 - daysSinceLastChange);
         return showModal("Aguarde", `Você só pode alterar seu usuário a cada 7 dias. Aguarde mais ${daysLeft} dia(s).`);
@@ -1565,7 +1571,7 @@ window.editHandle = function() {
 
             const cleanHandle = newHandle.toLowerCase().trim();
             const handleRegex = /^[a-z0-9_]+$/;
-            
+
             if (!handleRegex.test(cleanHandle)) {
                 return showModal("Inválido", "Use apenas letras minúsculas, números e _.");
             }
@@ -1577,18 +1583,18 @@ window.editHandle = function() {
                     try {
                         const newHandleRef = doc(db, "usernames", cleanHandle);
                         const docSnap = await getDoc(newHandleRef);
-                        
+
                         if (docSnap.exists()) {
                             return showModal("Indisponível", "Este usuário já está em uso.");
                         }
 
                         await setDoc(newHandleRef, { uid: currentUser.uid });
-                        
+
                         if (userProfile.handle) {
                             await deleteDoc(doc(db, "usernames", userProfile.handle));
                         }
 
-                        await setDoc(doc(db, "users", currentUser.uid), { 
+                        await setDoc(doc(db, "users", currentUser.uid), {
                             handle: cleanHandle,
                             lastHandleChange: Date.now()
                         }, { merge: true });
@@ -1605,7 +1611,7 @@ window.editHandle = function() {
     );
 }
 
-window.editSemester = function() {
+window.editSemester = function () {
     openCustomInputModal(
         "Semestre Atual",
         "Ex: 2025.1",
@@ -1622,23 +1628,23 @@ window.editSemester = function() {
     );
 }
 
-window.changePhoto = function() {
+window.changePhoto = function () {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/*';
-    
+
     input.onchange = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
 
         const loadingBtn = document.getElementById('btn-change-photo-settings');
         let originalBtnContent = "";
-        if(loadingBtn) {
-             originalBtnContent = loadingBtn.innerHTML;
-             loadingBtn.innerHTML = '<i class="fas fa-circle-notch fa-spin mr-2"></i> Enviando...';
-             loadingBtn.disabled = true;
+        if (loadingBtn) {
+            originalBtnContent = loadingBtn.innerHTML;
+            loadingBtn.innerHTML = '<i class="fas fa-circle-notch fa-spin mr-2"></i> Enviando...';
+            loadingBtn.disabled = true;
         } else {
-             showModal("Aguarde", "Enviando sua foto para o servidor...");
+            showModal("Aguarde", "Enviando sua foto para o servidor...");
         }
 
         const formData = new FormData();
@@ -1658,9 +1664,9 @@ window.changePhoto = function() {
 
                 await updateProfile(currentUser, { photoURL: newUrl });
                 await setDoc(doc(db, "users", currentUser.uid), { photoURL: newUrl }, { merge: true });
-                
+
                 const genericModal = document.getElementById('generic-modal');
-                if(genericModal && !genericModal.classList.contains('hidden')) closeGenericModal();
+                if (genericModal && !genericModal.classList.contains('hidden')) closeGenericModal();
 
                 showModal("Sucesso", "Foto de perfil atualizada com sucesso!");
             } else {
@@ -1671,7 +1677,7 @@ window.changePhoto = function() {
             console.error("Erro ao atualizar foto:", error);
             showModal("Erro", "Erro ao enviar foto: " + error.message);
         } finally {
-            if(loadingBtn) {
+            if (loadingBtn) {
                 loadingBtn.innerHTML = originalBtnContent;
                 loadingBtn.disabled = false;
             }
@@ -1681,7 +1687,7 @@ window.changePhoto = function() {
     input.click();
 }
 
-window.changePassword = function() {
+window.changePassword = function () {
     if (currentUser && currentUser.email) {
         openCustomConfirmModal(
             "Redefinir Senha",
@@ -1698,7 +1704,7 @@ window.changePassword = function() {
     }
 }
 
-window.renderSettings = function() {
+window.renderSettings = function () {
     const container = document.getElementById('settings-content');
     if (!container || !userProfile) return;
 
@@ -1799,7 +1805,7 @@ window.renderSettings = function() {
             </div>
 
             <div class="text-center pt-4 pb-8">
-                 <p class="text-xs text-gray-300 dark:text-gray-600 font-mono">ID: ${currentUser.uid.substring(0,8)}...</p>
+                 <p class="text-xs text-gray-300 dark:text-gray-600 font-mono">ID: ${currentUser.uid.substring(0, 8)}...</p>
                  <p class="text-xs text-gray-300 dark:text-gray-600 mt-1">Salve-se UFRB v3.3 (Mobile + PC Fixes)</p>
             </div>
         </div>
@@ -1812,9 +1818,9 @@ window.renderSettings = function() {
 
 window.addTask = function () {
     const input = document.getElementById('todo-input');
-    const priorityInput = document.getElementById('todo-priority'); 
-    const categoryInput = document.getElementById('todo-category'); 
-    
+    const priorityInput = document.getElementById('todo-priority');
+    const categoryInput = document.getElementById('todo-category');
+
     const text = input.value.trim();
     if (!text) return;
 
@@ -1852,12 +1858,12 @@ window.clearCompleted = function () {
     saveData();
 };
 
-window.setTaskFilter = function(filter) {
+window.setTaskFilter = function (filter) {
     currentTaskFilter = filter;
     ['filter-all', 'filter-active', 'filter-completed'].forEach(id => {
         const btn = document.getElementById(id);
-        if(btn) {
-            if(id === `filter-${filter}`) btn.classList.add('bg-indigo-100', 'text-indigo-700', 'dark:bg-indigo-900/50', 'dark:text-indigo-300');
+        if (btn) {
+            if (id === `filter-${filter}`) btn.classList.add('bg-indigo-100', 'text-indigo-700', 'dark:bg-indigo-900/50', 'dark:text-indigo-300');
             else btn.classList.remove('bg-indigo-100', 'text-indigo-700', 'dark:bg-indigo-900/50', 'dark:text-indigo-300');
         }
     });
@@ -1865,7 +1871,7 @@ window.setTaskFilter = function(filter) {
 };
 
 function getPriorityInfo(prio) {
-    switch(prio) {
+    switch (prio) {
         case 'high': return { label: 'Alta', color: 'text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400 border-red-100 dark:border-red-900' };
         case 'medium': return { label: 'Média', color: 'text-orange-600 bg-orange-50 dark:bg-orange-900/20 dark:text-orange-400 border-orange-100 dark:border-orange-900' };
         default: return { label: 'Normal', color: 'text-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400 border-blue-100 dark:border-blue-900' };
@@ -1873,7 +1879,7 @@ function getPriorityInfo(prio) {
 }
 
 function getCategoryIcon(cat) {
-    switch(cat) {
+    switch (cat) {
         case 'estudo': return '<i class="fas fa-book"></i>';
         case 'trabalho': return '<i class="fas fa-briefcase"></i>';
         case 'pessoal': return '<i class="fas fa-user"></i>';
@@ -1884,17 +1890,17 @@ function getCategoryIcon(cat) {
 window.renderTasks = function () {
     const list = document.getElementById('todo-list');
     if (!list) return;
-    
+
     list.innerHTML = '';
-    
+
     let filteredTasks = tasksData;
     if (currentTaskFilter === 'active') filteredTasks = tasksData.filter(t => !t.done);
     if (currentTaskFilter === 'completed') filteredTasks = tasksData.filter(t => t.done);
 
     const priorityWeight = { 'high': 3, 'medium': 2, 'normal': 1 };
-    
+
     const sortedTasks = [...filteredTasks].sort((a, b) => {
-        if (a.done !== b.done) return a.done ? 1 : -1; 
+        if (a.done !== b.done) return a.done ? 1 : -1;
         if (priorityWeight[b.priority || 'normal'] !== priorityWeight[a.priority || 'normal']) {
             return priorityWeight[b.priority || 'normal'] - priorityWeight[a.priority || 'normal'];
         }
@@ -1915,9 +1921,9 @@ window.renderTasks = function () {
         const div = document.createElement('div');
         const prioInfo = getPriorityInfo(t.priority || 'normal');
         const catIcon = getCategoryIcon(t.category || 'geral');
-        
+
         div.className = `group flex items-center gap-3 p-3 rounded-xl border transition-all duration-200 ${t.done ? 'bg-gray-50/50 dark:bg-neutral-900/30 border-transparent opacity-60' : 'bg-white dark:bg-darkcard border-gray-200 dark:border-darkborder hover:border-indigo-300 dark:hover:border-indigo-800 shadow-sm hover:shadow-md'}`;
-        
+
         div.innerHTML = `
             <button onclick="toggleTask('${t.id}')" class="w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all duration-300 ${t.done ? 'bg-emerald-500 border-emerald-500 text-white scale-90' : 'border-gray-300 dark:border-gray-600 hover:border-indigo-500 text-transparent'}">
                 <i class="fas fa-check text-[10px]"></i>
@@ -1939,21 +1945,21 @@ window.renderTasks = function () {
         `;
         list.appendChild(div);
     });
-    
-    window.updateDashboardTasksWidget(); 
+
+    window.updateDashboardTasksWidget();
 }
 
-window.updateDashboardTasksWidget = function() {
+window.updateDashboardTasksWidget = function () {
     const container = document.getElementById('dashboard-tasks-list');
-    const taskCountEl = document.getElementById('task-count-badge'); 
-    
+    const taskCountEl = document.getElementById('task-count-badge');
+
     const pendingTasks = tasksData.filter(t => !t.done);
-    
-    if(taskCountEl) {
+
+    if (taskCountEl) {
         taskCountEl.innerText = pendingTasks.length;
         taskCountEl.className = pendingTasks.length > 0 ? 'bg-indigo-600 text-white px-2 py-0.5 rounded-full text-xs font-bold' : 'hidden';
     }
-    
+
     if (!container) return;
     container.innerHTML = '';
 
@@ -1972,14 +1978,14 @@ window.updateDashboardTasksWidget = function() {
     const priorityWeight = { 'high': 3, 'medium': 2, 'normal': 1 };
     const topTasks = [...pendingTasks].sort((a, b) => {
         return priorityWeight[b.priority || 'normal'] - priorityWeight[a.priority || 'normal'];
-    }).slice(0, 3); 
+    }).slice(0, 3);
 
     topTasks.forEach(t => {
         const prioInfo = getPriorityInfo(t.priority || 'normal');
         const item = document.createElement('div');
         item.className = "flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-neutral-800 transition cursor-pointer border border-transparent hover:border-gray-100 dark:hover:border-neutral-700";
-        item.onclick = () => switchPage('todo'); 
-        
+        item.onclick = () => switchPage('todo');
+
         item.innerHTML = `
             <div class="w-1.5 h-1.5 rounded-full ${t.priority === 'high' ? 'bg-red-500' : (t.priority === 'medium' ? 'bg-orange-500' : 'bg-blue-500')}"></div>
             <span class="flex-1 text-sm text-gray-700 dark:text-gray-300 truncate">${t.text}</span>
@@ -2009,9 +2015,9 @@ const timeSlots = [
 ];
 
 const daysList = ['seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
-const daysDisplay = {'seg': 'Seg', 'ter': 'Ter', 'qua': 'Qua', 'qui': 'Qui', 'sex': 'Sex', 'sab': 'Sab'};
+const daysDisplay = { 'seg': 'Seg', 'ter': 'Ter', 'qua': 'Qua', 'qui': 'Qui', 'sex': 'Sex', 'sab': 'Sab' };
 
-window.toggleScheduleMode = function() {
+window.toggleScheduleMode = function () {
     scheduleViewMode = scheduleViewMode === 'table' ? 'cards' : 'table';
     localStorage.setItem('salvese_schedule_mode', scheduleViewMode);
     window.renderSchedule();
@@ -2077,25 +2083,25 @@ window.renderSchedule = function () {
 
         const classesToday = scheduleData
             .filter(c => c.day === dayKey)
-            .sort((a, b) => parseInt(a.start.replace(':','')) - parseInt(b.start.replace(':','')));
+            .sort((a, b) => parseInt(a.start.replace(':', '')) - parseInt(b.start.replace(':', '')));
 
         const cardsContainer = document.createElement('div');
         cardsContainer.className = "space-y-3";
         // Layout em grid se estiver no PC modo cards
         if (scheduleViewMode === 'cards') {
-             cardsContainer.className = "space-y-3 md:grid md:grid-cols-2 lg:grid-cols-3 md:gap-4 md:space-y-0";
+            cardsContainer.className = "space-y-3 md:grid md:grid-cols-2 lg:grid-cols-3 md:gap-4 md:space-y-0";
         }
 
         if (classesToday.length === 0) {
             if (scheduleViewMode === 'cards') { // Apenas exibe msg vazia se for cards mode explicitamente ou mobile
-                 cardsContainer.innerHTML = `
+                cardsContainer.innerHTML = `
                     <div class="col-span-full">
                         <p class="text-sm text-gray-400 italic pl-1">Nenhuma aula neste dia.</p>
                         <div class="border-b border-gray-100 dark:border-neutral-800 border-dashed my-1 md:hidden"></div>
                     </div>
                 `;
             } else {
-                 cardsContainer.innerHTML = `
+                cardsContainer.innerHTML = `
                     <p class="text-sm text-gray-400 italic pl-1">Nenhuma aula neste dia.</p>
                     <div class="border-b border-gray-100 dark:border-neutral-800 border-dashed my-1"></div>
                 `;
@@ -2104,11 +2110,11 @@ window.renderSchedule = function () {
             classesToday.forEach(aula => {
                 const colorKey = aula.color || 'indigo';
                 const palette = colorPalettes[colorKey] || colorPalettes['indigo'];
-                
+
                 const card = document.createElement('div');
                 card.className = "relative rounded-xl p-4 cursor-pointer active:scale-[0.98] transition-transform overflow-hidden group";
                 card.style.backgroundColor = `rgba(${palette[500]}, 0.12)`;
-                
+
                 card.innerHTML = `
                     <div class="absolute left-0 top-2 bottom-2 w-1.5 rounded-r-full" style="background-color: rgb(${palette[500]})"></div>
                     <div class="pl-3 flex justify-between items-start">
@@ -2125,7 +2131,7 @@ window.renderSchedule = function () {
                         </div>
                     </div>
                 `;
-                
+
                 card.onclick = () => openEditClassModal(aula.id);
                 cardsContainer.appendChild(card);
             });
@@ -2147,7 +2153,7 @@ window.renderSchedule = function () {
     if (scheduleViewMode === 'table') {
         const desktopContainer = document.createElement('div');
         desktopContainer.className = "hidden md:block bg-white dark:bg-darkcard rounded-xl border border-gray-200 dark:border-darkborder shadow-sm overflow-hidden";
-        
+
         let tableHTML = `
             <div class="overflow-x-auto">
                 <table class="w-full text-sm border-collapse">
@@ -2171,14 +2177,14 @@ window.renderSchedule = function () {
                 if (occupied[cellKey]) return;
 
                 const foundClass = scheduleData.find(c => c.day === day && c.start === slot.start);
-                
+
                 if (foundClass) {
                     let endIndex = timeSlots.findIndex(s => s.end === foundClass.end);
-                    if(endIndex === -1) endIndex = timeSlots.findIndex(s => s.start === foundClass.end) - 1;
-                    if (endIndex === -1) endIndex = index; 
-                    
+                    if (endIndex === -1) endIndex = timeSlots.findIndex(s => s.start === foundClass.end) - 1;
+                    if (endIndex === -1) endIndex = index;
+
                     const span = Math.max(1, (endIndex - index) + 1);
-                    
+
                     for (let k = 1; k < span; k++) occupied[`${day}-${index + k}`] = true;
 
                     const colorKey = foundClass.color || 'indigo';
@@ -2221,12 +2227,12 @@ window.openAddClassModal = function (day, startHourStr) {
     resetModalFields();
     document.getElementById('modal-title').innerText = "Adicionar Aula";
     document.getElementById('btn-delete-class').classList.add('hidden');
-    
+
     if (day) document.getElementById('class-day').value = day;
     else {
-         const todayIndex = new Date().getDay();
-         const map = ['dom','seg','ter','qua','qui','sex','sab'];
-         if(todayIndex > 0 && todayIndex < 7) document.getElementById('class-day').value = map[todayIndex];
+        const todayIndex = new Date().getDay();
+        const map = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
+        if (todayIndex > 0 && todayIndex < 7) document.getElementById('class-day').value = map[todayIndex];
     }
 
     if (startHourStr) {
@@ -2286,7 +2292,7 @@ window.confirmDeleteClass = function () {
     const id = document.getElementById('class-id').value;
     if (!id) return;
     selectedClassIdToDelete = id;
-    document.getElementById('class-modal').classList.add('opacity-0'); 
+    document.getElementById('class-modal').classList.add('opacity-0');
     setTimeout(() => document.getElementById('class-modal').classList.add('hidden'), 300);
     const confirmModal = document.getElementById('delete-confirmation-modal');
     confirmModal.classList.remove('hidden');
@@ -2310,54 +2316,54 @@ window.performDeleteClass = function () {
 function resetModalFields() {
     document.getElementById('class-id').value = ''; document.getElementById('class-name').value = ''; document.getElementById('class-prof').value = '';
     document.getElementById('class-room').value = ''; document.getElementById('class-day').value = 'seg'; window.selectedColor = 'cyan';
-    
-    const startSel = document.getElementById('class-start'); 
+
+    const startSel = document.getElementById('class-start');
     const endSel = document.getElementById('class-end');
-    
-    startSel.innerHTML = ''; 
+
+    startSel.innerHTML = '';
     endSel.innerHTML = '';
-    
-    timeSlots.forEach(t => { 
-        const opt = `<option value="${t.start}">${t.start}</option>`; 
-        startSel.innerHTML += opt; 
+
+    timeSlots.forEach(t => {
+        const opt = `<option value="${t.start}">${t.start}</option>`;
+        startSel.innerHTML += opt;
     });
-    
-    timeSlots.forEach(t => { 
-        const opt = `<option value="${t.end}">${t.end}</option>`; 
-        endSel.innerHTML += opt; 
+
+    timeSlots.forEach(t => {
+        const opt = `<option value="${t.end}">${t.end}</option>`;
+        endSel.innerHTML += opt;
     });
-    
-    startSel.value = "07:00"; 
-    updateEndTime(2); 
+
+    startSel.value = "07:00";
+    updateEndTime(2);
     renderColorPicker();
 }
 
-window.updateEndTime = function(slotsToAdd = 2) {
+window.updateEndTime = function (slotsToAdd = 2) {
     const startSel = document.getElementById('class-start');
     const endSel = document.getElementById('class-end');
     const startHourStr = startSel.value;
-    
+
     const idx = timeSlots.findIndex(s => s.start === startHourStr);
-    
+
     if (idx !== -1) {
-        let targetIdx = idx + (slotsToAdd - 1); 
+        let targetIdx = idx + (slotsToAdd - 1);
         if (targetIdx >= timeSlots.length) targetIdx = timeSlots.length - 1;
         endSel.value = timeSlots[targetIdx].end;
     }
 }
 
-window.toggleModal = function(show) {
-    const modal = document.getElementById('class-modal'); 
+window.toggleModal = function (show) {
+    const modal = document.getElementById('class-modal');
     const content = document.getElementById('class-modal-content');
-    if (show) { 
-        history.pushState({modal: 'class'}, null, '#class-modal');
-        modal.classList.remove('hidden'); 
-        setTimeout(() => { modal.classList.remove('opacity-0'); content.classList.remove('scale-95'); content.classList.add('scale-100'); }, 10); 
-    } else { 
-        modal.classList.add('opacity-0'); 
-        content.classList.remove('scale-100'); 
-        content.classList.add('scale-95'); 
-        setTimeout(() => modal.classList.add('hidden'), 300); 
+    if (show) {
+        history.pushState({ modal: 'class' }, null, '#class-modal');
+        modal.classList.remove('hidden');
+        setTimeout(() => { modal.classList.remove('opacity-0'); content.classList.remove('scale-95'); content.classList.add('scale-100'); }, 10);
+    } else {
+        modal.classList.add('opacity-0');
+        content.classList.remove('scale-100');
+        content.classList.add('scale-95');
+        setTimeout(() => modal.classList.add('hidden'), 300);
     }
 }
 
@@ -2376,7 +2382,7 @@ function renderColorPicker() {
     });
 }
 
-window.updateNextClassWidget = function() {
+window.updateNextClassWidget = function () {
     const container = document.getElementById('next-class-content');
     if (!container) return;
 
@@ -2459,8 +2465,8 @@ window.updateNextClassWidget = function() {
             </div>
         `;
     } else {
-        const msg = scheduleData.length === 0 
-            ? "Adicione aulas na Grade Horária." 
+        const msg = scheduleData.length === 0
+            ? "Adicione aulas na Grade Horária."
             : "Você está livre pelo resto do dia!";
         const icon = scheduleData.length === 0 ? "fas fa-plus-circle" : "fas fa-couch";
         const action = scheduleData.length === 0 ? "onclick=\"switchPage('aulas'); openAddClassModal()\" class='cursor-pointer hover:opacity-80 transition'" : "";
@@ -2481,35 +2487,35 @@ window.updateNextClassWidget = function() {
 // --- FUNCIONALIDADE: LEMBRETES ---
 // ============================================================
 
-window.toggleRemindersModal = function() {
+window.toggleRemindersModal = function () {
     const modal = document.getElementById('reminders-modal');
     const content = modal ? modal.firstElementChild : null;
     if (!modal) return;
 
     if (modal.classList.contains('hidden')) {
-        history.pushState({modal: 'reminders'}, null, '#reminders-modal');
+        history.pushState({ modal: 'reminders' }, null, '#reminders-modal');
         renderReminders();
         modal.classList.remove('hidden');
-        setTimeout(() => { modal.classList.remove('opacity-0'); if(content) { content.classList.remove('scale-95'); content.classList.add('scale-100'); } }, 10);
+        setTimeout(() => { modal.classList.remove('opacity-0'); if (content) { content.classList.remove('scale-95'); content.classList.add('scale-100'); } }, 10);
     } else {
-        modal.classList.add('opacity-0'); if(content) { content.classList.remove('scale-100'); content.classList.add('scale-95'); }
+        modal.classList.add('opacity-0'); if (content) { content.classList.remove('scale-100'); content.classList.add('scale-95'); }
         setTimeout(() => modal.classList.add('hidden'), 300);
     }
 }
 
-window.showReminderForm = function() {
+window.showReminderForm = function () {
     document.getElementById('btn-add-reminder').classList.add('hidden');
     document.getElementById('reminder-form').classList.remove('hidden');
     document.getElementById('rem-date').valueAsDate = new Date();
 }
 
-window.hideReminderForm = function() {
+window.hideReminderForm = function () {
     document.getElementById('reminder-form').classList.add('hidden');
     document.getElementById('btn-add-reminder').classList.remove('hidden');
     document.getElementById('rem-desc').value = '';
 }
 
-window.addReminder = function() {
+window.addReminder = function () {
     const desc = document.getElementById('rem-desc').value.trim();
     const date = document.getElementById('rem-date').value;
     const prio = document.getElementById('rem-prio').value;
@@ -2526,19 +2532,19 @@ window.addReminder = function() {
     hideReminderForm();
 }
 
-window.deleteReminder = function(id) {
+window.deleteReminder = function (id) {
     remindersData = remindersData.filter(r => r.id !== id);
     saveData();
 }
 
-window.renderReminders = function() {
+window.renderReminders = function () {
     const listModal = document.getElementById('reminders-list-modal');
     const listHome = document.getElementById('home-reminders-list');
     const badge = document.getElementById('notification-badge');
 
     const sorted = [...remindersData].sort((a, b) => new Date(a.date) - new Date(b.date));
 
-    if(badge) {
+    if (badge) {
         if (sorted.length > 0) badge.classList.remove('hidden'); else badge.classList.add('hidden');
     }
 
@@ -2567,7 +2573,7 @@ window.renderReminders = function() {
         `;
     };
 
-    if(listModal) {
+    if (listModal) {
         if (sorted.length === 0) {
             listModal.innerHTML = `
                 <div class="flex flex-col items-center justify-center h-32 text-gray-400 dark:text-gray-600">
@@ -2579,7 +2585,7 @@ window.renderReminders = function() {
         }
     }
 
-    if(listHome) {
+    if (listHome) {
         if (sorted.length === 0) {
             listHome.innerHTML = `
                 <div class="flex flex-col items-center justify-center text-center p-4 border-2 border-dashed border-gray-100 dark:border-neutral-800 rounded-lg h-full">
@@ -2595,35 +2601,35 @@ window.renderReminders = function() {
 // --- FUNCIONALIDADE: ONIBUS E ROTAS ---
 // ============================================================
 
-function addTime(baseTime, minutesToAdd) { 
-    const [h, m] = baseTime.split(':').map(Number); 
-    const date = new Date(); 
-    date.setHours(h); 
-    date.setMinutes(m + minutesToAdd); 
-    return date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }); 
+function addTime(baseTime, minutesToAdd) {
+    const [h, m] = baseTime.split(':').map(Number);
+    const date = new Date();
+    date.setHours(h);
+    date.setMinutes(m + minutesToAdd);
+    return date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 }
 
 function createTrip(startTime, endTime, routeType, speed = 'normal') {
     let stops = []; const factor = speed === 'fast' ? 0.7 : 1.0;
-    if (routeType === 'saida-garagem') { 
-        stops = [{ loc: 'Garagem (Saída)', t: 0 }, { loc: 'RU/Resid.', t: Math.round(2 * factor) }, { loc: 'Fitotecnia', t: Math.round(4 * factor) }, { loc: 'Prédio Solos', t: Math.round(6 * factor) }, { loc: 'Pav. Aulas I', t: Math.round(8 * factor) }, { loc: 'Biblioteca', t: Math.round(10 * factor) }, { loc: 'Pav. Aulas II', t: Math.round(12 * factor) }, { loc: 'Pav. Engenharia', t: Math.round(13 * factor) }, { loc: 'Portão II', t: Math.round(15 * factor) }, { loc: 'Ponto Ext. I', t: Math.round(16 * factor) }, { loc: 'Ponto Ext. II', t: Math.round(17 * factor) }, { loc: 'Portão I', t: Math.round(18 * factor) }, { loc: 'Biblioteca', t: Math.round(20 * factor) }, { loc: 'Torre/COTEC', t: Math.round(22 * factor) }, { loc: 'RU (Chegada)', t: Math.round(24 * factor) }]; 
-    } else if (routeType === 'volta-campus') { 
-        stops = [{ loc: 'RU/Resid. (Início)', t: 0 }, { loc: 'Fitotecnia', t: Math.round(2 * factor) }, { loc: 'Prédio Solos', t: Math.round(4 * factor) }, { loc: 'Pav. Aulas I', t: Math.round(6 * factor) }, { loc: 'Biblioteca', t: Math.round(8 * factor) }, { loc: 'Pav. Aulas II', t: Math.round(10 * factor) }, { loc: 'Pav. Engenharia', t: Math.round(11 * factor) }, { loc: 'Portão II', t: Math.round(13 * factor) }, { loc: 'Ponto Ext. I', t: Math.round(14 * factor) }, { loc: 'Ponto Ext. II', t: Math.round(15 * factor) }, { loc: 'Portão I', t: Math.round(16 * factor) }, { loc: 'Biblioteca', t: Math.round(18 * factor) }, { loc: 'Torre/COTEC', t: Math.round(20 * factor) }, { loc: 'RU (Fim)', t: Math.round(22 * factor) }]; 
-    } else if (routeType === 'recolhe') { 
-        stops = [{ loc: 'RU/Resid.', t: 0 }, { loc: 'Fitotecnia', t: 2 }, { loc: 'Prédio Solos', t: 4 }, { loc: 'Eng. Florestal', t: 6 }, { loc: 'Garagem (Chegada)', t: Math.round(15 * factor) }]; 
-    } else if (routeType === 'volta-e-recolhe') { 
-        stops = [{ loc: 'RU/Resid. (Início)', t: 0 }, { loc: 'Fitotecnia', t: 2 }, { loc: 'Prédio Solos', t: 3 }, { loc: 'Pav. Aulas I', t: 5 }, { loc: 'Biblioteca', t: 6 }, { loc: 'Pav. Aulas II', t: 8 }, { loc: 'Pav. Engenharia', t: 9 }, { loc: 'Portão II', t: 10 }, { loc: 'Ponto Ext. I', t: 11 }, { loc: 'Ponto Ext. II', t: 12 }, { loc: 'Portão I', t: 13 }, { loc: 'Biblioteca', t: 14 }, { loc: 'Torre/COTEC', t: 16 }, { loc: 'RU (Fim Volta)', t: 18 }, { loc: 'Fitotecnia', t: 20 }, { loc: 'Prédio Solos', t: 21 }, { loc: 'Eng. Florestal', t: 23 }, { loc: 'Garagem (Chegada)', t: 25 }]; 
+    if (routeType === 'saida-garagem') {
+        stops = [{ loc: 'Garagem (Saída)', t: 0 }, { loc: 'RU/Resid.', t: Math.round(2 * factor) }, { loc: 'Fitotecnia', t: Math.round(4 * factor) }, { loc: 'Prédio Solos', t: Math.round(6 * factor) }, { loc: 'Pav. Aulas I', t: Math.round(8 * factor) }, { loc: 'Biblioteca', t: Math.round(10 * factor) }, { loc: 'Pav. Aulas II', t: Math.round(12 * factor) }, { loc: 'Pav. Engenharia', t: Math.round(13 * factor) }, { loc: 'Portão II', t: Math.round(15 * factor) }, { loc: 'Ponto Ext. I', t: Math.round(16 * factor) }, { loc: 'Ponto Ext. II', t: Math.round(17 * factor) }, { loc: 'Portão I', t: Math.round(18 * factor) }, { loc: 'Biblioteca', t: Math.round(20 * factor) }, { loc: 'Torre/COTEC', t: Math.round(22 * factor) }, { loc: 'RU (Chegada)', t: Math.round(24 * factor) }];
+    } else if (routeType === 'volta-campus') {
+        stops = [{ loc: 'RU/Resid. (Início)', t: 0 }, { loc: 'Fitotecnia', t: Math.round(2 * factor) }, { loc: 'Prédio Solos', t: Math.round(4 * factor) }, { loc: 'Pav. Aulas I', t: Math.round(6 * factor) }, { loc: 'Biblioteca', t: Math.round(8 * factor) }, { loc: 'Pav. Aulas II', t: Math.round(10 * factor) }, { loc: 'Pav. Engenharia', t: Math.round(11 * factor) }, { loc: 'Portão II', t: Math.round(13 * factor) }, { loc: 'Ponto Ext. I', t: Math.round(14 * factor) }, { loc: 'Ponto Ext. II', t: Math.round(15 * factor) }, { loc: 'Portão I', t: Math.round(16 * factor) }, { loc: 'Biblioteca', t: Math.round(18 * factor) }, { loc: 'Torre/COTEC', t: Math.round(20 * factor) }, { loc: 'RU (Fim)', t: Math.round(22 * factor) }];
+    } else if (routeType === 'recolhe') {
+        stops = [{ loc: 'RU/Resid.', t: 0 }, { loc: 'Fitotecnia', t: 2 }, { loc: 'Prédio Solos', t: 4 }, { loc: 'Eng. Florestal', t: 6 }, { loc: 'Garagem (Chegada)', t: Math.round(15 * factor) }];
+    } else if (routeType === 'volta-e-recolhe') {
+        stops = [{ loc: 'RU/Resid. (Início)', t: 0 }, { loc: 'Fitotecnia', t: 2 }, { loc: 'Prédio Solos', t: 3 }, { loc: 'Pav. Aulas I', t: 5 }, { loc: 'Biblioteca', t: 6 }, { loc: 'Pav. Aulas II', t: 8 }, { loc: 'Pav. Engenharia', t: 9 }, { loc: 'Portão II', t: 10 }, { loc: 'Ponto Ext. I', t: 11 }, { loc: 'Ponto Ext. II', t: 12 }, { loc: 'Portão I', t: 13 }, { loc: 'Biblioteca', t: 14 }, { loc: 'Torre/COTEC', t: 16 }, { loc: 'RU (Fim Volta)', t: 18 }, { loc: 'Fitotecnia', t: 20 }, { loc: 'Prédio Solos', t: 21 }, { loc: 'Eng. Florestal', t: 23 }, { loc: 'Garagem (Chegada)', t: 25 }];
     }
-    
-    return { 
-        start: startTime, 
-        end: endTime, 
-        origin: stops[0].loc, 
-        dest: stops[stops.length - 1].loc, 
-        stops: stops.map(s => { 
-            if ((routeType === 'recolhe' || routeType === 'volta-e-recolhe') && s.loc.includes('Garagem')) return { loc: s.loc, time: endTime }; 
-            return { loc: s.loc, time: addTime(startTime, s.t) }; 
-        }) 
+
+    return {
+        start: startTime,
+        end: endTime,
+        origin: stops[0].loc,
+        dest: stops[stops.length - 1].loc,
+        stops: stops.map(s => {
+            if ((routeType === 'recolhe' || routeType === 'volta-e-recolhe') && s.loc.includes('Garagem')) return { loc: s.loc, time: endTime };
+            return { loc: s.loc, time: addTime(startTime, s.t) };
+        })
     };
 }
 
@@ -2650,17 +2656,17 @@ function renderBusTable() {
 function updateNextBus() {
     const now = new Date(); const currentTotalSeconds = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
     let activeBus = null; let nextBus = null; let timeDiff = Infinity;
-    
+
     for (let bus of busSchedule) {
         const [h1, m1] = bus.start.split(':').map(Number); const [h2, m2] = bus.end.split(':').map(Number);
         const startSeconds = h1 * 3600 + m1 * 60; const endSeconds = h2 * 3600 + m2 * 60;
         if (currentTotalSeconds >= startSeconds && currentTotalSeconds < endSeconds) { activeBus = bus; break; }
         if (startSeconds > currentTotalSeconds) { const diff = startSeconds - currentTotalSeconds; if (diff < timeDiff) { timeDiff = diff; nextBus = bus; } }
     }
-    
+
     const container = document.getElementById('bus-dynamic-area'); const title = document.getElementById('dash-bus-title'); const subtitle = document.getElementById('dash-bus-subtitle');
     const statusDot = document.getElementById('bus-status-dot'); const statusText = document.getElementById('bus-status-text');
-    
+
     if (!container || !title) return;
 
     if (activeBus) {
@@ -2692,10 +2698,10 @@ function updateNextBus() {
 // --- FUNCIONALIDADE: CALCULADORA ---
 // ============================================================
 
-window.addGradeRow = function() {
+window.addGradeRow = function () {
     const container = document.getElementById('grades-container');
     if (!container) return;
-    
+
     const div = document.createElement('div'); div.className = "flex gap-3 items-center fade-in";
     div.innerHTML = `
         <div class="flex-grow relative group">
@@ -2716,16 +2722,16 @@ function parseLocalFloat(val) {
     return parseFloat(val.replace(',', '.'));
 }
 
-window.calculateAverage = function() {
+window.calculateAverage = function () {
     let totalScore = 0, totalWeight = 0, hasInput = false;
     const passingEl = document.getElementById('passing-grade');
-    if(!passingEl) return;
+    if (!passingEl) return;
     const passing = parseFloat(passingEl.value) || 6.0;
 
     document.querySelectorAll('.grade-input').forEach((inp, i) => {
         const val = parseLocalFloat(inp.value);
         const weightInps = document.querySelectorAll('.weight-input');
-        if(weightInps[i]) {
+        if (weightInps[i]) {
             let wStr = weightInps[i].value;
             let w = parseLocalFloat(wStr);
             if (isNaN(w) && !isNaN(val)) w = 1;
@@ -2769,9 +2775,9 @@ window.calculateAverage = function() {
     }
 }
 
-window.resetCalc = function() {
+window.resetCalc = function () {
     const container = document.getElementById('grades-container');
-    if(container) container.innerHTML = '';
+    if (container) container.innerHTML = '';
     addGradeRow(); addGradeRow();
     calculateAverage();
 }
@@ -2787,40 +2793,40 @@ function updateTimerDisplay() {
     const m = Math.floor(timeLeft1 / 60), s = timeLeft1 % 60;
     const display = document.getElementById('timer-display');
     const circle = document.getElementById('timer-circle');
-    
-    if(display) display.innerText = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-    if(circle) circle.style.strokeDashoffset = 816 - (timeLeft1 / modes1[currentMode1]) * 816;
+
+    if (display) display.innerText = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    if (circle) circle.style.strokeDashoffset = 816 - (timeLeft1 / modes1[currentMode1]) * 816;
 }
 
-window.toggleTimer = function() {
+window.toggleTimer = function () {
     const btn = document.getElementById('btn-start');
-    if(!btn) return;
+    if (!btn) return;
     if (isRunning1) {
         clearInterval(timerInterval1); isRunning1 = false; btn.innerHTML = '<i class="fas fa-play pl-1"></i>'; btn.classList.replace('bg-red-600', 'bg-indigo-600'); btn.classList.replace('hover:bg-red-700', 'hover:bg-indigo-700');
     }
     else {
         isRunning1 = true; btn.innerHTML = '<i class="fas fa-pause"></i>'; btn.classList.replace('bg-indigo-600', 'bg-red-600'); btn.classList.replace('hover:bg-indigo-700', 'hover:bg-red-700');
         timerInterval1 = setInterval(() => {
-            timeLeft1--; if (timeLeft1 <= 0) { 
+            timeLeft1--; if (timeLeft1 <= 0) {
                 clearInterval(timerInterval1); isRunning1 = false; showModal('Tempo', 'O tempo acabou!'); toggleTimer(); return;
             } updateTimerDisplay();
         }, 1000);
     }
 }
 
-window.resetTimer = function() { if (isRunning1) toggleTimer(); timeLeft1 = modes1[currentMode1]; updateTimerDisplay(); }
+window.resetTimer = function () { if (isRunning1) toggleTimer(); timeLeft1 = modes1[currentMode1]; updateTimerDisplay(); }
 
-window.setTimerMode = function(m) {
+window.setTimerMode = function (m) {
     ['pomodoro', 'short', 'long'].forEach(mode => {
         const btn = document.getElementById(`mode-${mode}`);
         if (btn) {
             if (mode === m) { btn.classList.add('bg-white', 'dark:bg-neutral-700', 'text-gray-800', 'dark:text-white', 'shadow-sm'); btn.classList.remove('text-gray-500', 'dark:text-gray-400'); }
             else { btn.classList.remove('bg-white', 'dark:bg-neutral-700', 'text-gray-800', 'dark:text-white', 'shadow-sm'); btn.classList.add('text-gray-500', 'dark:text-gray-400'); }
         }
-    }); 
-    currentMode1 = m; 
+    });
+    currentMode1 = m;
     const label = document.getElementById('timer-label');
-    if(label) label.innerText = m === 'pomodoro' ? 'Foco' : (m === 'short' ? 'Curta' : 'Longa'); 
+    if (label) label.innerText = m === 'pomodoro' ? 'Foco' : (m === 'short' ? 'Curta' : 'Longa');
     resetTimer();
 }
 
@@ -2835,9 +2841,9 @@ const templates = {
     tcc: `Prezado(a) Prof(a). [Nome],\n\nTenho interesse em sua área de pesquisa e gostaria de saber se há disponibilidade para orientação de TCC sobre [Tema].\n\nAtenciosamente,\n[Seu Nome]`
 };
 
-window.loadTemplate = function(k) { document.getElementById('email-content').value = templates[k]; }
-window.copyEmail = function() { const e = document.getElementById('email-content'); e.select(); document.execCommand('copy'); }
-window.openPortal = function() { window.open('https://sistemas.ufrb.edu.br/sigaa/verTelaLogin.do', '_blank'); }
+window.loadTemplate = function (k) { document.getElementById('email-content').value = templates[k]; }
+window.copyEmail = function () { const e = document.getElementById('email-content'); e.select(); document.execCommand('copy'); }
+window.openPortal = function () { window.open('https://sistemas.ufrb.edu.br/sigaa/verTelaLogin.do', '_blank'); }
 
 // ============================================================
 // --- TEMA E CORES ---
@@ -2870,7 +2876,7 @@ function initTheme() {
 }
 initTheme();
 
-window.toggleTheme = function() {
+window.toggleTheme = function () {
     if (document.documentElement.classList.contains('dark')) {
         document.documentElement.classList.remove('dark');
         localStorage.setItem('theme', 'light');
@@ -2880,7 +2886,7 @@ window.toggleTheme = function() {
     }
 }
 
-window.toggleColorMenu = function(device) {
+window.toggleColorMenu = function (device) {
     const menu = document.getElementById(`color-menu-${device}`);
     if (!menu) return;
     const isHidden = menu.classList.contains('hidden');
@@ -2904,14 +2910,14 @@ window.toggleColorMenu = function(device) {
 function setThemeColor(colorName) {
     const palette = colorPalettes[colorName];
     if (!palette) return;
-    
+
     const iconColor = colorName === 'black' ? `rgb(${palette[900]})` : `rgb(${palette[600]})`;
-    
+
     document.querySelectorAll('#desktop-palette-icon, #mobile-palette-icon').forEach(icon => {
         icon.classList.remove('text-indigo-600');
         icon.style.color = iconColor;
         if (colorName === 'black' && document.documentElement.classList.contains('dark')) {
-             icon.style.color = '#ffffff';
+            icon.style.color = '#ffffff';
         }
     });
 
@@ -2934,7 +2940,7 @@ document.addEventListener('click', (e) => {
 });
 
 let clockMode = 0;
-window.cycleClockMode = function() { clockMode = (clockMode + 1) % 4; updateClock(); }
+window.cycleClockMode = function () { clockMode = (clockMode + 1) % 4; updateClock(); }
 function updateClock() {
     const now = new Date();
     let timeString = "";
@@ -2946,7 +2952,7 @@ function updateClock() {
         const time = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
         timeString = `${date} • ${time}`;
     }
-    
+
     const clockEls = document.querySelectorAll('#clock');
     clockEls.forEach(el => el.innerText = timeString);
 }
@@ -3013,7 +3019,7 @@ if ('serviceWorker' in navigator) {
                 text.innerText = 'Online';
                 icon.className = 'fas fa-wifi';
                 setTimeout(() => toast.classList.remove('show'), 3000);
-                if(currentUser) refreshAllUI(); 
+                if (currentUser) refreshAllUI();
             } else {
                 toast.className = 'network-status offline show';
                 text.innerText = 'Offline';
@@ -3031,23 +3037,23 @@ document.addEventListener('DOMContentLoaded', () => {
     window.renderReminders();
     if (window.renderSchedule) window.renderSchedule();
     window.updateNextClassWidget();
-    renderBusTable(); 
-    updateNextBus(); 
+    renderBusTable();
+    updateNextBus();
     updateAIWidgetUI();
     fixChatLayout();
     setInterval(updateNextBus, 1000);
-    
+
     // Auto-select Home on sidebar
     const activeMobileLink = document.querySelector(`#mobile-menu nav a[onclick*="'home'"]`);
-    if(activeMobileLink) {
-         activeMobileLink.classList.add('bg-indigo-50', 'text-indigo-600', 'dark:bg-indigo-900/50', 'dark:text-indigo-300');
-         activeMobileLink.classList.remove('text-gray-600', 'dark:text-gray-400');
+    if (activeMobileLink) {
+        activeMobileLink.classList.add('bg-indigo-50', 'text-indigo-600', 'dark:bg-indigo-900/50', 'dark:text-indigo-300');
+        activeMobileLink.classList.remove('text-gray-600', 'dark:text-gray-400');
     }
 
     setInterval(window.updateNextClassWidget, 60000);
-    
+
     addGradeRow(); addGradeRow();
-    if(document.getElementById('passing-grade')) document.getElementById('passing-grade').addEventListener('input', calculateAverage);
+    if (document.getElementById('passing-grade')) document.getElementById('passing-grade').addEventListener('input', calculateAverage);
 });
 
 // History Handling
@@ -3057,11 +3063,11 @@ window.addEventListener('popstate', (event) => {
     const genericModal = document.getElementById('generic-modal');
 
     if (classModal && !classModal.classList.contains('hidden')) {
-        classModal.classList.add('opacity-0'); 
+        classModal.classList.add('opacity-0');
         setTimeout(() => classModal.classList.add('hidden'), 300);
         return;
     }
-    
+
     if (remindersModal && !remindersModal.classList.contains('hidden')) {
         remindersModal.classList.add('opacity-0');
         setTimeout(() => remindersModal.classList.add('hidden'), 300);

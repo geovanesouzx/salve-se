@@ -12,8 +12,8 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="apple-touch-icon" href="https://files.catbox.moe/pmdtq6.png">
 
-    <!-- CSS Externo (Versão atualizada para forçar recarregamento) -->
-    <link rel="stylesheet" href="style.css?v=16">
+    <!-- CSS Externo (Versão atualizada) -->
+    <link rel="stylesheet" href="style.css?v=17">
 
     <!-- Tailwind CSS (Configurado para Variáveis Dinâmicas) -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -474,41 +474,52 @@
                             <p class="font-bold text-gray-700 dark:text-gray-200">Aulas</p>
                         </button>
                         <button onclick="switchPage('onibus')" class="p-4 bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder rounded-xl hover:border-orange-500 dark:hover:border-orange-500 transition text-left group shadow-sm">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-400 group-hover:text-orange-500 mb-3 transition-colors"><path d="M4 6 2 7"></path><path d="M10 6h4"></path><path d="m22 7-2-1"></path><rect width="16" height="16" x="4" y="3" rx="2"></path><path d="M4 11h16"></path><path d="M8 15h.01"></path><path d="M16 15h.01"></path><path d="M6 19v2"></path><path d="M18 21v-2"></path></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-400 group-hover:text-orange-500 mb-3 transition-colors"><path d="M4 6 2 7"></path><path d="M10 6h4"></path><path d="m22 7-2-1"></path><rect width="16" height="16" x="4" y="3" rx="2"></path><path d="M4 11h16"/><path d="M8 15h.01"></path><path d="M16 15h.01"></path><path d="M6 19v2"></path><path d="M18 21v-2"></path></svg>
                             <p class="font-bold text-gray-700 dark:text-gray-200">Circular</p>
                         </button>
                     </div>
                 </div>
 
-                <!-- NOVA VIEW IA -->
+                <!-- NOVA VIEW IA (ATUALIZADA) -->
                 <div id="view-ia" class="hidden fade-in flex flex-col h-[calc(100vh-8rem)] md:h-[calc(100vh-8rem)] relative">
-                    <!-- Header/Disclaimer -->
-                    <div class="text-center mb-4">
-                        <div class="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-2 text-white text-xl shadow-lg shadow-indigo-500/30">
-                            <i class="fas fa-robot"></i>
+                    
+                    <!-- Header Fixo -->
+                    <div class="flex items-center justify-between px-2 mb-2">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center text-white text-lg shadow-lg shadow-indigo-500/30">
+                                <i class="fas fa-robot"></i>
+                            </div>
+                            <div>
+                                <h2 class="font-bold text-gray-800 dark:text-white leading-tight">Salve-se IA</h2>
+                                <p class="text-[10px] text-gray-400 uppercase font-bold tracking-wider">Assistente Pessoal</p>
+                            </div>
                         </div>
-                        <h2 class="font-bold text-gray-800 dark:text-white">Salve-se IA</h2>
-                        <p class="text-xs text-gray-400">Baseado no Gemini • Pode cometer erros</p>
+                        <button id="btn-new-chat" onclick="startNewChat()" class="text-xs bg-gray-100 dark:bg-neutral-800 hover:bg-gray-200 dark:hover:bg-neutral-700 text-gray-600 dark:text-gray-300 px-3 py-2 rounded-lg transition font-bold flex items-center gap-2">
+                            <i class="fas fa-broom"></i> <span class="hidden sm:inline">Nova Conversa</span>
+                        </button>
                     </div>
 
                     <!-- Chat History -->
                     <div id="chat-messages-container" class="flex-1 overflow-y-auto p-2 space-y-4 pr-2 scroll-smooth">
-                        <!-- Welcome Message -->
-                        <div class="flex gap-2 max-w-[90%] animate-fade-in-up">
+                        <!-- Welcome Message (Será substituído se houver histórico) -->
+                        <div class="flex gap-3 max-w-[90%] animate-fade-in-up">
                             <div class="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center flex-shrink-0 text-white text-xs shadow-sm mt-1">
                                 <i class="fas fa-robot"></i>
                             </div>
-                            <div class="bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder text-gray-800 dark:text-gray-200 rounded-2xl rounded-tl-none px-4 py-3 shadow-sm">
-                                <p class="text-sm leading-relaxed">Olá! Sou sua assistente virtual. Posso ajudar com resumos, dúvidas sobre a UFRB ou organizar sua rotina. Em que posso ajudar?</p>
+                            <div class="flex flex-col">
+                                <div class="bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder text-gray-800 dark:text-gray-200 rounded-2xl rounded-tl-none px-5 py-4 shadow-sm text-sm leading-relaxed">
+                                    <p>Olá! Sou sua assistente executiva. 🤖</p>
+                                    <p class="mt-2">Posso gerenciar suas tarefas, criar lembretes e organizar sua grade horária. Me diga o que precisa!</p>
+                                </div>
                             </div>
                         </div>
                         
-                        <!-- Typing Indicator (Hidden by default) -->
-                        <div id="chat-typing-indicator" class="hidden flex gap-2 max-w-[90%]">
+                        <!-- Typing Indicator -->
+                        <div id="chat-typing-indicator" class="hidden flex gap-3 max-w-[90%]">
                              <div class="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center flex-shrink-0 text-white text-xs shadow-sm mt-1">
                                 <i class="fas fa-robot"></i>
                             </div>
-                            <div class="bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder rounded-2xl rounded-tl-none px-4 py-4 shadow-sm flex items-center gap-1">
+                            <div class="bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder rounded-2xl rounded-tl-none px-4 py-4 shadow-sm flex items-center gap-1 w-fit">
                                 <div class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce"></div>
                                 <div class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.1s"></div>
                                 <div class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.2s"></div>
@@ -517,16 +528,17 @@
                     </div>
 
                     <!-- Input Area -->
-                    <div class="mt-4 relative">
-                        <input type="text" id="chat-input" class="w-full bg-white dark:bg-neutral-800 border border-gray-300 dark:border-neutral-700 rounded-xl pl-4 pr-12 py-3.5 shadow-sm focus:ring-2 focus:ring-indigo-500 outline-none transition dark:text-white" placeholder="Digite sua mensagem..." onkeypress="if(event.key === 'Enter') sendIAMessage()">
+                    <div class="mt-2 relative">
+                        <input type="text" id="chat-input" class="w-full bg-white dark:bg-neutral-800 border border-gray-300 dark:border-neutral-700 rounded-xl pl-4 pr-12 py-4 shadow-sm focus:ring-2 focus:ring-indigo-500 outline-none transition dark:text-white" placeholder="Digite sua mensagem..." onkeypress="if(event.key === 'Enter') sendIAMessage()">
                         <button id="chat-send-btn" onclick="sendIAMessage()" class="absolute right-2 top-2 bottom-2 bg-indigo-600 hover:bg-indigo-700 text-white w-10 rounded-lg flex items-center justify-center transition disabled:opacity-50 disabled:cursor-not-allowed">
                             <i class="fas fa-paper-plane"></i>
                         </button>
                     </div>
                 </div>
 
-                <!-- DEMAIS VIEWS -->
+                <!-- DEMAIS VIEWS (Mantidas) -->
                 <div id="view-onibus" class="hidden fade-in max-w-4xl mx-auto">
+                      <!-- Conteúdo do Ônibus -->
                       <div class="bg-white dark:bg-darkcard rounded-xl shadow-sm border border-gray-200 dark:border-darkborder overflow-hidden p-6">
                            <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4 border-b border-gray-100 dark:border-neutral-800 pb-4">
                                <h2 class="text-xl font-bold text-gray-800 dark:text-white">Grade Completa 2025.1</h2>
@@ -548,6 +560,7 @@
                       </div>
                 </div>
                 
+                <!-- Calculadora, Pomodoro, Todo, Email, Config (Mantidos iguais, apenas estrutura) -->
                 <div id="view-calc" class="hidden fade-in max-w-3xl mx-auto pb-10">
                     <div class="bg-white dark:bg-darkcard rounded-2xl shadow-xl border border-gray-200 dark:border-darkborder overflow-hidden">
                         <div class="bg-gradient-to-r from-indigo-600 to-purple-600 p-8 text-white text-center relative overflow-hidden">
@@ -557,7 +570,6 @@
                             </div>
                             <div class="absolute top-0 left-0 w-full h-full opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
                         </div>
-                        
                         <div class="p-6 md:p-8">
                             <div class="flex justify-center items-center gap-4 mb-8 p-4 bg-gray-50 dark:bg-neutral-900/50 rounded-xl border border-gray-200 dark:border-neutral-800">
                                 <label class="text-sm font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wide">Média para Aprovação:</label>
@@ -616,14 +628,11 @@
                     <div class="bg-white dark:bg-darkcard rounded-xl shadow-sm border border-gray-200 dark:border-darkborder min-h-[500px] flex flex-col">
                         <div class="p-6 border-b border-gray-200 dark:border-darkborder bg-gray-50/50 dark:bg-neutral-900/30">
                             <h2 class="text-xl font-bold mb-6 text-gray-800 dark:text-white">Lista de Tarefas</h2>
-                            
-                            <!-- New Input Area -->
                             <div class="space-y-4">
                                 <div class="flex gap-2">
                                     <input type="text" id="todo-input" class="flex-1 bg-white dark:bg-neutral-800 border border-gray-300 dark:border-neutral-700 rounded-lg px-4 py-3 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition dark:text-white shadow-sm" placeholder="O que precisa ser feito?" onkeypress="if(event.key === 'Enter') addTask()">
                                     <button onclick="addTask()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 rounded-lg transition font-bold shadow-md flex items-center justify-center"><i class="fas fa-plus"></i></button>
                                 </div>
-                                
                                 <div class="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
                                     <select id="todo-category" class="bg-white dark:bg-neutral-800 border border-gray-300 dark:border-neutral-700 text-gray-700 dark:text-gray-300 text-xs rounded-lg px-3 py-2 focus:outline-none focus:border-indigo-500">
                                         <option value="geral">Geral</option>
@@ -631,7 +640,6 @@
                                         <option value="trabalho">Trabalho</option>
                                         <option value="pessoal">Pessoal</option>
                                     </select>
-                                     
                                     <select id="todo-priority" class="bg-white dark:bg-neutral-800 border border-gray-300 dark:border-neutral-700 text-gray-700 dark:text-gray-300 text-xs rounded-lg px-3 py-2 focus:outline-none focus:border-indigo-500">
                                         <option value="normal">Prioridade Normal</option>
                                         <option value="medium">Média</option>
@@ -639,17 +647,13 @@
                                     </select>
                                 </div>
                             </div>
-
-                            <!-- Filters -->
                             <div class="flex gap-2 mt-6 text-xs font-medium">
                                 <button id="filter-all" onclick="setTaskFilter('all')" class="px-3 py-1.5 rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300 transition">Todas</button>
                                 <button id="filter-active" onclick="setTaskFilter('active')" class="px-3 py-1.5 rounded-full hover:bg-gray-200 dark:hover:bg-neutral-800 text-gray-600 dark:text-gray-400 transition">Pendentes</button>
                                 <button id="filter-completed" onclick="setTaskFilter('completed')" class="px-3 py-1.5 rounded-full hover:bg-gray-200 dark:hover:bg-neutral-800 text-gray-600 dark:text-gray-400 transition">Concluídas</button>
                             </div>
                         </div>
-
                         <div class="flex-1 overflow-y-auto p-4 space-y-2 bg-gray-50 dark:bg-darkbg" id="todo-list"></div>
-                        
                         <div class="p-3 bg-white dark:bg-darkcard border-t border-gray-200 dark:border-darkborder flex justify-between items-center text-xs text-gray-500">
                              <span id="task-count">0 tarefas</span>
                              <button onclick="clearCompleted()" class="hover:text-red-500 transition font-medium">Limpar Concluídas</button>
@@ -684,7 +688,8 @@
         </div>
     </div>
 
-    <!-- MODAIS -->
+    <!-- Modais auxiliares (Class, Reminders, Delete, Generic, Custom Input) -->
+    <!-- (Mantendo a estrutura dos modais existentes para garantir funcionalidade completa) -->
     <div id="class-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm hidden opacity-0 transition-opacity duration-300">
         <div class="bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl w-full max-w-md p-6 m-4 transform scale-95 transition-transform duration-300 border border-gray-200 dark:border-neutral-800" id="class-modal-content">
             <div class="flex justify-between items-center mb-6">
@@ -802,7 +807,7 @@
         </div>
     </div>
 
-    <!-- NOVO MODAL: CUSTOM INPUT (Prompt Replacement) -->
+    <!-- CUSTOM INPUT MODAL -->
     <div id="custom-input-modal" class="fixed inset-0 z-[90] flex items-center justify-center bg-black/70 backdrop-blur-sm hidden transition-opacity duration-300">
         <div class="bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl w-full max-w-sm p-6 m-4 transform transition-transform duration-300 border border-gray-200 dark:border-neutral-800">
             <h3 id="custom-modal-title" class="text-lg font-bold text-gray-900 dark:text-white mb-4">Título</h3>
@@ -814,7 +819,7 @@
         </div>
     </div>
 
-    <!-- NOVO MODAL: CUSTOM CONFIRM (Confirm Replacement) -->
+    <!-- CUSTOM CONFIRM MODAL -->
     <div id="custom-confirm-modal" class="fixed inset-0 z-[90] flex items-center justify-center bg-black/70 backdrop-blur-sm hidden transition-opacity duration-300">
         <div class="bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl w-full max-w-sm p-6 m-4 transform transition-transform duration-300 border border-gray-200 dark:border-neutral-800 text-center">
             <h3 id="custom-confirm-title" class="text-lg font-bold text-gray-900 dark:text-white mb-2">Confirmação</h3>
@@ -826,7 +831,7 @@
         </div>
     </div>
 
-    <!-- Script PRINCIPAL (IMPORTADO COMO MODULE PARA FIREBASE FUNCIONAR) -->
+    <!-- Script PRINCIPAL -->
     <script type="module" src="script.js"></script>
 
 </body>

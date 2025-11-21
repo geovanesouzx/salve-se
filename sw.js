@@ -1,4 +1,4 @@
-const CACHE_NAME = 'salvese-v11.0-ai-tools'; // Versão incrementada para forçar update
+const CACHE_NAME = 'salvese-v11.1-ai-persist'; 
 const URLS_TO_CACHE = [
     './',
     './index.html',

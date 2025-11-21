@@ -38,17 +38,30 @@ const db = getFirestore(app);
 // Tenta habilitar persistência offline
 try {
     enableIndexedDbPersistence(db).catch((err) => {
-        console.log("Persistência Firestore:", err.code);
+        if (err.code === 'failed-precondition') {
+            console.warn("Persistência falhou: Múltiplas abas abertas.");
+        } else if (err.code === 'unimplemented') {
+            console.warn("O navegador não suporta persistência.");
+        }
     });
-} catch (e) { console.log("Persistência já ativa ou não suportada"); }
+} catch (e) { 
+    console.log("Persistência já ativa ou não suportada"); 
+}
 
-// Variáveis Globais
+// ============================================================
+// --- VARIÁVEIS GLOBAIS ---
+// ============================================================
 let currentUser = null;
 let userProfile = null;
 let unsubscribeData = null;
+let scheduleData = JSON.parse(localStorage.getItem('salvese_schedule')) || [];
+let tasksData = JSON.parse(localStorage.getItem('salvese_tasks')) || [];
+let remindersData = JSON.parse(localStorage.getItem('salvese_reminders')) || [];
+let selectedClassIdToDelete = null;
+let currentTaskFilter = 'all'; 
 
 // ============================================================
-// --- ÍCONES SVG (Estilo Fino/Outline) ---
+// --- ÍCONES SVG ---
 // ============================================================
 const svgs = {
     photo: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>`,
@@ -56,13 +69,13 @@ const svgs = {
     at: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-3.92 7.94"/></svg>`,
     school: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>`,
     lock: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`,
-    cloud: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19c0-3.037-2.463-5.5-5.5-5.5S6.5 15.963 6.5 19"/><path d="M12 13.5V4"/><path d="M7 9l5-5 5 5"/></svg>`, // Upload icon adaptado
+    cloud: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19c0-3.037-2.463-5.5-5.5-5.5S6.5 15.963 6.5 19"/><path d="M12 13.5V4"/><path d="M7 9l5-5 5 5"/></svg>`,
     logout: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>`,
     chevron: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`
 };
 
 // ============================================================
-// --- SISTEMA DE BOOTSTRAP INTELIGENTE ---
+// --- SISTEMA DE BOOTSTRAP E AUTH ---
 // ============================================================
 
 const sessionActive = localStorage.getItem('salvese_session_active');
@@ -77,7 +90,7 @@ const forceLoadTimeout = setTimeout(() => {
             showLoginScreen();
         }
     }
-}, 2000); 
+}, 3000); 
 
 onAuthStateChanged(auth, async (user) => {
     clearTimeout(forceLoadTimeout);
@@ -119,6 +132,20 @@ onAuthStateChanged(auth, async (user) => {
         }
     }
 });
+
+function loadAppOfflineMode() {
+    const savedProfile = localStorage.getItem('salvese_user_profile');
+    if (savedProfile) {
+        userProfile = JSON.parse(savedProfile);
+    } else {
+        userProfile = { displayName: 'Modo Offline', handle: 'offline', semester: 'N/A' };
+    }
+    showAppInterface();
+}
+
+// ============================================================
+// --- GERENCIAMENTO DE TELAS (VIEW) ---
+// ============================================================
 
 function showAppInterface() {
     const loginScreen = document.getElementById('login-screen');
@@ -167,15 +194,42 @@ function showProfileSetupScreen() {
     if(loadingScreen) loadingScreen.classList.add('hidden');
 }
 
-function loadAppOfflineMode() {
-    const savedProfile = localStorage.getItem('salvese_user_profile');
-    if (savedProfile) {
-        userProfile = JSON.parse(savedProfile);
-    } else {
-        userProfile = { displayName: 'Modo Offline', handle: 'offline', semester: 'N/A' };
+window.switchPage = function(pageId, addToHistory = true) {
+    document.querySelectorAll('[id^="view-"]').forEach(el => el.classList.add('hidden'));
+    const target = document.getElementById(`view-${pageId}`);
+    if (target) target.classList.remove('hidden');
+
+    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+    const activeLink = document.getElementById(`nav-${pageId}`);
+    if (activeLink) activeLink.classList.add('active');
+
+    // Atualiza menu mobile
+    const mobileNavLinks = document.querySelectorAll('#mobile-menu nav a');
+    mobileNavLinks.forEach(link => {
+        link.classList.remove('bg-indigo-50', 'text-indigo-600', 'dark:bg-indigo-900/50', 'dark:text-indigo-300');
+        link.classList.add('text-gray-600', 'dark:text-gray-400');
+
+        if(link.getAttribute('onclick') && link.getAttribute('onclick').includes(`'${pageId}'`)) {
+             link.classList.add('bg-indigo-50', 'text-indigo-600', 'dark:bg-indigo-900/50', 'dark:text-indigo-300');
+             link.classList.remove('text-gray-600', 'dark:text-gray-400');
+        }
+    });
+
+    const titles = { home: 'Página Principal', onibus: 'Transporte', calc: 'Calculadora', pomo: 'Modo Foco', todo: 'Tarefas', email: 'Templates', aulas: 'Grade Horária', config: 'Configurações' };
+    const pageTitleEl = document.getElementById('page-title');
+    if (pageTitleEl) pageTitleEl.innerText = titles[pageId] || 'Salve-se UFRB';
+    
+    if(pageId === 'aulas' && window.renderSchedule) window.renderSchedule();
+    if(pageId === 'config' && window.renderSettings) window.renderSettings();
+
+    if(addToHistory) {
+        history.pushState({view: pageId}, null, `#${pageId}`);
     }
-    showAppInterface();
 }
+
+// ============================================================
+// --- FUNÇÕES DE USUÁRIO & DADOS ---
+// ============================================================
 
 window.loginWithGoogle = async () => {
     const provider = new GoogleAuthProvider();
@@ -273,7 +327,7 @@ function initRealtimeSync(uid) {
 
             refreshAllUI();
         }
-    }, (error) => console.log("Modo offline ou erro:", error.code));
+    }, (error) => console.log("Modo offline ou erro de sync:", error.code));
 
     onSnapshot(doc(db, "users", uid), (docSnap) => {
         if(docSnap.exists()) {
@@ -290,10 +344,12 @@ function initRealtimeSync(uid) {
 function updateUserInterfaceInfo() {
     const nameDisplay = document.getElementById('user-display-name');
     const handleDisplay = document.getElementById('user-display-id');
+    const sidebarAvatar = document.getElementById('user-avatar-sidebar');
     
     if(userProfile) {
         if(nameDisplay) nameDisplay.innerText = userProfile.displayName;
         if(handleDisplay) handleDisplay.innerText = "@" + userProfile.handle;
+        if(sidebarAvatar && userProfile.photoURL) sidebarAvatar.src = userProfile.photoURL;
     }
 }
 
@@ -306,13 +362,52 @@ function refreshAllUI() {
     if (window.renderSettings) window.renderSettings();
 }
 
+async function saveData() {
+    localStorage.setItem('salvese_schedule', JSON.stringify(scheduleData));
+    localStorage.setItem('salvese_tasks', JSON.stringify(tasksData));
+    localStorage.setItem('salvese_reminders', JSON.stringify(remindersData));
+
+    refreshAllUI();
+
+    if (currentUser) {
+        try {
+            const dataToSave = {
+                schedule: scheduleData,
+                tasks: tasksData,
+                reminders: remindersData,
+                lastUpdated: new Date().toISOString()
+            };
+            await setDoc(doc(db, "users", currentUser.uid, "data", "appData"), dataToSave, { merge: true });
+        } catch (e) {
+            console.log("Salvamento local ok. Nuvem pendente.");
+        }
+    }
+}
+
+window.manualBackup = async function() {
+    const btn = document.getElementById('btn-manual-backup');
+    if(btn) {
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando...';
+        btn.disabled = true;
+    }
+
+    await saveData();
+
+    setTimeout(() => {
+        showModal('Backup', 'Seus dados foram sincronizados com a nuvem com sucesso!');
+        if(btn) {
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        }
+    }, 800);
+}
+
 // ============================================================
-// --- SISTEMA DE MODAIS CUSTOMIZADOS (Substitui Prompt/Alert) ---
+// --- UI COMPONENTS: MODAIS E INPUTS ---
 // ============================================================
 
-// Função para chamar Modal de Input (estilo Prompt bonito)
 function openCustomInputModal(title, placeholder, initialValue, onConfirm) {
-    // Procura os elementos do modal (serão criados no index.html)
     const modal = document.getElementById('custom-input-modal');
     const modalTitle = document.getElementById('custom-modal-title');
     const modalInput = document.getElementById('custom-modal-input');
@@ -325,38 +420,32 @@ function openCustomInputModal(title, placeholder, initialValue, onConfirm) {
     modalInput.placeholder = placeholder || "";
     modalInput.value = initialValue || "";
     
-    // Limpa eventos anteriores
     const newBtnConfirm = btnConfirm.cloneNode(true);
     btnConfirm.parentNode.replaceChild(newBtnConfirm, btnConfirm);
     
     const newBtnCancel = btnCancel.cloneNode(true);
     btnCancel.parentNode.replaceChild(newBtnCancel, btnCancel);
 
-    // Evento Confirmar
     newBtnConfirm.addEventListener('click', () => {
         const val = modalInput.value;
         modal.classList.add('hidden');
         if(onConfirm) onConfirm(val);
     });
 
-    // Evento Cancelar
     newBtnCancel.addEventListener('click', () => {
         modal.classList.add('hidden');
     });
 
-    // Enter para confirmar
     modalInput.onkeypress = (e) => {
         if(e.key === 'Enter') newBtnConfirm.click();
     };
 
-    // Mostrar modal
     modal.classList.remove('hidden');
     modalInput.focus();
 }
 
-// Função para chamar Modal de Confirmação (estilo Confirm bonito)
 function openCustomConfirmModal(title, message, onConfirm) {
-    const modal = document.getElementById('custom-confirm-modal'); // Novo ID
+    const modal = document.getElementById('custom-confirm-modal');
     const modalTitle = document.getElementById('custom-confirm-title');
     const modalMsg = document.getElementById('custom-confirm-msg');
     const btnYes = document.getElementById('custom-confirm-yes');
@@ -385,30 +474,28 @@ function openCustomConfirmModal(title, message, onConfirm) {
     modal.classList.remove('hidden');
 }
 
-// ============================================================
-// --- LÓGICA DA APLICAÇÃO ---
-// ============================================================
-
-window.manualBackup = async function() {
-    const btn = document.getElementById('btn-manual-backup');
-    if(btn) {
-        const originalText = btn.innerHTML;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando...';
-        btn.disabled = true;
+window.showModal = function(title, message) {
+    const m = document.getElementById('generic-modal');
+    document.getElementById('generic-modal-title').innerText = title;
+    document.getElementById('generic-modal-message').innerText = message;
+    if (m) {
+        history.pushState({modal: 'generic'}, null, '#alert');
+        m.classList.remove('hidden');
+        setTimeout(() => { m.classList.remove('opacity-0'); m.firstElementChild.classList.remove('scale-95'); m.firstElementChild.classList.add('scale-100'); }, 10);
     }
-
-    await saveData();
-
-    setTimeout(() => {
-        showModal('Backup', 'Seus dados foram sincronizados com a nuvem com sucesso!');
-        if(btn) {
-            btn.innerHTML = originalText;
-            btn.disabled = false;
-        }
-    }, 800);
 }
 
-// --- GESTÃO DE PERFIL E CONFIGURAÇÕES (ATUALIZADO SEM PROMPTS) ---
+window.closeGenericModal = function() {
+    const m = document.getElementById('generic-modal');
+    if (m) {
+        m.classList.add('opacity-0'); m.firstElementChild.classList.remove('scale-100'); m.firstElementChild.classList.add('scale-95');
+        setTimeout(() => m.classList.add('hidden'), 300);
+    }
+}
+
+// ============================================================
+// --- PERFIL E CONFIGURAÇÕES ---
+// ============================================================
 
 window.editName = function() {
     openCustomInputModal(
@@ -532,6 +619,7 @@ window.changePhoto = function() {
         formData.append('image', file);
 
         try {
+            // Nota: Client-ID exposto, idealmente use um proxy backend
             const response = await fetch('https://api.imgur.com/3/image', {
                 method: 'POST',
                 headers: { 'Authorization': 'Client-ID 513bb727cecf9ac' },
@@ -585,7 +673,6 @@ window.changePassword = function() {
     }
 }
 
-// === RENDERIZAÇÃO DA TELA DE CONFIGURAÇÕES (Com ícones SVG finos e sem fundo branco na foto) ===
 window.renderSettings = function() {
     const container = document.getElementById('settings-content');
     if (!container || !userProfile) return;
@@ -598,7 +685,6 @@ window.renderSettings = function() {
 
     const photo = userProfile.photoURL || "https://files.catbox.moe/pmdtq6.png";
 
-    // Helper para criar cards com SVG
     const createActionCard = (onclick, svgIcon, title, subtitle, colorClass = "text-gray-500 group-hover:text-indigo-500") => `
         <button onclick="${onclick}" class="group w-full bg-white dark:bg-darkcard border border-gray-100 dark:border-darkborder p-4 rounded-2xl flex items-center justify-between hover:border-indigo-500 dark:hover:border-indigo-500 hover:shadow-md transition-all duration-200 mb-3 text-left">
             <div class="flex items-center gap-4">
@@ -624,7 +710,6 @@ window.renderSettings = function() {
                  <div class="absolute top-0 left-0 w-full h-24 bg-gradient-to-r from-indigo-500 to-purple-600 opacity-10 dark:opacity-20"></div>
                  
                  <div class="relative group mb-4 mt-4">
-                    <!-- REMOVIDO bg-white e dark:bg-neutral-800 para suportar PNG transparente sem fundo -->
                     <div class="w-28 h-28 rounded-full overflow-hidden p-1 border-4 border-white dark:border-darkcard shadow-lg relative z-10">
                         <img src="${photo}" class="w-full h-full object-cover rounded-full" onerror="this.src='https://files.catbox.moe/pmdtq6.png'">
                     </div>
@@ -650,10 +735,9 @@ window.renderSettings = function() {
                 </div>
             </div>
 
-            <!-- Seção de Ações (Usando SVG fino) -->
+            <!-- Seção de Ações -->
             <div>
                 <h3 class="px-4 text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Gerenciar Conta</h3>
-                
                 ${createActionCard('changePhoto()', svgs.photo, 'Foto de Perfil', 'Atualize sua imagem de exibição')}
                 ${createActionCard('editName()', svgs.user, 'Nome de Exibição', 'Como seu nome aparece no app')}
                 ${createActionCard('editHandle()', svgs.at, 'Nome de Usuário', 'Seu identificador único @handle')}
@@ -691,123 +775,9 @@ window.renderSettings = function() {
     `;
 }
 
-function initTheme() {
-    if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-        document.documentElement.classList.add('dark');
-    } else {
-        document.documentElement.classList.remove('dark');
-    }
-    const savedColor = localStorage.getItem('salvese_color');
-    if (savedColor) updateColorVars(JSON.parse(savedColor));
-}
-initTheme();
-
-window.toggleTheme = function() {
-    if (document.documentElement.classList.contains('dark')) {
-        document.documentElement.classList.remove('dark');
-        localStorage.setItem('theme', 'light');
-    } else {
-        document.documentElement.classList.add('dark');
-        localStorage.setItem('theme', 'dark');
-    }
-}
-
-const manifest = {
-    "name": "Salve-se UFRB",
-    "short_name": "Salve-se",
-    "start_url": ".",
-    "display": "standalone",
-    "background_color": "#09090b",
-    "theme_color": "#4f46e5",
-    "icons": [
-        { "src": "https://files.catbox.moe/pmdtq6.png", "sizes": "192x192", "type": "image/png" },
-        { "src": "https://files.catbox.moe/pmdtq6.png", "sizes": "512x512", "type": "image/png" }
-    ]
-};
-const stringManifest = JSON.stringify(manifest);
-const blobManifest = new Blob([stringManifest], { type: 'application/json' });
-const manifestURL = URL.createObjectURL(blobManifest);
-const pwaManifestLink = document.querySelector('#pwa-manifest');
-if (pwaManifestLink) {
-    pwaManifestLink.setAttribute('href', manifestURL);
-}
-
-if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js')
-            .then(reg => {
-                reg.update();
-            })
-            .catch(err => console.log('SW falhou:', err));
-    });
-
-    let deferredPrompt;
-    window.addEventListener('beforeinstallprompt', (e) => {
-        e.preventDefault();
-        deferredPrompt = e;
-        const installBtn = document.getElementById('btn-install-pwa');
-        if (installBtn) {
-            installBtn.classList.remove('hidden');
-            installBtn.addEventListener('click', () => {
-                deferredPrompt.prompt();
-                deferredPrompt.userChoice.then((choiceResult) => {
-                    deferredPrompt = null;
-                    installBtn.classList.add('hidden');
-                });
-            });
-        }
-    });
-
-    function updateNetworkStatus() {
-        const toast = document.getElementById('network-toast');
-        const text = document.getElementById('network-text');
-        const icon = toast ? toast.querySelector('i') : null;
-
-        if (toast && text && icon) {
-            if (navigator.onLine) {
-                toast.className = 'network-status online show';
-                text.innerText = 'Online';
-                icon.className = 'fas fa-wifi';
-                setTimeout(() => toast.classList.remove('show'), 3000);
-                if(currentUser) refreshAllUI(); 
-            } else {
-                toast.className = 'network-status offline show';
-                text.innerText = 'Offline';
-                icon.className = 'fas fa-wifi-slash';
-            }
-        }
-    }
-    window.addEventListener('online', updateNetworkStatus);
-    window.addEventListener('offline', updateNetworkStatus);
-}
-
-let scheduleData = JSON.parse(localStorage.getItem('salvese_schedule')) || [];
-let tasksData = JSON.parse(localStorage.getItem('salvese_tasks')) || [];
-let remindersData = JSON.parse(localStorage.getItem('salvese_reminders')) || [];
-let selectedClassIdToDelete = null;
-let currentTaskFilter = 'all'; 
-
-async function saveData() {
-    localStorage.setItem('salvese_schedule', JSON.stringify(scheduleData));
-    localStorage.setItem('salvese_tasks', JSON.stringify(tasksData));
-    localStorage.setItem('salvese_reminders', JSON.stringify(remindersData));
-
-    refreshAllUI();
-
-    if (currentUser) {
-        try {
-            const dataToSave = {
-                schedule: scheduleData,
-                tasks: tasksData,
-                reminders: remindersData,
-                lastUpdated: new Date().toISOString()
-            };
-            await setDoc(doc(db, "users", currentUser.uid, "data", "appData"), dataToSave, { merge: true });
-        } catch (e) {
-            console.log("Salvamento local ok. Nuvem pendente.");
-        }
-    }
-}
+// ============================================================
+// --- FUNCIONALIDADE: TAREFAS (TODO LIST) ---
+// ============================================================
 
 window.addTask = function () {
     const input = document.getElementById('todo-input');
@@ -948,9 +918,6 @@ window.updateDashboardTasksWidget = function() {
     
     const pendingTasks = tasksData.filter(t => !t.done);
     
-    const dashCountOld = document.getElementById('dash-task-count'); 
-    if(dashCountOld) dashCountOld.innerText = pendingTasks.length;
-    
     if(taskCountEl) {
         taskCountEl.innerText = pendingTasks.length;
         taskCountEl.className = pendingTasks.length > 0 ? 'bg-indigo-600 text-white px-2 py-0.5 rounded-full text-xs font-bold' : 'hidden';
@@ -997,6 +964,10 @@ window.updateDashboardTasksWidget = function() {
         container.appendChild(more);
     }
 };
+
+// ============================================================
+// --- FUNCIONALIDADE: GRADE HORÁRIA ---
+// ============================================================
 
 const timeSlots = [
     { start: "07:00", end: "08:00" }, { start: "08:00", end: "09:00" }, { start: "09:00", end: "10:00" },
@@ -1432,6 +1403,10 @@ window.updateNextClassWidget = function() {
     }
 }
 
+// ============================================================
+// --- FUNCIONALIDADE: LEMBRETES ---
+// ============================================================
+
 window.toggleRemindersModal = function() {
     const modal = document.getElementById('reminders-modal');
     const content = modal ? modal.firstElementChild : null;
@@ -1542,198 +1517,42 @@ window.renderReminders = function() {
     }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-    window.renderTasks();
-    window.renderReminders();
-    if (window.renderSchedule) window.renderSchedule();
-    window.updateNextClassWidget();
-    
-    const activeMobileLink = document.querySelector(`#mobile-menu nav a[onclick*="'home'"]`);
-    if(activeMobileLink) {
-         activeMobileLink.classList.add('bg-indigo-50', 'text-indigo-600', 'dark:bg-indigo-900/50', 'dark:text-indigo-300');
-         activeMobileLink.classList.remove('text-gray-600', 'dark:text-gray-400');
-    }
+// ============================================================
+// --- FUNCIONALIDADE: ONIBUS E ROTAS ---
+// ============================================================
 
-    setInterval(window.updateNextClassWidget, 60000);
-});
-
-window.addEventListener('popstate', (event) => {
-    const classModal = document.getElementById('class-modal');
-    const remindersModal = document.getElementById('reminders-modal');
-    const genericModal = document.getElementById('generic-modal');
-
-    if (classModal && !classModal.classList.contains('hidden')) {
-        classModal.classList.add('opacity-0'); 
-        setTimeout(() => classModal.classList.add('hidden'), 300);
-        return;
-    }
-    
-    if (remindersModal && !remindersModal.classList.contains('hidden')) {
-        remindersModal.classList.add('opacity-0');
-        setTimeout(() => remindersModal.classList.add('hidden'), 300);
-        return;
-    }
-
-    if (genericModal && !genericModal.classList.contains('hidden')) {
-        closeGenericModal();
-        return;
-    }
-
-    if (event.state && event.state.view) {
-        switchPage(event.state.view, false);
-    } else {
-        switchPage('home', false);
-    }
-});
-
-window.showModal = function(title, message) {
-    const m = document.getElementById('generic-modal');
-    document.getElementById('generic-modal-title').innerText = title;
-    document.getElementById('generic-modal-message').innerText = message;
-    if (m) {
-        history.pushState({modal: 'generic'}, null, '#alert');
-        m.classList.remove('hidden');
-        setTimeout(() => { m.classList.remove('opacity-0'); m.firstElementChild.classList.remove('scale-95'); m.firstElementChild.classList.add('scale-100'); }, 10);
-    }
+function addTime(baseTime, minutesToAdd) { 
+    const [h, m] = baseTime.split(':').map(Number); 
+    const date = new Date(); 
+    date.setHours(h); 
+    date.setMinutes(m + minutesToAdd); 
+    return date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }); 
 }
 
-window.closeGenericModal = function() {
-    const m = document.getElementById('generic-modal');
-    if (m) {
-        m.classList.add('opacity-0'); m.firstElementChild.classList.remove('scale-100'); m.firstElementChild.classList.add('scale-95');
-        setTimeout(() => m.classList.add('hidden'), 300);
-    }
-}
-
-window.toggleColorMenu = function(device) {
-    const menu = document.getElementById(`color-menu-${device}`);
-    if (!menu) return;
-    const isHidden = menu.classList.contains('hidden');
-    document.querySelectorAll('.color-menu').forEach(m => m.classList.add('hidden'));
-    if (isHidden) {
-        menu.innerHTML = '';
-        Object.keys(colorPalettes).forEach(color => {
-            const btn = document.createElement('button');
-            const rgb = colorPalettes[color][500];
-            btn.className = `w-6 h-6 rounded-full border border-gray-200 dark:border-gray-700 hover:scale-110 transition transform focus:outline-none ring-2 ring-transparent focus:ring-offset-1 focus:ring-gray-400`;
-            btn.style.backgroundColor = `rgb(${rgb})`;
-            btn.title = color.charAt(0).toUpperCase() + color.slice(1);
-            btn.onclick = () => setThemeColor(color);
-            menu.appendChild(btn);
-        });
-        menu.classList.remove('hidden');
-        menu.classList.add('visible');
-    }
-}
-
-const colorPalettes = {
-    cyan: { 50: '236 254 255', 100: '207 250 254', 200: '165 243 252', 300: '103 232 249', 400: '34 211 238', 500: '6 182 212', 600: '8 145 178', 700: '14 116 144', 800: '21 94 117', 900: '22 78 99' },
-    red: { 50: '254 242 242', 100: '254 226 226', 200: '254 202 202', 300: '252 165 165', 400: '248 113 113', 500: '239 68 68', 600: '220 38 38', 700: '185 28 28', 800: '153 27 27', 900: '127 29 29' },
-    green: { 50: '240 253 244', 100: '220 252 231', 200: '187 247 208', 300: '134 239 172', 400: '74 222 128', 500: '34 197 94', 600: '22 163 74', 700: '21 128 61', 800: '22 101 52', 900: '20 83 45' },
-    yellow: { 50: '254 252 232', 100: '254 249 195', 200: '254 240 138', 300: '253 224 71', 400: '250 204 21', 500: '234 179 8', 600: '202 138 4', 700: '161 98 7', 800: '133 77 14', 900: '113 63 18' },
-    purple: { 50: '250 245 255', 100: '243 232 255', 200: '233 213 255', 300: '216 180 254', 400: '192 132 252', 500: '168 85 247', 600: '147 51 234', 700: '126 34 206', 800: '107 33 168', 900: '88 28 135' },
-    pink: { 50: '253 242 248', 100: '252 231 243', 200: '251 204 231', 300: '249 168 212', 400: '244 114 182', 500: '236 72 153', 600: '219 39 119', 700: '190 24 93', 800: '157 23 77', 900: '131 24 67' },
-    orange: { 50: '255 247 237', 100: '255 237 213', 200: '254 215 170', 300: '253 186 116', 400: '251 146 60', 500: '249 115 22', 600: '234 88 12', 700: '194 65 12', 800: '154 52 18', 900: '124 45 18' },
-    indigo: { 50: '238 242 255', 100: '224 231 255', 200: '199 210 254', 300: '165 180 252', 400: '129 140 248', 500: '99 102 241', 600: '79 70 229', 700: '67 56 202', 800: '55 48 163', 900: '49 46 129' },
-    teal: { 50: '240 253 250', 100: '204 251 241', 200: '153 246 228', 300: '94 234 212', 400: '45 212 191', 500: '20 184 166', 600: '13 148 136', 700: '15 118 110', 800: '17 94 89', 900: '19 78 74' },
-    rose: { 50: '255 241 242', 100: '255 228 230', 200: '254 205 211', 300: '253 164 175', 400: '251 113 133', 500: '244 63 94', 600: '225 29 72', 700: '190 18 60', 800: '159 18 57', 900: '136 19 55' },
-    lime: { 50: '247 254 231', 100: '236 252 203', 200: '217 249 157', 300: '190 242 100', 400: '163 230 53', 500: '132 204 22', 600: '101 163 13', 700: '77 124 15', 800: '63 98 18', 900: '54 83 20' },
-    violet: { 50: '245 243 255', 100: '237 233 254', 200: '221 214 254', 300: '196 181 253', 400: '167 139 250', 500: '139 92 246', 600: '124 58 237', 700: '109 40 217', 800: '91 33 182', 900: '76 29 149' },
-    black: { 50: '250 250 250', 100: '244 244 245', 200: '228 228 231', 300: '212 212 216', 400: '161 161 170', 500: '113 113 122', 600: '82 82 91', 700: '63 63 70', 800: '39 39 42', 900: '24 24 27' }
-};
-
-function setThemeColor(colorName) {
-    const palette = colorPalettes[colorName];
-    if (!palette) return;
-    
-    const iconColor = colorName === 'black' ? `rgb(${palette[900]})` : `rgb(${palette[600]})`;
-    
-    document.querySelectorAll('#desktop-palette-icon, #mobile-palette-icon').forEach(icon => {
-        icon.classList.remove('text-indigo-600');
-        icon.style.color = iconColor;
-        if (colorName === 'black' && document.documentElement.classList.contains('dark')) {
-             icon.style.color = '#ffffff';
-        }
-    });
-
-    updateColorVars(palette);
-    localStorage.setItem('salvese_color', JSON.stringify(palette));
-    document.querySelectorAll('.color-menu').forEach(m => m.classList.add('hidden'));
-}
-
-function updateColorVars(palette) {
-    const root = document.documentElement;
-    Object.keys(palette).forEach(shade => {
-        root.style.setProperty(`--theme-${shade}`, palette[shade]);
-    });
-}
-
-document.addEventListener('click', (e) => {
-    if (!e.target.closest('button[onclick^="toggleColorMenu"]') && !e.target.closest('.color-menu')) {
-        document.querySelectorAll('.color-menu').forEach(m => m.classList.add('hidden'));
-    }
-});
-
-window.switchPage = function(pageId, addToHistory = true) {
-    document.querySelectorAll('[id^="view-"]').forEach(el => el.classList.add('hidden'));
-    const target = document.getElementById(`view-${pageId}`);
-    if (target) target.classList.remove('hidden');
-
-    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-    const activeLink = document.getElementById(`nav-${pageId}`);
-    if (activeLink) activeLink.classList.add('active');
-
-    const mobileNavLinks = document.querySelectorAll('#mobile-menu nav a');
-    mobileNavLinks.forEach(link => {
-        link.classList.remove('bg-indigo-50', 'text-indigo-600', 'dark:bg-indigo-900/50', 'dark:text-indigo-300');
-        link.classList.add('text-gray-600', 'dark:text-gray-400');
-
-        if(link.getAttribute('onclick').includes(`'${pageId}'`)) {
-             link.classList.add('bg-indigo-50', 'text-indigo-600', 'dark:bg-indigo-900/50', 'dark:text-indigo-300');
-             link.classList.remove('text-gray-600', 'dark:text-gray-400');
-        }
-    });
-
-    const titles = { home: 'Página Principal', onibus: 'Transporte', calc: 'Calculadora', pomo: 'Modo Foco', todo: 'Tarefas', email: 'Templates', aulas: 'Grade Horária', config: 'Configurações' };
-    const pageTitleEl = document.getElementById('page-title');
-    if (pageTitleEl) pageTitleEl.innerText = titles[pageId] || 'Salve-se UFRB';
-    
-    if(pageId === 'aulas' && window.renderSchedule) window.renderSchedule();
-    if(pageId === 'config' && window.renderSettings) window.renderSettings();
-
-    if(addToHistory) {
-        history.pushState({view: pageId}, null, `#${pageId}`);
-    }
-}
-
-let clockMode = 0;
-window.cycleClockMode = function() { clockMode = (clockMode + 1) % 4; updateClock(); }
-function updateClock() {
-    const now = new Date();
-    let timeString = "";
-    if (clockMode === 0) timeString = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    else if (clockMode === 1) timeString = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-    else if (clockMode === 2) timeString = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', hour12: true });
-    else {
-        const date = now.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-        const time = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-        timeString = `${date} • ${time}`;
-    }
-    
-    const clockEls = document.querySelectorAll('#clock');
-    clockEls.forEach(el => el.innerText = timeString);
-}
-setInterval(updateClock, 1000); updateClock();
-
-function addTime(baseTime, minutesToAdd) { const [h, m] = baseTime.split(':').map(Number); const date = new Date(); date.setHours(h); date.setMinutes(m + minutesToAdd); return date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }); }
 function createTrip(startTime, endTime, routeType, speed = 'normal') {
     let stops = []; const factor = speed === 'fast' ? 0.7 : 1.0;
-    if (routeType === 'saida-garagem') { stops = [{ loc: 'Garagem (Saída)', t: 0 }, { loc: 'RU/Resid.', t: Math.round(2 * factor) }, { loc: 'Fitotecnia', t: Math.round(4 * factor) }, { loc: 'Prédio Solos', t: Math.round(6 * factor) }, { loc: 'Pav. Aulas I', t: Math.round(8 * factor) }, { loc: 'Biblioteca', t: Math.round(10 * factor) }, { loc: 'Pav. Aulas II', t: Math.round(12 * factor) }, { loc: 'Pav. Engenharia', t: Math.round(13 * factor) }, { loc: 'Portão II', t: Math.round(15 * factor) }, { loc: 'Ponto Ext. I', t: Math.round(16 * factor) }, { loc: 'Ponto Ext. II', t: Math.round(17 * factor) }, { loc: 'Portão I', t: Math.round(18 * factor) }, { loc: 'Biblioteca', t: Math.round(20 * factor) }, { loc: 'Torre/COTEC', t: Math.round(22 * factor) }, { loc: 'RU (Chegada)', t: Math.round(24 * factor) }]; }
-    else if (routeType === 'volta-campus') { stops = [{ loc: 'RU/Resid. (Início)', t: 0 }, { loc: 'Fitotecnia', t: Math.round(2 * factor) }, { loc: 'Prédio Solos', t: Math.round(4 * factor) }, { loc: 'Pav. Aulas I', t: Math.round(6 * factor) }, { loc: 'Biblioteca', t: Math.round(8 * factor) }, { loc: 'Pav. Aulas II', t: Math.round(10 * factor) }, { loc: 'Pav. Engenharia', t: Math.round(11 * factor) }, { loc: 'Portão II', t: Math.round(13 * factor) }, { loc: 'Ponto Ext. I', t: Math.round(14 * factor) }, { loc: 'Ponto Ext. II', t: Math.round(15 * factor) }, { loc: 'Portão I', t: Math.round(16 * factor) }, { loc: 'Biblioteca', t: Math.round(18 * factor) }, { loc: 'Torre/COTEC', t: Math.round(20 * factor) }, { loc: 'RU (Fim)', t: Math.round(22 * factor) }]; }
-    else if (routeType === 'recolhe') { stops = [{ loc: 'RU/Resid.', t: 0 }, { loc: 'Fitotecnia', t: 2 }, { loc: 'Prédio Solos', t: 4 }, { loc: 'Eng. Florestal', t: 6 }, { loc: 'Garagem (Chegada)', t: Math.round(15 * factor) }]; }
-    else if (routeType === 'volta-e-recolhe') { stops = [{ loc: 'RU/Resid. (Início)', t: 0 }, { loc: 'Fitotecnia', t: 2 }, { loc: 'Prédio Solos', t: 3 }, { loc: 'Pav. Aulas I', t: 5 }, { loc: 'Biblioteca', t: 6 }, { loc: 'Pav. Aulas II', t: 8 }, { loc: 'Pav. Engenharia', t: 9 }, { loc: 'Portão II', t: 10 }, { loc: 'Ponto Ext. I', t: 11 }, { loc: 'Ponto Ext. II', t: 12 }, { loc: 'Portão I', t: 13 }, { loc: 'Biblioteca', t: 14 }, { loc: 'Torre/COTEC', t: 16 }, { loc: 'RU (Fim Volta)', t: 18 }, { loc: 'Fitotecnia', t: 20 }, { loc: 'Prédio Solos', t: 21 }, { loc: 'Eng. Florestal', t: 23 }, { loc: 'Garagem (Chegada)', t: 25 }]; }
-    return { start: startTime, end: endTime, origin: stops[0].loc, dest: stops[stops.length - 1].loc, stops: stops.map(s => { if ((routeType === 'recolhe' || routeType === 'volta-e-recolhe') && s.loc.includes('Garagem')) return { loc: s.loc, time: endTime }; return { loc: s.loc, time: addTime(startTime, s.t) }; }) };
+    if (routeType === 'saida-garagem') { 
+        stops = [{ loc: 'Garagem (Saída)', t: 0 }, { loc: 'RU/Resid.', t: Math.round(2 * factor) }, { loc: 'Fitotecnia', t: Math.round(4 * factor) }, { loc: 'Prédio Solos', t: Math.round(6 * factor) }, { loc: 'Pav. Aulas I', t: Math.round(8 * factor) }, { loc: 'Biblioteca', t: Math.round(10 * factor) }, { loc: 'Pav. Aulas II', t: Math.round(12 * factor) }, { loc: 'Pav. Engenharia', t: Math.round(13 * factor) }, { loc: 'Portão II', t: Math.round(15 * factor) }, { loc: 'Ponto Ext. I', t: Math.round(16 * factor) }, { loc: 'Ponto Ext. II', t: Math.round(17 * factor) }, { loc: 'Portão I', t: Math.round(18 * factor) }, { loc: 'Biblioteca', t: Math.round(20 * factor) }, { loc: 'Torre/COTEC', t: Math.round(22 * factor) }, { loc: 'RU (Chegada)', t: Math.round(24 * factor) }]; 
+    } else if (routeType === 'volta-campus') { 
+        stops = [{ loc: 'RU/Resid. (Início)', t: 0 }, { loc: 'Fitotecnia', t: Math.round(2 * factor) }, { loc: 'Prédio Solos', t: Math.round(4 * factor) }, { loc: 'Pav. Aulas I', t: Math.round(6 * factor) }, { loc: 'Biblioteca', t: Math.round(8 * factor) }, { loc: 'Pav. Aulas II', t: Math.round(10 * factor) }, { loc: 'Pav. Engenharia', t: Math.round(11 * factor) }, { loc: 'Portão II', t: Math.round(13 * factor) }, { loc: 'Ponto Ext. I', t: Math.round(14 * factor) }, { loc: 'Ponto Ext. II', t: Math.round(15 * factor) }, { loc: 'Portão I', t: Math.round(16 * factor) }, { loc: 'Biblioteca', t: Math.round(18 * factor) }, { loc: 'Torre/COTEC', t: Math.round(20 * factor) }, { loc: 'RU (Fim)', t: Math.round(22 * factor) }]; 
+    } else if (routeType === 'recolhe') { 
+        stops = [{ loc: 'RU/Resid.', t: 0 }, { loc: 'Fitotecnia', t: 2 }, { loc: 'Prédio Solos', t: 4 }, { loc: 'Eng. Florestal', t: 6 }, { loc: 'Garagem (Chegada)', t: Math.round(15 * factor) }]; 
+    } else if (routeType === 'volta-e-recolhe') { 
+        stops = [{ loc: 'RU/Resid. (Início)', t: 0 }, { loc: 'Fitotecnia', t: 2 }, { loc: 'Prédio Solos', t: 3 }, { loc: 'Pav. Aulas I', t: 5 }, { loc: 'Biblioteca', t: 6 }, { loc: 'Pav. Aulas II', t: 8 }, { loc: 'Pav. Engenharia', t: 9 }, { loc: 'Portão II', t: 10 }, { loc: 'Ponto Ext. I', t: 11 }, { loc: 'Ponto Ext. II', t: 12 }, { loc: 'Portão I', t: 13 }, { loc: 'Biblioteca', t: 14 }, { loc: 'Torre/COTEC', t: 16 }, { loc: 'RU (Fim Volta)', t: 18 }, { loc: 'Fitotecnia', t: 20 }, { loc: 'Prédio Solos', t: 21 }, { loc: 'Eng. Florestal', t: 23 }, { loc: 'Garagem (Chegada)', t: 25 }]; 
+    }
+    
+    return { 
+        start: startTime, 
+        end: endTime, 
+        origin: stops[0].loc, 
+        dest: stops[stops.length - 1].loc, 
+        stops: stops.map(s => { 
+            if ((routeType === 'recolhe' || routeType === 'volta-e-recolhe') && s.loc.includes('Garagem')) return { loc: s.loc, time: endTime }; 
+            return { loc: s.loc, time: addTime(startTime, s.t) }; 
+        }) 
+    };
 }
+
 const busSchedule = [
     createTrip('06:25', '06:50', 'saida-garagem'), createTrip('06:50', '07:10', 'volta-campus', 'fast'), createTrip('07:10', '07:25', 'volta-campus', 'fast'), createTrip('07:25', '07:40', 'volta-campus', 'fast'), createTrip('07:40', '07:55', 'volta-campus', 'fast'), createTrip('07:55', '08:20', 'volta-e-recolhe'),
     createTrip('09:35', '10:00', 'saida-garagem'), createTrip('10:00', '10:25', 'volta-e-recolhe'), createTrip('11:30', '11:55', 'saida-garagem'), createTrip('11:55', '12:20', 'volta-campus'), createTrip('12:20', '12:45', 'volta-e-recolhe'),
@@ -1741,6 +1560,7 @@ const busSchedule = [
     createTrip('15:35', '16:00', 'saida-garagem'), createTrip('16:00', '16:25', 'volta-e-recolhe'), createTrip('17:30', '17:55', 'saida-garagem'), createTrip('17:55', '18:15', 'volta-campus'), createTrip('18:15', '18:40', 'volta-e-recolhe'),
     createTrip('20:40', '21:00', 'volta-e-recolhe', 'fast'), createTrip('21:40', '22:00', 'volta-e-recolhe', 'fast'), createTrip('22:30', '22:50', 'volta-e-recolhe', 'fast')
 ];
+
 function renderBusTable() {
     const tbody = document.getElementById('bus-table-body');
     if (!tbody) return;
@@ -1752,15 +1572,18 @@ function renderBusTable() {
         tbody.appendChild(row);
     });
 }
+
 function updateNextBus() {
     const now = new Date(); const currentTotalSeconds = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
     let activeBus = null; let nextBus = null; let timeDiff = Infinity;
+    
     for (let bus of busSchedule) {
         const [h1, m1] = bus.start.split(':').map(Number); const [h2, m2] = bus.end.split(':').map(Number);
         const startSeconds = h1 * 3600 + m1 * 60; const endSeconds = h2 * 3600 + m2 * 60;
         if (currentTotalSeconds >= startSeconds && currentTotalSeconds < endSeconds) { activeBus = bus; break; }
         if (startSeconds > currentTotalSeconds) { const diff = startSeconds - currentTotalSeconds; if (diff < timeDiff) { timeDiff = diff; nextBus = bus; } }
     }
+    
     const container = document.getElementById('bus-dynamic-area'); const title = document.getElementById('dash-bus-title'); const subtitle = document.getElementById('dash-bus-subtitle');
     const statusDot = document.getElementById('bus-status-dot'); const statusText = document.getElementById('bus-status-text');
     
@@ -1790,7 +1613,10 @@ function updateNextBus() {
         statusDot.className = "w-2 h-2 rounded-full bg-gray-400"; statusText.innerText = "Encerrado"; title.innerText = "Fim"; subtitle.innerText = "Sem mais viagens hoje"; container.innerHTML = `<div class="w-full py-3 rounded-lg bg-gray-100 dark:bg-neutral-800 text-gray-500 dark:text-gray-400 text-center text-sm font-medium mt-auto">Volta amanhã</div>`;
     }
 }
-renderBusTable(); updateNextBus(); setInterval(updateNextBus, 1000);
+
+// ============================================================
+// --- FUNCIONALIDADE: CALCULADORA ---
+// ============================================================
 
 window.addGradeRow = function() {
     const container = document.getElementById('grades-container');
@@ -1876,11 +1702,13 @@ window.resetCalc = function() {
     calculateAverage();
 }
 
-addGradeRow(); addGradeRow();
-if(document.getElementById('passing-grade')) document.getElementById('passing-grade').addEventListener('input', calculateAverage);
+// ============================================================
+// --- FUNCIONALIDADE: POMODORO ---
+// ============================================================
 
 let timerInterval1, timeLeft1 = 25 * 60, isRunning1 = false, currentMode1 = 'pomodoro';
 const modes1 = { 'pomodoro': 25 * 60, 'short': 5 * 60, 'long': 15 * 60 };
+
 function updateTimerDisplay() {
     const m = Math.floor(timeLeft1 / 60), s = timeLeft1 % 60;
     const display = document.getElementById('timer-display');
@@ -1889,6 +1717,7 @@ function updateTimerDisplay() {
     if(display) display.innerText = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
     if(circle) circle.style.strokeDashoffset = 816 - (timeLeft1 / modes1[currentMode1]) * 816;
 }
+
 window.toggleTimer = function() {
     const btn = document.getElementById('btn-start');
     if(!btn) return;
@@ -1904,7 +1733,9 @@ window.toggleTimer = function() {
         }, 1000);
     }
 }
+
 window.resetTimer = function() { if (isRunning1) toggleTimer(); timeLeft1 = modes1[currentMode1]; updateTimerDisplay(); }
+
 window.setTimerMode = function(m) {
     ['pomodoro', 'short', 'long'].forEach(mode => {
         const btn = document.getElementById(`mode-${mode}`);
@@ -1919,12 +1750,256 @@ window.setTimerMode = function(m) {
     resetTimer();
 }
 
+// ============================================================
+// --- FUNCIONALIDADE: OUTROS ---
+// ============================================================
+
 const templates = {
     deadline: `Prezado(a) Prof(a). [Nome],\n\nSolicito respeitosamente uma extensão no prazo do trabalho [Nome], originalmente para [Data]. Tive um imprevisto [Motivo] e preciso de mais tempo para entregar com qualidade.\n\nAtenciosamente,\n[Seu Nome]`,
     review: `Prezado(a) Prof(a). [Nome],\n\nGostaria de solicitar a revisão da minha prova de [Matéria]. Fiquei com dúvida na questão [X].\n\nAtenciosamente,\n[Seu Nome]`,
     absence: `Prezado(a) Prof(a). [Nome],\n\nJustifico minha falta no dia [Data] devido a [Motivo]. Segue anexo (se houver).\n\nAtenciosamente,\n[Seu Nome]`,
     tcc: `Prezado(a) Prof(a). [Nome],\n\nTenho interesse em sua área de pesquisa e gostaria de saber se há disponibilidade para orientação de TCC sobre [Tema].\n\nAtenciosamente,\n[Seu Nome]`
 };
+
 window.loadTemplate = function(k) { document.getElementById('email-content').value = templates[k]; }
 window.copyEmail = function() { const e = document.getElementById('email-content'); e.select(); document.execCommand('copy'); }
 window.openPortal = function() { window.open('https://sistemas.ufrb.edu.br/sigaa/verTelaLogin.do', '_blank'); }
+
+// ============================================================
+// --- TEMA E CORES ---
+// ============================================================
+
+const colorPalettes = {
+    cyan: { 50: '236 254 255', 100: '207 250 254', 200: '165 243 252', 300: '103 232 249', 400: '34 211 238', 500: '6 182 212', 600: '8 145 178', 700: '14 116 144', 800: '21 94 117', 900: '22 78 99' },
+    red: { 50: '254 242 242', 100: '254 226 226', 200: '254 202 202', 300: '252 165 165', 400: '248 113 113', 500: '239 68 68', 600: '220 38 38', 700: '185 28 28', 800: '153 27 27', 900: '127 29 29' },
+    green: { 50: '240 253 244', 100: '220 252 231', 200: '187 247 208', 300: '134 239 172', 400: '74 222 128', 500: '34 197 94', 600: '22 163 74', 700: '21 128 61', 800: '22 101 52', 900: '20 83 45' },
+    yellow: { 50: '254 252 232', 100: '254 249 195', 200: '254 240 138', 300: '253 224 71', 400: '250 204 21', 500: '234 179 8', 600: '202 138 4', 700: '161 98 7', 800: '133 77 14', 900: '113 63 18' },
+    purple: { 50: '250 245 255', 100: '243 232 255', 200: '233 213 255', 300: '216 180 254', 400: '192 132 252', 500: '168 85 247', 600: '147 51 234', 700: '126 34 206', 800: '107 33 168', 900: '88 28 135' },
+    pink: { 50: '253 242 248', 100: '252 231 243', 200: '251 204 231', 300: '249 168 212', 400: '244 114 182', 500: '236 72 153', 600: '219 39 119', 700: '190 24 93', 800: '157 23 77', 900: '131 24 67' },
+    orange: { 50: '255 247 237', 100: '255 237 213', 200: '254 215 170', 300: '253 186 116', 400: '251 146 60', 500: '249 115 22', 600: '234 88 12', 700: '194 65 12', 800: '154 52 18', 900: '124 45 18' },
+    indigo: { 50: '238 242 255', 100: '224 231 255', 200: '199 210 254', 300: '165 180 252', 400: '129 140 248', 500: '99 102 241', 600: '79 70 229', 700: '67 56 202', 800: '55 48 163', 900: '49 46 129' },
+    teal: { 50: '240 253 250', 100: '204 251 241', 200: '153 246 228', 300: '94 234 212', 400: '45 212 191', 500: '20 184 166', 600: '13 148 136', 700: '15 118 110', 800: '17 94 89', 900: '19 78 74' },
+    rose: { 50: '255 241 242', 100: '255 228 230', 200: '254 205 211', 300: '253 164 175', 400: '251 113 133', 500: '244 63 94', 600: '225 29 72', 700: '190 18 60', 800: '159 18 57', 900: '136 19 55' },
+    lime: { 50: '247 254 231', 100: '236 252 203', 200: '217 249 157', 300: '190 242 100', 400: '163 230 53', 500: '132 204 22', 600: '101 163 13', 700: '77 124 15', 800: '63 98 18', 900: '54 83 20' },
+    violet: { 50: '245 243 255', 100: '237 233 254', 200: '221 214 254', 300: '196 181 253', 400: '167 139 250', 500: '139 92 246', 600: '124 58 237', 700: '109 40 217', 800: '91 33 182', 900: '76 29 149' },
+    black: { 50: '250 250 250', 100: '244 244 245', 200: '228 228 231', 300: '212 212 216', 400: '161 161 170', 500: '113 113 122', 600: '82 82 91', 700: '63 63 70', 800: '39 39 42', 900: '24 24 27' }
+};
+
+function initTheme() {
+    if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.documentElement.classList.add('dark');
+    } else {
+        document.documentElement.classList.remove('dark');
+    }
+    const savedColor = localStorage.getItem('salvese_color');
+    if (savedColor) updateColorVars(JSON.parse(savedColor));
+}
+initTheme();
+
+window.toggleTheme = function() {
+    if (document.documentElement.classList.contains('dark')) {
+        document.documentElement.classList.remove('dark');
+        localStorage.setItem('theme', 'light');
+    } else {
+        document.documentElement.classList.add('dark');
+        localStorage.setItem('theme', 'dark');
+    }
+}
+
+window.toggleColorMenu = function(device) {
+    const menu = document.getElementById(`color-menu-${device}`);
+    if (!menu) return;
+    const isHidden = menu.classList.contains('hidden');
+    document.querySelectorAll('.color-menu').forEach(m => m.classList.add('hidden'));
+    if (isHidden) {
+        menu.innerHTML = '';
+        Object.keys(colorPalettes).forEach(color => {
+            const btn = document.createElement('button');
+            const rgb = colorPalettes[color][500];
+            btn.className = `w-6 h-6 rounded-full border border-gray-200 dark:border-gray-700 hover:scale-110 transition transform focus:outline-none ring-2 ring-transparent focus:ring-offset-1 focus:ring-gray-400`;
+            btn.style.backgroundColor = `rgb(${rgb})`;
+            btn.title = color.charAt(0).toUpperCase() + color.slice(1);
+            btn.onclick = () => setThemeColor(color);
+            menu.appendChild(btn);
+        });
+        menu.classList.remove('hidden');
+        menu.classList.add('visible');
+    }
+}
+
+function setThemeColor(colorName) {
+    const palette = colorPalettes[colorName];
+    if (!palette) return;
+    
+    const iconColor = colorName === 'black' ? `rgb(${palette[900]})` : `rgb(${palette[600]})`;
+    
+    document.querySelectorAll('#desktop-palette-icon, #mobile-palette-icon').forEach(icon => {
+        icon.classList.remove('text-indigo-600');
+        icon.style.color = iconColor;
+        if (colorName === 'black' && document.documentElement.classList.contains('dark')) {
+             icon.style.color = '#ffffff';
+        }
+    });
+
+    updateColorVars(palette);
+    localStorage.setItem('salvese_color', JSON.stringify(palette));
+    document.querySelectorAll('.color-menu').forEach(m => m.classList.add('hidden'));
+}
+
+function updateColorVars(palette) {
+    const root = document.documentElement;
+    Object.keys(palette).forEach(shade => {
+        root.style.setProperty(`--theme-${shade}`, palette[shade]);
+    });
+}
+
+document.addEventListener('click', (e) => {
+    if (!e.target.closest('button[onclick^="toggleColorMenu"]') && !e.target.closest('.color-menu')) {
+        document.querySelectorAll('.color-menu').forEach(m => m.classList.add('hidden'));
+    }
+});
+
+let clockMode = 0;
+window.cycleClockMode = function() { clockMode = (clockMode + 1) % 4; updateClock(); }
+function updateClock() {
+    const now = new Date();
+    let timeString = "";
+    if (clockMode === 0) timeString = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    else if (clockMode === 1) timeString = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    else if (clockMode === 2) timeString = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', hour12: true });
+    else {
+        const date = now.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+        const time = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        timeString = `${date} • ${time}`;
+    }
+    
+    const clockEls = document.querySelectorAll('#clock');
+    clockEls.forEach(el => el.innerText = timeString);
+}
+setInterval(updateClock, 1000); updateClock();
+
+// ============================================================
+// --- PWA E INICIALIZAÇÃO ---
+// ============================================================
+
+const manifest = {
+    "name": "Salve-se UFRB",
+    "short_name": "Salve-se",
+    "start_url": ".",
+    "display": "standalone",
+    "background_color": "#09090b",
+    "theme_color": "#4f46e5",
+    "icons": [
+        { "src": "https://files.catbox.moe/pmdtq6.png", "sizes": "192x192", "type": "image/png" },
+        { "src": "https://files.catbox.moe/pmdtq6.png", "sizes": "512x512", "type": "image/png" }
+    ]
+};
+const stringManifest = JSON.stringify(manifest);
+const blobManifest = new Blob([stringManifest], { type: 'application/json' });
+const manifestURL = URL.createObjectURL(blobManifest);
+const pwaManifestLink = document.querySelector('#pwa-manifest');
+if (pwaManifestLink) {
+    pwaManifestLink.setAttribute('href', manifestURL);
+}
+
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+            .then(reg => {
+                reg.update();
+            })
+            .catch(err => console.log('SW falhou:', err));
+    });
+
+    let deferredPrompt;
+    window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        const installBtn = document.getElementById('btn-install-pwa');
+        if (installBtn) {
+            installBtn.classList.remove('hidden');
+            installBtn.addEventListener('click', () => {
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.then((choiceResult) => {
+                    deferredPrompt = null;
+                    installBtn.classList.add('hidden');
+                });
+            });
+        }
+    });
+
+    function updateNetworkStatus() {
+        const toast = document.getElementById('network-toast');
+        const text = document.getElementById('network-text');
+        const icon = toast ? toast.querySelector('i') : null;
+
+        if (toast && text && icon) {
+            if (navigator.onLine) {
+                toast.className = 'network-status online show';
+                text.innerText = 'Online';
+                icon.className = 'fas fa-wifi';
+                setTimeout(() => toast.classList.remove('show'), 3000);
+                if(currentUser) refreshAllUI(); 
+            } else {
+                toast.className = 'network-status offline show';
+                text.innerText = 'Offline';
+                icon.className = 'fas fa-wifi-slash';
+            }
+        }
+    }
+    window.addEventListener('online', updateNetworkStatus);
+    window.addEventListener('offline', updateNetworkStatus);
+}
+
+// Inicialização DOM
+document.addEventListener('DOMContentLoaded', () => {
+    window.renderTasks();
+    window.renderReminders();
+    if (window.renderSchedule) window.renderSchedule();
+    window.updateNextClassWidget();
+    renderBusTable(); 
+    updateNextBus(); 
+    setInterval(updateNextBus, 1000);
+    
+    // Auto-select Home on sidebar
+    const activeMobileLink = document.querySelector(`#mobile-menu nav a[onclick*="'home'"]`);
+    if(activeMobileLink) {
+         activeMobileLink.classList.add('bg-indigo-50', 'text-indigo-600', 'dark:bg-indigo-900/50', 'dark:text-indigo-300');
+         activeMobileLink.classList.remove('text-gray-600', 'dark:text-gray-400');
+    }
+
+    setInterval(window.updateNextClassWidget, 60000);
+    
+    addGradeRow(); addGradeRow();
+    if(document.getElementById('passing-grade')) document.getElementById('passing-grade').addEventListener('input', calculateAverage);
+});
+
+// History Handling
+window.addEventListener('popstate', (event) => {
+    const classModal = document.getElementById('class-modal');
+    const remindersModal = document.getElementById('reminders-modal');
+    const genericModal = document.getElementById('generic-modal');
+
+    if (classModal && !classModal.classList.contains('hidden')) {
+        classModal.classList.add('opacity-0'); 
+        setTimeout(() => classModal.classList.add('hidden'), 300);
+        return;
+    }
+    
+    if (remindersModal && !remindersModal.classList.contains('hidden')) {
+        remindersModal.classList.add('opacity-0');
+        setTimeout(() => remindersModal.classList.add('hidden'), 300);
+        return;
+    }
+
+    if (genericModal && !genericModal.classList.contains('hidden')) {
+        closeGenericModal();
+        return;
+    }
+
+    if (event.state && event.state.view) {
+        switchPage(event.state.view, false);
+    } else {
+        switchPage('home', false);
+    }
+});

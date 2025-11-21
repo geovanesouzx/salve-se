@@ -28,7 +28,7 @@
                         darkborder: '#27272a',
                         darkhover: '#27272a',
                         // Truque: Mapeamos 'indigo' para as variáveis CSS.
-                        // Assim, bg-indigo-500 muda de cor conforme o tema escolhido (Rosa, Preto, etc).
+                        // Assim, bg-indigo-500 muda de cor conforme o tema escolhido.
                         indigo: {
                             50: 'rgb(var(--theme-50) / <alpha-value>)',
                             100: 'rgb(var(--theme-100) / <alpha-value>)',
@@ -203,7 +203,7 @@
                 <p class="px-3 text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Sistema</p>
 
                 <a onclick="switchPage('config')" id="nav-config" class="nav-item flex items-center px-3 py-2.5 text-sm font-medium rounded-md cursor-pointer text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-darkhover transition-colors">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
                     Configurações
                 </a>
             </nav>
@@ -214,7 +214,6 @@
                     <div class="flex items-center gap-3 overflow-hidden">
                         <!-- Foto sem fundo branco forçado para suportar transparência -->
                         <div class="w-9 h-9 rounded-full flex items-center justify-center overflow-hidden relative border border-gray-200 dark:border-neutral-700">
-                             <!-- Se houver foto, o JS injeta aqui -->
                              <img id="user-avatar-sidebar" class="w-full h-full object-cover" src="" onerror="this.style.display='none'; this.parentElement.innerHTML='<i class=\'fas fa-user text-gray-400\'></i>'">
                         </div>
                         <div class="overflow-hidden">

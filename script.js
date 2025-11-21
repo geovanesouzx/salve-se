@@ -21,7 +21,6 @@ import {
     enableIndexedDbPersistence
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-// --- CORREÇÃO: CHAVE DE API RESTAURADA ---
 const firebaseConfig = {
     apiKey: "AIzaSyD5Ggqw9FpMS98CHcfXKnghMQNMV5WIVTw",
     authDomain: "salvee-se.firebaseapp.com",
@@ -36,10 +35,9 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-// Tenta habilitar persistência offline (ignora erros se não suportado)
+// Tenta habilitar persistência offline
 try {
     enableIndexedDbPersistence(db).catch((err) => {
-        // Falhas silenciosas para persistência não travarem o app
         console.log('Persistência offline:', err.code);
     });
 } catch (e) { console.log("Persistência já ativa ou não suportada"); }
@@ -73,11 +71,10 @@ const svgs = {
 };
 
 // ============================================================
-// --- SISTEMA DE CUSTOM UI (DROPDOWNS) ---
+// --- SISTEMA DE CUSTOM UI (CORRIGIDO) ---
 // ============================================================
 
 function initCustomUI() {
-    // Só inicializa se os elementos existirem no DOM
     const selects = document.querySelectorAll('select:not(.custom-init)');
     if (selects.length > 0) selects.forEach(createCustomSelect);
     
@@ -115,6 +112,12 @@ function createCustomSelect(select) {
     updateLabel();
     select.addEventListener('change', updateLabel);
     select.refreshCustomUI = updateLabel;
+
+    // CORREÇÃO: Observar mudanças nas opções (útil quando options são preenchidas dinamicamente)
+    const observer = new MutationObserver(() => {
+        updateLabel();
+    });
+    observer.observe(select, { childList: true, subtree: true });
 
     trigger.appendChild(labelSpan);
     trigger.innerHTML += svgs.chevronDown;
@@ -164,7 +167,9 @@ function createCustomSelect(select) {
             item.addEventListener('click', (ev) => {
                 ev.stopPropagation();
                 select.value = opt.value;
-                select.selectedIndex = index;
+                select.selectedIndex = index; // Garante atualização do índice
+                
+                // Força atualização visual imediata
                 labelSpan.innerText = opt.text;
                 labelSpan.classList.remove('text-gray-400');
                 
@@ -347,7 +352,6 @@ function createCustomDatePicker(input) {
 
 const sessionActive = localStorage.getItem('salvese_session_active');
 
-// CORREÇÃO: Timeout aumentado para 3000ms e verificação robusta
 const forceLoadTimeout = setTimeout(() => {
     const loadingScreen = document.getElementById('loading-screen');
     if (loadingScreen && !loadingScreen.classList.contains('hidden')) {
@@ -414,7 +418,6 @@ function showAppInterface() {
     updateUserInterfaceInfo();
     refreshAllUI();
 
-    // Inicializa UI customizada com segurança
     setTimeout(() => {
         try { initCustomUI(); } catch(e) { console.log("Custom UI falhou, usando nativo"); }
     }, 300);
@@ -592,8 +595,7 @@ function refreshAllUI() {
     if (window.renderSettings) window.renderSettings();
 }
 
-// ... (Rest of the file logic remains similar, ensuring all UI functions are present) ...
-
+// ... (Modal functions unchanged) ...
 function openCustomInputModal(title, placeholder, initialValue, onConfirm) {
     const modal = document.getElementById('custom-input-modal');
     const modalTitle = document.getElementById('custom-modal-title');
@@ -887,7 +889,7 @@ window.renderSettings = function () {
 
             <div class="text-center pt-4 pb-8">
                  <p class="text-xs text-gray-300 dark:text-gray-600 font-mono">ID: ${currentUser.uid.substring(0, 8)}...</p>
-                 <p class="text-xs text-gray-300 dark:text-gray-600 mt-1">Salve-se UFRB v2.3 (Key Fixed)</p>
+                 <p class="text-xs text-gray-300 dark:text-gray-600 mt-1">Salve-se UFRB v2.4 (Dropdown Fix)</p>
             </div>
         </div>
     `;

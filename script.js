@@ -36,7 +36,7 @@ const GEMINI_MODEL = "gemini-2.5-flash-preview-09-2025";
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
 
 const GROQ_API_KEY = "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";
-const GROQ_MODEL = "llama-3.3-70b-versatile"; // Modelo rápido e inteligente
+const GROQ_MODEL = "llama-3.3-70b-versatile"; 
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 
 // Controle de qual IA está ativa (Padrão: Gemini)
@@ -68,10 +68,12 @@ let unsubscribeData = null;
 let scheduleData = JSON.parse(localStorage.getItem('salvese_schedule')) || [];
 let tasksData = JSON.parse(localStorage.getItem('salvese_tasks')) || [];
 let remindersData = JSON.parse(localStorage.getItem('salvese_reminders')) || [];
+let notesData = JSON.parse(localStorage.getItem('salvese_notes')) || []; // NOVO: Dados das Notas
 let selectedClassIdToDelete = null;
 let currentTaskFilter = 'all'; 
-let chatHistory = []; // Histórico local da sessão
+let chatHistory = []; 
 let currentViewContext = 'home'; 
+let activeNoteId = null; // NOVO: Nota atualmente aberta
 
 // Conteúdo do Widget da IA (Persistente)
 let aiWidgetContent = localStorage.getItem('salvese_ai_widget') || "Olá! Sou sua IA. Vou postar dicas úteis aqui.";
@@ -173,13 +175,14 @@ function showAppInterface() {
 
     updateUserInterfaceInfo();
     refreshAllUI();
+    
+    fixChatLayout();
 
     if(loadingScreen && !loadingScreen.classList.contains('hidden')) {
         loadingScreen.classList.add('opacity-0');
         setTimeout(() => loadingScreen.classList.add('hidden'), 500);
     }
     
-    // Inicializa o widget da IA se existir
     updateAIWidgetUI();
 }
 
@@ -211,6 +214,26 @@ function showProfileSetupScreen() {
     if(loadingScreen) loadingScreen.classList.add('hidden');
 }
 
+window.fixChatLayout = function() {
+    const viewIA = document.getElementById('view-ia');
+    const messageContainer = document.getElementById('chat-messages-container');
+    const inputContainer = viewIA ? viewIA.querySelector('.absolute.bottom-0') : null;
+    
+    if (viewIA && inputContainer) {
+        viewIA.className = "hidden fade-in flex flex-col h-full relative bg-gray-50 dark:bg-darkbg overflow-hidden";
+        viewIA.style.height = "calc(100vh - 4rem)"; 
+
+        if(messageContainer) {
+            messageContainer.className = "flex-1 overflow-y-auto p-4 space-y-4 scroll-smooth";
+            messageContainer.style.paddingBottom = "20px"; 
+        }
+
+        inputContainer.className = "flex-none w-full p-4 bg-white dark:bg-darkcard border-t border-gray-200 dark:border-darkborder z-20";
+        inputContainer.style.position = "relative"; 
+        inputContainer.style.bottom = "auto";
+    }
+}
+
 window.switchPage = function(pageId, addToHistory = true) {
     currentViewContext = pageId;
 
@@ -222,7 +245,6 @@ window.switchPage = function(pageId, addToHistory = true) {
     const activeLink = document.getElementById(`nav-${pageId}`);
     if (activeLink) activeLink.classList.add('active');
 
-    // Reset mobile menu styles
     const mobileNavLinks = document.querySelectorAll('#mobile-menu nav a');
     mobileNavLinks.forEach(link => {
         link.classList.remove('bg-indigo-50', 'text-indigo-600', 'dark:bg-indigo-900/50', 'dark:text-indigo-300');
@@ -243,6 +265,7 @@ window.switchPage = function(pageId, addToHistory = true) {
         email: 'Templates', 
         aulas: 'Grade Horária', 
         config: 'Configurações',
+        notas: 'Anotações', // NOVO
         ia: 'Salve-se IA'
     };
     const pageTitleEl = document.getElementById('page-title');
@@ -250,9 +273,12 @@ window.switchPage = function(pageId, addToHistory = true) {
     
     if(pageId === 'aulas' && window.renderSchedule) window.renderSchedule();
     if(pageId === 'config' && window.renderSettings) window.renderSettings();
+    if(pageId === 'notas' && window.renderNotes) window.renderNotes(); // NOVO
     
     if(pageId === 'ia') {
+        fixChatLayout();
         scrollToBottom();
+        setTimeout(scrollToBottom, 100); 
     }
 
     if(addToHistory) {
@@ -261,16 +287,13 @@ window.switchPage = function(pageId, addToHistory = true) {
 }
 
 // ============================================================
-// --- INTEGRAÇÃO SALVE-SE IA (SUPERSYSTEM COM GROQ & GEMINI) ---
+// --- INTEGRAÇÃO SALVE-SE IA (ATUALIZADA PARA NOTAS) ---
 // ============================================================
 
-// Função para alternar IAs
 window.setAIProvider = function(provider) {
     currentAIProvider = provider;
     const feedback = provider === 'gemini' ? "Gemini (Google) ativado." : "Llama 3.3 (Groq) ativada.";
     showModal("IA Alterada", feedback);
-    
-    // Atualiza visualmente se houver seletor
     updateAISelectorUI();
 }
 
@@ -297,7 +320,6 @@ window.sendIAMessage = async function() {
 
     if (!message) return;
 
-    // Adiciona mensagem do usuário
     appendMessage('user', message);
     input.value = '';
     input.disabled = true;
@@ -307,7 +329,7 @@ window.sendIAMessage = async function() {
     showTypingIndicator();
 
     try {
-        // Contexto Expandido (Estado Global)
+        // Contexto Expandido com NOTAS
         const contextData = {
             telaAtual: currentViewContext,
             dataAtual: new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }),
@@ -315,69 +337,56 @@ window.sendIAMessage = async function() {
             tarefas: tasksData.map(t => ({ id: t.id, text: t.text, done: t.done, priority: t.priority })),
             aulas: scheduleData.map(c => ({ id: c.id, name: c.name, day: c.day, start: c.start, room: c.room })),
             lembretes: remindersData,
+            // Enviamos apenas os títulos das notas para economizar tokens, a menos que uma esteja aberta
+            notas: notesData.map(n => ({ id: n.id, title: n.title, preview: n.content.substring(0, 100) })),
+            notaAberta: activeNoteId ? notesData.find(n => n.id === activeNoteId) : null,
+            tema: document.documentElement.classList.contains('dark') ? 'Escuro' : 'Claro',
             timerStatus: { isRunning: isRunning1, timeLeft: timeLeft1, mode: currentMode1 },
             widgetContent: aiWidgetContent,
             aiProvider: currentAIProvider
         };
 
-        // Prompt de Sistema Poderoso - Suporte a Múltiplos Comandos
         let systemInstructionText = `
-Você é a "Salve-se IA", assistente inteligente da UFRB. Você controla o app e ajuda o estudante.
-CONTEXTO: ${JSON.stringify(contextData)}
+Você é a "Salve-se IA", assistente da UFRB. 
+CONTEXTO ATUAL: ${JSON.stringify(contextData)}
 
-IMPORTANTE: Você pode executar MÚLTIPLAS ações em uma única resposta.
-SEMPRE responda no formato JSON quando precisar agir. Se for só conversa, use JSON com a chave "message".
-
-FORMATO DE RESPOSTA (JSON Obrigatório):
+REGRAS CRÍTICAS (SIGA RIGOROSAMENTE):
+1. **NAVEGAÇÃO PROIBIDA SEM COMANDO:** NUNCA navegue a menos que o usuário peça explicitamente.
+2. **RESPOSTA JSON:** Responda APENAS com um JSON válido.
+3. **FORMATO:**
 {
-  "message": "Texto para o usuário (opcional se tiver actions)",
-  "commands": [
-     { "action": "NOME_DA_ACAO", "params": { ... } },
-     { "action": "OUTRA_ACAO", "params": { ... } }
-  ]
+  "message": "Texto de resposta aqui...",
+  "commands": [ ...lista de comandos... ]
 }
 
-LISTA DE COMANDOS (action):
-1. "create_task" -> { "text": "...", "priority": "low|normal|medium|high", "category": "geral|estudo|trabalho" }
-2. "delete_task" -> { "taskId": "ID" ou fuzzy match }
-3. "update_dashboard_widget" -> { "content": "Texto curto (dica/frase) para o widget da home" }
-4. "create_class" -> { "name": "...", "day": "seg|ter...", "start": "HH:MM", "end": "HH:MM", "room": "...", "prof": "..." }
-5. "navigate" -> { "page": "home|aulas|onibus|todo|pomo|calc|email|config|ia" }
-6. "create_reminder" -> { "desc": "...", "date": "YYYY-MM-DD", "prio": "low|medium|high" }
-7. "timer_start", "timer_stop", "timer_set_mode" -> params variam.
-8. "ufrb_portal", "ufrb_ava" -> Links externos.
+COMANDOS DISPONÍVEIS:
+- "navigate": { "page": "home|aulas|onibus|todo|pomo|calc|email|config|notas" }
+- "create_task": { "text": "...", "priority": "normal", "category": "geral" }
+- "create_class": { "name": "...", "day": "seg", "start": "00:00", "end": "00:00", "room": "..." }
+- "create_reminder": { "desc": "...", "date": "YYYY-MM-DD", "prio": "medium" }
+- "add_grade": { "value": 8.5, "weight": 1 }
+- "toggle_theme": {}
+- "create_note": { "title": "...", "content": "..." } -> Cria uma nova nota.
+- "update_note": { "id": "...", "content": "..." } -> Atualiza uma nota existente (concatena se não for especificado, ou substitui).
+- "update_dashboard_widget": { "content": "..." }
 
-Exemplo Multi-tarefa: "Adicionar prova amanhã e lembrar de estudar hoje a noite"
-Retorno:
-{
-  "message": "Certo! Adicionei o lembrete e a tarefa.",
-  "commands": [
-    { "action": "create_task", "params": { "text": "Estudar para prova", "priority": "high" } },
-    { "action": "create_reminder", "params": { "desc": "Prova", "date": "2023-10-20" } }
-  ]
-}
+Exemplo (Criar Nota): "Anote que a prova é dia 20 sobre mitose"
+{ "message": "Anotei!", "commands": [{ "action": "create_note", "params": { "title": "Prova Biologia", "content": "Prova dia 20 sobre mitose." } }] }
         `;
 
-        // Preparar mensagens para a API (incluindo histórico)
         let messagesPayload = [];
-        
-        // Adicionar System Prompt
         messagesPayload.push({ role: "system", content: systemInstructionText });
 
-        // Adicionar Histórico Recente (últimas 10 mensagens para não estourar contexto)
-        const recentHistory = chatHistory.slice(-10);
+        const recentHistory = chatHistory.slice(-6); 
         recentHistory.forEach(msg => {
             messagesPayload.push({ role: msg.role === 'user' ? 'user' : 'assistant', content: msg.text });
         });
 
-        // Adicionar Mensagem Atual
         messagesPayload.push({ role: "user", content: message });
 
         let aiResponseText = "";
 
-        // --- SELETOR DE PROVIDER ---
         if (currentAIProvider === 'groq') {
-            // CHAMADA GROQ (OpenAI Compatible)
             const response = await fetch(GROQ_API_URL, {
                 method: "POST",
                 headers: {
@@ -387,9 +396,9 @@ Retorno:
                 body: JSON.stringify({
                     model: GROQ_MODEL,
                     messages: messagesPayload,
-                    temperature: 0.6,
-                    max_tokens: 4096, // Token aumentado
-                    response_format: { type: "json_object" } // Força JSON no Llama 3
+                    temperature: 0.3, 
+                    max_tokens: 2048,
+                    response_format: { type: "json_object" } 
                 })
             });
 
@@ -398,8 +407,6 @@ Retorno:
             aiResponseText = data.choices[0].message.content;
 
         } else {
-            // CHAMADA GEMINI (Google format)
-            // Gemini usa formato diferente, precisamos converter messagesPayload
             const geminiContents = recentHistory.map(msg => ({
                 role: msg.role === 'user' ? 'user' : 'model',
                 parts: [{ text: msg.text }]
@@ -414,7 +421,7 @@ Retorno:
                     systemInstruction: { parts: [{ text: systemInstructionText }] },
                     generationConfig: { 
                         temperature: 0.4, 
-                        maxOutputTokens: 4096, // Token aumentado
+                        maxOutputTokens: 2048,
                         responseMimeType: "application/json" 
                     }
                 })
@@ -425,34 +432,28 @@ Retorno:
             aiResponseText = data.candidates[0].content.parts[0].text;
         }
 
-        // Processamento da Resposta (JSON)
         try {
             const responseJson = JSON.parse(aiResponseText);
             
-            // Exibir mensagem textual se houver
             if (responseJson.message) {
                 appendMessage('ai', responseJson.message);
             } else if (!responseJson.commands || responseJson.commands.length === 0) {
-                // Fallback se a IA mandar JSON vazio de message
-                appendMessage('ai', "Feito.");
+                appendMessage('ai', "Entendido.");
             }
 
-            // Executar comandos em lote
             if (responseJson.commands && Array.isArray(responseJson.commands)) {
                 for (const cmd of responseJson.commands) {
                     await executeAICommand(cmd);
-                    // Pequeno delay visual entre ações
                     await new Promise(r => setTimeout(r, 300)); 
                 }
             } else if (responseJson.action) {
-                // Suporte a legado (single command object)
                 await executeAICommand(responseJson);
             }
 
         } catch (e) {
-            console.error("Erro ao parsear JSON da IA:", e);
-            // Se falhar o JSON, tenta mostrar o texto puro (fallback)
-            appendMessage('ai', aiResponseText);
+            console.error("Erro JSON IA:", e);
+            const cleanText = aiResponseText.replace(/[\{\}\[\]"]/g, '').substring(0, 100);
+            appendMessage('ai', "Tive um erro ao processar o comando, mas entendi: " + cleanText);
         }
 
     } catch (error) {
@@ -469,11 +470,9 @@ Retorno:
     }
 };
 
-// Função auxiliar para scroll seguro
 function scrollToBottom() {
     const container = document.getElementById('chat-messages-container');
     if(container) {
-        // Garante que o scroll aconteça após renderização
         requestAnimationFrame(() => {
             container.scrollTop = container.scrollHeight;
         });
@@ -516,9 +515,7 @@ function appendMessage(sender, text) {
     const container = document.getElementById('chat-messages-container');
     if (!container) return;
 
-    // Salva no histórico para continuidade
     chatHistory.push({ role: sender === 'user' ? 'user' : 'assistant', text: text });
-    // Limita histórico local a 30 mensagens para não pesar
     if (chatHistory.length > 30) chatHistory.shift();
 
     const div = document.createElement('div');
@@ -526,7 +523,6 @@ function appendMessage(sender, text) {
     
     const time = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
     
-    // Converte markdown básico (negrito e quebras de linha)
     const formattedText = text
         .replace(/\n/g, '<br>')
         .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
@@ -569,60 +565,103 @@ function appendMessage(sender, text) {
 async function executeAICommand(cmd) {
     console.log("Executando comando IA:", cmd);
     const p = cmd.params || {};
-    let feedback = null; // Se null, não exibe toast, apenas executa
 
     switch(cmd.action) {
-        // --- WIDGET DA HOME ---
         case 'update_dashboard_widget':
             updateAIWidget(p.content);
-            // Feedback visual sutil no chat
             break;
 
-        // --- TAREFAS ---
         case 'create_task':
             tasksData.push({ id: Date.now().toString() + Math.random(), text: p.text, done: false, priority: p.priority || 'normal', category: p.category || 'geral', createdAt: Date.now() });
             saveData();
             break;
-        case 'delete_task':
-            if(p.taskId) tasksData = tasksData.filter(t => t.id !== p.taskId);
-            saveData();
-            break;
-        
-        // --- AULAS ---
+
         case 'create_class':
             scheduleData.push({ id: Date.now().toString() + Math.random(), name: p.name, prof: p.prof || 'N/A', room: p.room || 'N/A', day: p.day, start: p.start, end: p.end, color: 'indigo' });
             saveData();
             break;
 
-        // --- UI & NAVEGAÇÃO ---
         case 'navigate':
-            switchPage(p.page);
+            if (p.page !== currentViewContext) {
+                switchPage(p.page);
+            }
             break;
         
-        // --- LEMBRETES ---
         case 'create_reminder':
              remindersData.push({ id: Date.now().toString() + Math.random(), desc: p.desc, date: p.date, prio: p.prio || 'medium', createdAt: Date.now() });
              saveData();
              break;
-
-        // --- SISTEMA ---
-        case 'ai_clear_chat':
-            chatHistory = [];
-            document.getElementById('chat-messages-container').innerHTML = '';
-            appendMessage('ai', 'Memória limpa! O que vamos fazer agora?');
-            break;
         
+        case 'add_grade':
+             if(currentViewContext !== 'calc') switchPage('calc');
+             setTimeout(() => {
+                 const inputs = document.querySelectorAll('.grade-input');
+                 const weights = document.querySelectorAll('.weight-input');
+                 let found = false;
+                 for(let i=0; i<inputs.length; i++) {
+                     if(inputs[i].value === "") {
+                         inputs[i].value = p.value;
+                         if(p.weight) weights[i].value = p.weight;
+                         found = true;
+                         break;
+                     }
+                 }
+                 if(!found) {
+                     addGradeRow();
+                     const newInputs = document.querySelectorAll('.grade-input');
+                     const lastInput = newInputs[newInputs.length-1];
+                     lastInput.value = p.value;
+                 }
+                 calculateAverage();
+             }, 500);
+             break;
+
+        case 'toggle_theme':
+             toggleTheme();
+             break;
+
         case 'change_ai_provider':
              setAIProvider(p.provider);
              break;
 
+        // --- COMANDOS DE NOTAS ---
+        case 'create_note':
+             const newNoteId = Date.now().toString();
+             notesData.push({
+                 id: newNoteId,
+                 title: p.title || "Nova Nota IA",
+                 content: p.content || "",
+                 updatedAt: Date.now()
+             });
+             saveData();
+             // Se a IA criar uma nota, vamos abrir para o usuário ver se estiver na aba
+             if(currentViewContext === 'notas') {
+                 renderNotes();
+                 openNote(newNoteId);
+             }
+             break;
+
+        case 'update_note':
+             // Atualiza uma nota existente. Se id não for passado, tenta a ativa
+             const targetId = p.id || activeNoteId;
+             const noteToUpdate = notesData.find(n => n.id === targetId);
+             if(noteToUpdate) {
+                 noteToUpdate.content = p.content; // Substitui conteúdo
+                 noteToUpdate.updatedAt = Date.now();
+                 saveData();
+                 if(activeNoteId === targetId && currentViewContext === 'notas') {
+                     document.getElementById('editor-content').innerHTML = p.content;
+                 }
+             }
+             break;
+
         default:
-            console.log("Comando IA não reconhecido ou sem efeito visual direto:", cmd.action);
+            console.log("Comando desconhecido:", cmd.action);
     }
 }
 
 // ============================================================
-// --- WIDGET INTELIGENTE (NOVO 6º WIDGET) ---
+// --- WIDGET INTELIGENTE ---
 // ============================================================
 
 function updateAIWidget(content) {
@@ -632,20 +671,17 @@ function updateAIWidget(content) {
 }
 
 function updateAIWidgetUI() {
-    // Nota: Você precisará adicionar o HTML para este widget no index.html quando eu gerar o arquivo.
-    // Estou deixando a lógica pronta aqui.
     const widgetEl = document.getElementById('ai-widget-content');
     if(widgetEl) {
         widgetEl.innerHTML = `
             <div class="flex items-start gap-3">
                 <i class="fas fa-quote-left text-indigo-300 dark:text-indigo-700 text-xl"></i>
-                <p class="text-sm text-gray-600 dark:text-gray-300 italic">${aiWidgetContent}</p>
+                <p class="text-sm text-gray-600 dark:text-gray-300 italic line-clamp-3">${aiWidgetContent}</p>
             </div>
         `;
     }
 }
 
-// Inicializar com uma frase se estiver vazio
 if (aiWidgetContent === "Olá! Sou sua IA. Vou postar dicas úteis aqui.") {
     const tips = [
         "Não esqueça de beber água enquanto estuda!",
@@ -658,7 +694,7 @@ if (aiWidgetContent === "Olá! Sou sua IA. Vou postar dicas úteis aqui.") {
 
 
 // ============================================================
-// --- FUNÇÕES DE USUÁRIO & DADOS (MANTIDAS) ---
+// --- FUNÇÕES DE USUÁRIO & DADOS ---
 // ============================================================
 
 window.loginWithGoogle = async () => {
@@ -724,6 +760,7 @@ window.saveUserProfile = async () => {
             schedule: JSON.parse(localStorage.getItem('salvese_schedule')) || [],
             tasks: JSON.parse(localStorage.getItem('salvese_tasks')) || [],
             reminders: JSON.parse(localStorage.getItem('salvese_reminders')) || [],
+            notes: JSON.parse(localStorage.getItem('salvese_notes')) || [], // Inclui notas
             lastUpdated: new Date().toISOString()
         };
         
@@ -750,10 +787,12 @@ function initRealtimeSync(uid) {
             localStorage.setItem('salvese_schedule', JSON.stringify(cloudData.schedule || []));
             localStorage.setItem('salvese_tasks', JSON.stringify(cloudData.tasks || []));
             localStorage.setItem('salvese_reminders', JSON.stringify(cloudData.reminders || []));
+            localStorage.setItem('salvese_notes', JSON.stringify(cloudData.notes || [])); // Sync Notas
 
             scheduleData = cloudData.schedule || [];
             tasksData = cloudData.tasks || [];
             remindersData = cloudData.reminders || [];
+            notesData = cloudData.notes || [];
 
             refreshAllUI();
         }
@@ -791,12 +830,14 @@ function refreshAllUI() {
     if (window.updateNextClassWidget) window.updateNextClassWidget();
     if (window.renderSettings) window.renderSettings();
     if (window.updateAIWidgetUI) window.updateAIWidgetUI();
+    if (window.renderNotes) window.renderNotes(); // Refresh notas se necessário
 }
 
 async function saveData() {
     localStorage.setItem('salvese_schedule', JSON.stringify(scheduleData));
     localStorage.setItem('salvese_tasks', JSON.stringify(tasksData));
     localStorage.setItem('salvese_reminders', JSON.stringify(remindersData));
+    localStorage.setItem('salvese_notes', JSON.stringify(notesData));
 
     refreshAllUI();
 
@@ -806,6 +847,7 @@ async function saveData() {
                 schedule: scheduleData,
                 tasks: tasksData,
                 reminders: remindersData,
+                notes: notesData,
                 lastUpdated: new Date().toISOString()
             };
             await setDoc(doc(db, "users", currentUser.uid, "data", "appData"), dataToSave, { merge: true });
@@ -835,7 +877,194 @@ window.manualBackup = async function() {
 }
 
 // ============================================================
-// --- UI COMPONENTS: MODAIS E INPUTS ---
+// --- FUNCIONALIDADE: NOTAS E EDITOR RICO ---
+// ============================================================
+
+window.renderNotes = function() {
+    const container = document.getElementById('view-notas');
+    if(!container) return;
+
+    // Se não houver nota ativa, mostra a lista
+    if (!activeNoteId) {
+        renderNotesList(container);
+    } else {
+        renderNoteEditor(container, activeNoteId);
+    }
+}
+
+function renderNotesList(container) {
+    container.innerHTML = '';
+    const wrapper = document.createElement('div');
+    wrapper.className = "max-w-4xl mx-auto h-full flex flex-col";
+
+    // Header
+    const header = document.createElement('div');
+    header.className = "flex justify-between items-center mb-6";
+    header.innerHTML = `
+        <h2 class="text-2xl font-bold text-gray-800 dark:text-white">Minhas Anotações</h2>
+        <button onclick="createNewNote()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg shadow-md transition flex items-center gap-2 text-sm font-bold">
+            <i class="fas fa-plus"></i> Nova Nota
+        </button>
+    `;
+    wrapper.appendChild(header);
+
+    // Grid de notas
+    const grid = document.createElement('div');
+    grid.className = "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-20";
+
+    if (notesData.length === 0) {
+        grid.innerHTML = `
+            <div class="col-span-full flex flex-col items-center justify-center py-20 text-gray-400 opacity-60">
+                <i class="fas fa-sticky-note text-5xl mb-4"></i>
+                <p>Nenhuma anotação ainda.</p>
+            </div>
+        `;
+    } else {
+        // Ordenar por data de atualização
+        const sortedNotes = [...notesData].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+        
+        sortedNotes.forEach(note => {
+            // Criar um snippet do conteúdo removendo tags HTML
+            const div = document.createElement('div');
+            div.innerHTML = note.content || "";
+            const textContent = div.innerText || div.textContent || "";
+            const snippet = textContent.substring(0, 100) + (textContent.length > 100 ? "..." : "");
+            const dateStr = new Date(note.updatedAt || Date.now()).toLocaleDateString('pt-BR');
+
+            const card = document.createElement('div');
+            card.className = "bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder rounded-xl p-5 hover:shadow-lg hover:border-indigo-300 dark:hover:border-indigo-700 transition cursor-pointer group flex flex-col h-48";
+            card.onclick = (e) => {
+                // Evita abrir se clicar no botão de deletar
+                if(!e.target.closest('.delete-note-btn')) openNote(note.id);
+            };
+
+            card.innerHTML = `
+                <div class="flex justify-between items-start mb-2">
+                    <h3 class="font-bold text-gray-800 dark:text-white truncate text-lg">${note.title || "Sem título"}</h3>
+                    <button class="delete-note-btn text-gray-400 hover:text-red-500 p-1 opacity-0 group-hover:opacity-100 transition" onclick="deleteNote('${note.id}')">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                </div>
+                <div class="flex-1 overflow-hidden mb-3">
+                    <p class="text-sm text-gray-500 dark:text-gray-400 line-clamp-4">${snippet || "Conteúdo vazio..."}</p>
+                </div>
+                <p class="text-xs text-gray-400 text-right">${dateStr}</p>
+            `;
+            grid.appendChild(card);
+        });
+    }
+
+    wrapper.appendChild(grid);
+    container.appendChild(wrapper);
+}
+
+function renderNoteEditor(container, noteId) {
+    const note = notesData.find(n => n.id === noteId);
+    if(!note) { activeNoteId = null; renderNotesList(container); return; }
+
+    container.innerHTML = '';
+    const editorWrapper = document.createElement('div');
+    editorWrapper.className = "max-w-4xl mx-auto h-full flex flex-col bg-white dark:bg-darkcard rounded-xl border border-gray-200 dark:border-darkborder shadow-sm overflow-hidden relative";
+    // Ajuste de altura para caber na tela
+    editorWrapper.style.height = "calc(100vh - 7rem)"; 
+
+    // Toolbar
+    const toolbar = document.createElement('div');
+    toolbar.className = "flex items-center gap-1 p-2 border-b border-gray-200 dark:border-darkborder bg-gray-50 dark:bg-neutral-900 overflow-x-auto no-scrollbar";
+    
+    const createToolBtn = (icon, cmd, val = null) => `
+        <button onclick="formatText('${cmd}', '${val || ''}')" class="p-2 rounded hover:bg-gray-200 dark:hover:bg-neutral-700 text-gray-600 dark:text-gray-300 transition flex-shrink-0" title="${cmd}">
+            <i class="fas fa-${icon}"></i>
+        </button>
+    `;
+
+    toolbar.innerHTML = `
+        <button onclick="closeNote()" class="mr-2 p-2 rounded hover:bg-gray-200 dark:hover:bg-neutral-700 text-indigo-600 font-bold flex items-center gap-1">
+            <i class="fas fa-arrow-left"></i> Voltar
+        </button>
+        <div class="w-px h-6 bg-gray-300 dark:bg-neutral-700 mx-1"></div>
+        ${createToolBtn('bold', 'bold')}
+        ${createToolBtn('italic', 'italic')}
+        ${createToolBtn('underline', 'underline')}
+        <div class="w-px h-6 bg-gray-300 dark:bg-neutral-700 mx-1"></div>
+        ${createToolBtn('list-ul', 'insertUnorderedList')}
+        ${createToolBtn('list-ol', 'insertOrderedList')}
+        <div class="w-px h-6 bg-gray-300 dark:bg-neutral-700 mx-1"></div>
+        ${createToolBtn('highlighter', 'hiliteColor', 'yellow')}
+        <button onclick="deleteNote('${note.id}')" class="ml-auto p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"><i class="fas fa-trash-alt"></i></button>
+    `;
+
+    // Title Input
+    const titleInput = document.createElement('input');
+    titleInput.type = 'text';
+    titleInput.className = "w-full p-4 text-xl font-bold bg-transparent border-b border-gray-100 dark:border-darkborder outline-none text-gray-900 dark:text-white";
+    titleInput.placeholder = "Título da Nota";
+    titleInput.value = note.title;
+    titleInput.oninput = (e) => { note.title = e.target.value; note.updatedAt = Date.now(); saveData(); };
+
+    // Content Editable
+    const contentDiv = document.createElement('div');
+    contentDiv.id = 'editor-content';
+    contentDiv.contentEditable = true;
+    contentDiv.className = "flex-1 p-4 outline-none overflow-y-auto text-gray-800 dark:text-gray-200 text-base leading-relaxed";
+    contentDiv.innerHTML = note.content;
+    contentDiv.oninput = () => { note.content = contentDiv.innerHTML; note.updatedAt = Date.now(); saveData(); };
+
+    editorWrapper.appendChild(toolbar);
+    editorWrapper.appendChild(titleInput);
+    editorWrapper.appendChild(contentDiv);
+    container.appendChild(editorWrapper);
+}
+
+window.createNewNote = function() {
+    const newId = Date.now().toString();
+    notesData.push({
+        id: newId,
+        title: "",
+        content: "",
+        updatedAt: Date.now()
+    });
+    saveData();
+    openNote(newId);
+}
+
+window.openNote = function(id) {
+    activeNoteId = id;
+    renderNotes();
+}
+
+window.closeNote = function() {
+    activeNoteId = null;
+    renderNotes();
+}
+
+window.deleteNote = function(id) {
+    openCustomConfirmModal("Excluir Nota", "Tem certeza que deseja apagar esta nota?", () => {
+        notesData = notesData.filter(n => n.id !== id);
+        if(activeNoteId === id) activeNoteId = null;
+        saveData();
+        renderNotes();
+    });
+}
+
+window.formatText = function(cmd, val) {
+    document.execCommand(cmd, false, val);
+    // Focar de volta no editor
+    const editor = document.getElementById('editor-content');
+    if(editor) {
+        editor.focus();
+        // Trigger save
+        const note = notesData.find(n => n.id === activeNoteId);
+        if(note) {
+            note.content = editor.innerHTML;
+            note.updatedAt = Date.now();
+            saveData();
+        }
+    }
+}
+
+// ============================================================
+// --- UI COMPONENTS: MODAIS E INPUTS (MANTIDOS) ---
 // ============================================================
 
 function openCustomInputModal(title, placeholder, initialValue, onConfirm) {
@@ -1050,7 +1279,6 @@ window.changePhoto = function() {
         formData.append('image', file);
 
         try {
-            // Nota: Client-ID exposto, idealmente use um proxy backend
             const response = await fetch('https://api.imgur.com/3/image', {
                 method: 'POST',
                 headers: { 'Authorization': 'Client-ID 513bb727cecf9ac' },
@@ -2391,6 +2619,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderBusTable(); 
     updateNextBus(); 
     updateAIWidgetUI();
+    fixChatLayout(); // Garante correção de layout ao carregar
     setInterval(updateNextBus, 1000);
     
     // Auto-select Home on sidebar

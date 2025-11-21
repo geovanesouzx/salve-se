@@ -1,4 +1,4 @@
-const CACHE_NAME = 'salvese-v14.0-multi-ai'; // Versão incrementada para forçar atualização
+const CACHE_NAME = 'salvese-v15.0-notes-update'; // Versão incrementada para forçar atualização imediata
 const URLS_TO_CACHE = [
     './',
     './index.html',
@@ -11,12 +11,12 @@ const URLS_TO_CACHE = [
     'https://media.tenor.com/q9CixI3CcrkAAAAj/dance.gif',
     'https://media.tenor.com/qL2ySe3uUgQAAAAj/gatto.gif',
     'https://www.svgrepo.com/show/475656/google-color.svg',
-    'https://www.imagensanimadas.com/data/media/425/onibus-imagem-animada-0001.gif' // Adicionado explicitamente pois é usado no HTML
+    'https://www.imagensanimadas.com/data/media/425/onibus-imagem-animada-0001.gif'
 ];
 
 // 1. Instalação
 self.addEventListener('install', event => {
-    self.skipWaiting();
+    self.skipWaiting(); // Força o SW a assumir o controle imediatamente
     event.waitUntil(
         caches.open(CACHE_NAME).then(cache => {
             return Promise.all(
@@ -40,12 +40,12 @@ self.addEventListener('activate', event => {
             return Promise.all(
                 cacheNames.map(cacheName => {
                     if (cacheWhitelist.indexOf(cacheName) === -1) {
-                        // Apaga caches de versões anteriores (ex: v13.0)
+                        console.log('Deletando cache antigo:', cacheName);
                         return caches.delete(cacheName);
                     }
                 })
             );
-        }).then(() => self.clients.claim())
+        }).then(() => self.clients.claim()) // Controla as abas abertas imediatamente
     );
 });
 
@@ -53,7 +53,7 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
     const url = event.request.url;
     
-    // IMPORTANTE: Ignorar APIs dinâmicas para evitar cache de respostas JSON
+    // IMPORTANTE: Ignorar APIs dinâmicas para evitar cache de respostas JSON da IA ou Firebase
     if (url.includes('firestore.googleapis.com') || 
         url.includes('googleapis.com/auth') || 
         url.includes('generativelanguage.googleapis.com') || // Gemini
@@ -66,7 +66,7 @@ self.addEventListener('fetch', event => {
     event.respondWith(
         caches.match(event.request).then(cachedResponse => {
             // Estratégia: Stale-While-Revalidate
-            // Retorna o cache se existir, mas busca atualização em background
+            // Retorna o cache se existir, mas busca atualização em background para a próxima vez
             const fetchPromise = fetch(event.request).then(networkResponse => {
                 // Atualiza cache em background se tiver internet e for uma requisição válida
                 if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
@@ -77,7 +77,7 @@ self.addEventListener('fetch', event => {
                 }
                 return networkResponse;
             }).catch(() => {
-                // Falha silenciosa se offline
+                // Falha silenciosa se offline (o usuário receberá o cachedResponse se existir)
             });
 
             return cachedResponse || fetchPromise;

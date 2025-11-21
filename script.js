@@ -41,8 +41,10 @@ const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__f
 // NOVA CHAVE ADICIONADA:
 const apiKey = "AIzaSyCVGN5yxdscAjDgOcXTZgsb4qy3Ucy0Ve8";
 
-// MODELO CORRETO (O 2.5 não existe na API pública, usamos o 1.5 Flash que é o rápido/grátis)
-const GEMINI_MODEL = "gemini-1.5-flash";
+// AJUSTE: Usando a versão 2.0 Flash Experimental (A mais recente disponível)
+// Se esta falhar, só sobrará a 'gemini-1.5-pro'
+const GEMINI_MODEL = "gemini-2.0-flash-exp";
+
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
 
 const GROQ_API_KEY = "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";

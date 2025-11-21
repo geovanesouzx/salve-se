@@ -30,8 +30,8 @@ const firebaseConfig = {
   appId: "1:132544174908:web:00c6aa4855cc18ed2cdc39"
 };
 
-// Configuração da IA (Gemini) - Ajustado para o ambiente
-const apiKey = "AIzaSyCXIMgQMP_P95FJ_vmUp05n7Z99U02fBdo"; // A chave será injetada pelo ambiente de execução
+// Configuração da IA (Gemini)
+const apiKey = "AIzaSyCXIMgQMP_P95FJ_vmUp05n7Z99U02fBdo"; 
 const GEMINI_MODEL = "gemini-2.5-flash-preview-09-2025";
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
 
@@ -64,8 +64,8 @@ let tasksData = JSON.parse(localStorage.getItem('salvese_tasks')) || [];
 let remindersData = JSON.parse(localStorage.getItem('salvese_reminders')) || [];
 let selectedClassIdToDelete = null;
 let currentTaskFilter = 'all'; 
-let chatHistory = []; // Histórico da conversa com a IA
-let currentViewContext = 'home'; // Contexto atual para a IA
+let chatHistory = []; 
+let currentViewContext = 'home'; 
 
 // ============================================================
 // --- ÍCONES SVG ---
@@ -203,7 +203,6 @@ function showProfileSetupScreen() {
 }
 
 window.switchPage = function(pageId, addToHistory = true) {
-    // Armazena o contexto para a IA
     currentViewContext = pageId;
 
     document.querySelectorAll('[id^="view-"]').forEach(el => el.classList.add('hidden'));
@@ -214,7 +213,6 @@ window.switchPage = function(pageId, addToHistory = true) {
     const activeLink = document.getElementById(`nav-${pageId}`);
     if (activeLink) activeLink.classList.add('active');
 
-    // Atualiza menu mobile
     const mobileNavLinks = document.querySelectorAll('#mobile-menu nav a');
     mobileNavLinks.forEach(link => {
         link.classList.remove('bg-indigo-50', 'text-indigo-600', 'dark:bg-indigo-900/50', 'dark:text-indigo-300');
@@ -235,7 +233,7 @@ window.switchPage = function(pageId, addToHistory = true) {
         email: 'Templates', 
         aulas: 'Grade Horária', 
         config: 'Configurações',
-        ia: 'Salve-se IA' // Novo título
+        ia: 'Salve-se IA'
     };
     const pageTitleEl = document.getElementById('page-title');
     if (pageTitleEl) pageTitleEl.innerText = titles[pageId] || 'Salve-se UFRB';
@@ -243,7 +241,6 @@ window.switchPage = function(pageId, addToHistory = true) {
     if(pageId === 'aulas' && window.renderSchedule) window.renderSchedule();
     if(pageId === 'config' && window.renderSettings) window.renderSettings();
     
-    // Scroll automático para o fim do chat se entrar na IA
     if(pageId === 'ia') {
         const chatContainer = document.getElementById('chat-messages-container');
         if(chatContainer) chatContainer.scrollTop = chatContainer.scrollHeight;
@@ -255,7 +252,7 @@ window.switchPage = function(pageId, addToHistory = true) {
 }
 
 // ============================================================
-// --- INTEGRAÇÃO SALVE-SE IA (GEMINI - CORRIGIDO) ---
+// --- INTEGRAÇÃO SALVE-SE IA (GEMINI + FERRAMENTAS) ---
 // ============================================================
 
 window.sendIAMessage = async function() {
@@ -267,27 +264,20 @@ window.sendIAMessage = async function() {
 
     if (!message) return;
 
-    // 1. Adicionar mensagem do usuário na UI
     appendMessage('user', message);
     input.value = '';
     input.disabled = true;
     sendBtn.disabled = true;
-    
-    // Scroll para baixo
     container.scrollTop = container.scrollHeight;
 
-    // 2. Mostrar indicador de digitação
     if(typingIndicator) typingIndicator.classList.remove('hidden');
 
-    // Função de Delay para retentativas (Exponencial)
     const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-    // Função para fazer o fetch com retentativas
     const fetchWithRetry = async (url, options, retries = 3, backoff = 1000) => {
         try {
             const res = await fetch(url, options);
             if (!res.ok) {
-                // Se for erro de servidor (5xx), tenta de novo. Se for cliente (4xx), lança erro.
                 if (res.status >= 500 && retries > 0) {
                     await delay(backoff);
                     return fetchWithRetry(url, options, retries - 1, backoff * 2);
@@ -305,99 +295,96 @@ window.sendIAMessage = async function() {
     };
 
     try {
-        // Coleta dados contextuais para a IA ser mais útil
+        // Contexto Expandido para a IA
         const contextData = {
             telaAtual: currentViewContext,
-            tarefasPendentes: tasksData.filter(t => !t.done).map(t => t.text),
-            aulasHoje: scheduleData.filter(c => {
-                const daysMap = ['dom','seg','ter','qua','qui','sex','sab'];
-                return c.day === daysMap[new Date().getDay()];
-            }).map(c => `${c.name} às ${c.start}`),
-            lembretes: remindersData.slice(0, 3).map(r => `${r.desc} (${r.date})`)
+            dataAtual: new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }),
+            tarefas: tasksData.map(t => ({ id: t.id, text: t.text, done: t.done })),
+            aulas: scheduleData.map(c => ({ id: c.id, name: c.name, day: c.day, start: c.start, room: c.room })),
+            lembretes: remindersData.map(r => ({ id: r.id, desc: r.desc, date: r.date }))
         };
 
-        // Preparar o contexto (System Instruction)
+        // Prompt de Sistema Avançado com Capacidade de "Ferramentas"
         let systemInstructionText = `
-Você é a "Salve-se IA", uma assistente virtual inteligente integrada ao painel do estudante "Salve-se UFRB".
-Seu tom é amigável, direto e útil. Você ajuda estudantes universitários da UFRB.
+Você é a "Salve-se IA", assistente inteligente do painel UFRB.
+Seu objetivo é ajudar o estudante a gerenciar sua vida acadêmica.
+Use um tom amigável e proativo.
 
-DADOS ATUAIS DO USUÁRIO (Use isso para dar respostas personalizadas):
-- Tela atual: ${contextData.telaAtual}
-- Aulas de Hoje: ${contextData.aulasHoje.length > 0 ? contextData.aulasHoje.join(", ") : "Nenhuma aula hoje."}
-- Tarefas Pendentes: ${contextData.tarefasPendentes.length > 0 ? contextData.tarefasPendentes.join(", ") : "Nenhuma."}
-- Lembretes Próximos: ${contextData.lembretes.length > 0 ? contextData.lembretes.join(", ") : "Nenhum."}
+DADOS ATUAIS:
+- Data/Hora: ${contextData.dataAtual}
+- Tela Atual: ${contextData.telaAtual}
+- Tarefas Atuais: ${JSON.stringify(contextData.tarefas)}
+- Aulas: ${JSON.stringify(contextData.aulas)}
+- Lembretes: ${JSON.stringify(contextData.lembretes)}
 
-Se o usuário pedir para adicionar uma tarefa ou lembrete, explique que você ainda não tem acesso direto de escrita, mas oriente ele a clicar na aba "Tarefas" ou no botão "+" da tela inicial.
+CAPACIDADES (TOOLS):
+Você pode realizar ações reais no sistema. Para isso, sua resposta deve ser **EXCLUSIVAMENTE** um JSON no formato abaixo (sem texto antes ou depois):
+{
+  "action": "NOME_DA_ACAO",
+  "params": { ... }
+}
+
+AÇÕES DISPONÍVEIS:
+1. "create_task" -> params: { "text": "Descrição", "priority": "normal|medium|high", "category": "geral|estudo|trabalho" }
+2. "delete_task" -> params: { "taskId": "ID_DA_TAREFA" } (Use fuzzy search no nome se o usuário pedir por nome)
+3. "create_reminder" -> params: { "desc": "Descrição", "date": "YYYY-MM-DD", "prio": "low|medium|high" }
+4. "delete_reminder" -> params: { "reminderId": "ID_DO_LEMBRETE" }
+5. "create_class" -> params: { "name": "Matéria", "day": "seg|ter|qua|qui|sex|sab", "start": "HH:MM", "end": "HH:MM", "room": "Sala", "prof": "Professor" }
+6. "delete_class" -> params: { "classId": "ID_DA_AULA" }
+7. "navigate" -> params: { "page": "home|aulas|todo|pomo|calc|onibus" }
+
+Se o usuário pedir algo que exija uma ação, RESPONDA APENAS O JSON.
+Se for apenas uma conversa ou dúvida, responda com texto normal.
         `;
 
         const contents = [];
-        
-        // Adiciona histórico filtrado
         if (chatHistory.length > 0) {
             let expectingRole = 'user';
             for (const msg of chatHistory) {
                 if (msg.role === expectingRole) {
-                    contents.push({
-                        role: msg.role === 'user' ? 'user' : 'model',
-                        parts: [{ text: msg.text }]
-                    });
+                    contents.push({ role: msg.role === 'user' ? 'user' : 'model', parts: [{ text: msg.text }] });
                     expectingRole = expectingRole === 'user' ? 'model' : 'user';
                 }
             }
         }
+        if (contents.length > 0 && contents[contents.length - 1].role === 'user') contents.pop(); 
+        contents.push({ role: "user", parts: [{ text: message }] });
 
-        // Segurança: Se a última mensagem no array contents for 'user', removemos ela 
-        if (contents.length > 0 && contents[contents.length - 1].role === 'user') {
-            contents.pop(); 
-        }
-
-        // Adiciona a mensagem atual
-        contents.push({
-            role: "user",
-            parts: [{ text: message }]
-        });
-
-        // Chamada com Retry
         const data = await fetchWithRetry(GEMINI_API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 contents: contents,
-                systemInstruction: {
-                    parts: [{ text: systemInstructionText }]
-                },
-                generationConfig: {
-                    temperature: 0.7,
-                    maxOutputTokens: 800,
-                }
+                systemInstruction: { parts: [{ text: systemInstructionText }] },
+                generationConfig: { temperature: 0.4, maxOutputTokens: 800 }
             })
         });
         
-        if (data.error) {
-            throw new Error(data.error.message || "Erro na API Gemini");
+        if (data.error) throw new Error(data.error.message || "Erro na API Gemini");
+        if (!data.candidates || !data.candidates[0].content) throw new Error("Sem resposta.");
+
+        const aiResponseText = data.candidates[0].content.parts[0].text.trim();
+
+        // Verifica se é um comando JSON
+        if (aiResponseText.startsWith('{') && aiResponseText.endsWith('}')) {
+            try {
+                const command = JSON.parse(aiResponseText);
+                await executeAICommand(command);
+            } catch (e) {
+                console.error("Erro ao processar comando IA:", e);
+                appendMessage('ai', "Tentei realizar uma ação, mas me confundi nos dados. Pode repetir?");
+            }
+        } else {
+            appendMessage('ai', aiResponseText);
         }
-
-        if (!data.candidates || !data.candidates[0].content) {
-             throw new Error("A IA não retornou nenhuma resposta.");
-        }
-
-        const aiResponseText = data.candidates[0].content.parts[0].text;
-
-        // 3. Adicionar resposta da IA
-        if(typingIndicator) typingIndicator.classList.add('hidden');
-        appendMessage('ai', aiResponseText);
 
     } catch (error) {
         console.error("Erro IA:", error);
-        if(typingIndicator) typingIndicator.classList.add('hidden');
-        
-        let userFriendlyError = "Ops! Tive um problema técnico. ";
-        if (error.message.includes("400")) userFriendlyError += "Não entendi o contexto.";
-        else if (error.message.includes("403") || error.message.includes("API key")) userFriendlyError += "Problema de permissão na API.";
-        else userFriendlyError += "Tente novamente em alguns segundos.";
-
-        appendMessage('ai', userFriendlyError);
+        let msg = "Ops! Tive um problema técnico.";
+        if(error.message.includes("API key")) msg = "Chave de API inválida.";
+        appendMessage('ai', msg);
     } finally {
+        if(typingIndicator) typingIndicator.classList.add('hidden');
         input.disabled = false;
         sendBtn.disabled = false;
         input.focus();
@@ -405,18 +392,96 @@ Se o usuário pedir para adicionar uma tarefa ou lembrete, explique que você ai
     }
 };
 
+// Função para executar os comandos da IA
+async function executeAICommand(cmd) {
+    console.log("Executando comando IA:", cmd);
+    const p = cmd.params;
+    let feedback = "";
+
+    switch(cmd.action) {
+        case 'create_task':
+            tasksData.push({
+                id: Date.now().toString(),
+                text: p.text,
+                done: false,
+                priority: p.priority || 'normal',
+                category: p.category || 'geral',
+                createdAt: Date.now()
+            });
+            saveData();
+            feedback = `Adicionei a tarefa "${p.text}" para você! ✅`;
+            break;
+
+        case 'delete_task':
+            if(p.taskId) {
+                tasksData = tasksData.filter(t => t.id !== p.taskId);
+                saveData();
+                feedback = "Tarefa removida.";
+            } else {
+                feedback = "Não encontrei o ID dessa tarefa.";
+            }
+            break;
+
+        case 'create_reminder':
+            remindersData.push({
+                id: Date.now().toString(),
+                desc: p.desc,
+                date: p.date,
+                prio: p.prio || 'medium',
+                createdAt: Date.now()
+            });
+            saveData();
+            feedback = `Lembrete "${p.desc}" criado para ${p.date}. 📅`;
+            break;
+        
+        case 'delete_reminder':
+            remindersData = remindersData.filter(r => r.id !== p.reminderId);
+            saveData();
+            feedback = "Lembrete removido.";
+            break;
+
+        case 'create_class':
+            scheduleData.push({
+                id: Date.now().toString(),
+                name: p.name,
+                prof: p.prof || 'N/A',
+                room: p.room || 'N/A',
+                day: p.day,
+                start: p.start,
+                end: p.end,
+                color: 'indigo'
+            });
+            saveData();
+            feedback = `Aula de ${p.name} adicionada na grade! 🎓`;
+            break;
+
+        case 'delete_class':
+            scheduleData = scheduleData.filter(c => c.id !== p.classId);
+            saveData();
+            feedback = "Aula removida da grade.";
+            break;
+
+        case 'navigate':
+            switchPage(p.page);
+            feedback = `Navegando para ${p.page}... 🚀`;
+            break;
+
+        default:
+            feedback = "Não entendi qual ação executar.";
+    }
+
+    appendMessage('ai', feedback);
+}
+
 function appendMessage(sender, text) {
     const container = document.getElementById('chat-messages-container');
     if (!container) return;
 
-    // Salvar no histórico (limitar a 20 mensagens para não estourar tokens)
     chatHistory.push({ role: sender, text: text });
     if (chatHistory.length > 20) chatHistory.shift();
 
     const div = document.createElement('div');
     div.className = `flex w-full ${sender === 'user' ? 'justify-end' : 'justify-start'} mb-4 animate-scale-in`;
-
-    // Formatação simples de texto (quebra de linha)
     const formattedText = text.replace(/\n/g, '<br>');
 
     if (sender === 'user') {
@@ -426,9 +491,7 @@ function appendMessage(sender, text) {
             </div>
         `;
     } else {
-        // Efeito simples de markdown para negrito
         const mdText = formattedText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-        
         div.innerHTML = `
             <div class="flex gap-2 max-w-[90%]">
                 <div class="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center flex-shrink-0 text-white text-xs shadow-sm mt-1">
@@ -440,7 +503,6 @@ function appendMessage(sender, text) {
             </div>
         `;
     }
-
     container.appendChild(div);
 }
 

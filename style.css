@@ -84,7 +84,7 @@ body { font-family: 'Inter', sans-serif; transition: background-color 0.3s, colo
 }
 .network-status.show { opacity: 1; transform: translateY(0); }
 .network-status.offline { background-color: #ef4444; color: white; }
-.network-status.online { background-color: #22c55e; color: white; }
+.network-status.online { background-color: #21c85e; color: white; }
 
 /* Glass effect for modal backdrops */
 .backdrop-blur-sm { backdrop-filter: blur(4px); }

@@ -1,921 +1,6 @@
-// ============================================================
-// --- CONFIGURAÇÃO FIREBASE & IMPORTAÇÕES ---
-// ============================================================
-import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-import {
-    getAuth,
-    signInWithPopup,
-    GoogleAuthProvider,
-    onAuthStateChanged,
-    signOut,
-    updateProfile,
-    sendPasswordResetEmail
-} from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-import {
-    getFirestore,
-    doc,
-    setDoc,
-    getDoc,
-    deleteDoc,
-    onSnapshot,
-    enableIndexedDbPersistence
-} from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-const firebaseConfig = {
-    apiKey: "AIzaSyD5Ggqw9FpMS98CHcfXKnghMQNMV5WIVTw",
-    authDomain: "salvee-se.firebaseapp.com",
-    projectId: "salvee-se",
-    storageBucket: "salvee-se.firebasestorage.app",
-    messagingSenderId: "132544174908",
-    appId: "1:132544174908:web:00c6aa4855cc18ed2cdc39"
-};
-
-// Inicializa Firebase
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-
-// Tenta habilitar persistência offline
-try {
-    enableIndexedDbPersistence(db).catch((err) => {
-        console.log('Persistência offline:', err.code);
-    });
-} catch (e) { console.log("Persistência já ativa ou não suportada"); }
-
-// ============================================================
-// --- VARIÁVEIS GLOBAIS ---
-// ============================================================
-let currentUser = null;
-let userProfile = null;
-let unsubscribeData = null;
-let scheduleData = JSON.parse(localStorage.getItem('salvese_schedule')) || [];
-let tasksData = JSON.parse(localStorage.getItem('salvese_tasks')) || [];
-let remindersData = JSON.parse(localStorage.getItem('salvese_reminders')) || [];
-let selectedClassIdToDelete = null;
-let currentTaskFilter = 'all';
-
-// ============================================================
-// --- ÍCONES SVG ---
-// ============================================================
-const svgs = {
-    photo: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>`,
-    user: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`,
-    at: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-3.92 7.94"/></svg>`,
-    school: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>`,
-    lock: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`,
-    cloud: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19c0-3.037-2.463-5.5-5.5-5.5S6.5 15.963 6.5 19"/><path d="M12 13.5V4"/><path d="M7 9l5-5 5 5"/></svg>`,
-    logout: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>`,
-    chevron: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`,
-    chevronDown: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>`,
-    calendar: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`
-};
-
-// ============================================================
-// --- SISTEMA DE CUSTOM UI (DROPDOWNS CORRIGIDOS) ---
-// ============================================================
-
-function initCustomUI() {
-    const selects = document.querySelectorAll('select:not(.custom-init)');
-    if (selects.length > 0) selects.forEach(createCustomSelect);
-    
-    const datePickers = document.querySelectorAll('input[type="date"]:not(.custom-init)');
-    if (datePickers.length > 0) datePickers.forEach(createCustomDatePicker);
-}
-
-function closeAllCustomMenus() {
-    document.querySelectorAll('.custom-floating-menu').forEach(el => el.remove());
-}
-
-function createCustomSelect(select) {
-    if (!select || select.classList.contains('custom-init')) return;
-    select.classList.add('custom-init', 'hidden');
-
-    const wrapper = document.createElement('div');
-    wrapper.className = 'relative inline-block w-full';
-
-    const trigger = document.createElement('button');
-    trigger.type = 'button';
-    trigger.className = 'w-full flex items-center justify-between bg-white dark:bg-neutral-900 border border-gray-300 dark:border-neutral-700 rounded-lg px-3 py-2.5 text-sm text-gray-700 dark:text-gray-300 focus:ring-2 focus:ring-indigo-500 transition';
-
-    const labelSpan = document.createElement('span');
-    
-    const updateLabel = () => {
-        // Lógica reforçada para encontrar o texto correto
-        let text = 'Selecione';
-        if (select.options.length > 0) {
-            // Tenta pelo selectedIndex primeiro
-            if (select.selectedIndex >= 0) {
-                text = select.options[select.selectedIndex].text;
-            } 
-            // Fallback: tenta achar pelo valor se o index parecer errado (ex: reset dinâmico)
-            else if (select.value) {
-                const opt = Array.from(select.options).find(o => o.value === select.value);
-                if (opt) text = opt.text;
-            }
-            // Fallback final: pega o primeiro
-            else {
-                text = select.options[0].text;
-            }
-        }
-        
-        labelSpan.innerText = text;
-        if (text === 'Selecione') labelSpan.classList.add('text-gray-400');
-        else labelSpan.classList.remove('text-gray-400');
-    };
-    
-    updateLabel();
-    
-    // Observer para detectar mudanças no HTML do select (ex: horários recarregados)
-    const observer = new MutationObserver(() => {
-        // Pequeno delay para garantir que o DOM atualizou
-        setTimeout(updateLabel, 0);
-    });
-    observer.observe(select, { childList: true, subtree: true, attributes: true });
-
-    // Listener nativo
-    select.addEventListener('change', updateLabel);
-    select.refreshCustomUI = updateLabel;
-
-    trigger.appendChild(labelSpan);
-    trigger.innerHTML += svgs.chevronDown;
-
-    trigger.onclick = (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        
-        const existingMenu = document.querySelector('.custom-floating-menu');
-        if (existingMenu && existingMenu.dataset.triggerId === select.id) {
-            closeAllCustomMenus();
-            return;
-        }
-        closeAllCustomMenus();
-
-        const rect = trigger.getBoundingClientRect();
-        const menu = document.createElement('div');
-        menu.className = 'custom-floating-menu fixed z-[9999] bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-lg shadow-2xl animate-scale-in flex flex-col overflow-hidden';
-        menu.dataset.triggerId = select.id || 'temp-' + Date.now();
-        
-        // Posicionamento inteligente
-        const spaceBelow = window.innerHeight - rect.bottom;
-        const menuHeight = Math.min(select.options.length * 40 + 10, 250);
-        
-        menu.style.width = rect.width + 'px';
-        menu.style.left = rect.left + 'px';
-        
-        if (spaceBelow < menuHeight && rect.top > menuHeight) {
-            menu.style.bottom = (window.innerHeight - rect.top + 4) + 'px';
-            menu.style.top = 'auto';
-        } else {
-            menu.style.top = (rect.bottom + 4) + 'px';
-        }
-        
-        menu.style.maxHeight = '250px';
-        menu.style.overflowY = 'auto';
-
-        Array.from(select.options).forEach((opt, index) => {
-            const item = document.createElement('div');
-            item.className = 'px-4 py-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-indigo-50 dark:hover:bg-indigo-900/40 hover:text-indigo-600 dark:hover:text-indigo-300 cursor-pointer transition flex items-center gap-2 border-b border-gray-50 dark:border-neutral-700/50 last:border-0 shrink-0';
-            item.innerText = opt.text;
-
-            if (opt.value === select.value) {
-                item.classList.add('bg-indigo-50', 'dark:bg-indigo-900/20', 'font-bold', 'text-indigo-600', 'dark:text-indigo-400');
-            }
-
-            item.addEventListener('click', (ev) => {
-                ev.stopPropagation();
-                
-                // ATUALIZAÇÃO FORÇADA E IMEDIATA
-                select.value = opt.value;
-                select.selectedIndex = index;
-                
-                // Atualiza label visualmente na hora
-                labelSpan.innerText = opt.text;
-                labelSpan.classList.remove('text-gray-400');
-                
-                // Dispara evento para outros scripts
-                const event = new Event('change', { bubbles: true });
-                select.dispatchEvent(event);
-                
-                menu.remove();
-            });
-            menu.appendChild(item);
-        });
-
-        document.body.appendChild(menu);
-
-        const closeHandler = (evt) => {
-            if (!menu.contains(evt.target) && !trigger.contains(evt.target)) {
-                menu.remove();
-                document.removeEventListener('click', closeHandler);
-                window.removeEventListener('resize', closeHandler);
-            }
-        };
-        setTimeout(() => {
-            document.addEventListener('click', closeHandler);
-            window.addEventListener('resize', () => menu.remove());
-        }, 0);
-    };
-
-    wrapper.appendChild(trigger);
-    select.parentNode.insertBefore(wrapper, select);
-}
-
-function createCustomDatePicker(input) {
-    if (!input || input.classList.contains('custom-init')) return;
-    input.classList.add('custom-init', 'hidden');
-
-    const wrapper = document.createElement('div');
-    wrapper.className = 'relative w-full';
-
-    const trigger = document.createElement('button');
-    trigger.type = 'button';
-    trigger.className = 'w-full flex items-center gap-2 bg-white dark:bg-neutral-900 border border-gray-300 dark:border-neutral-700 rounded-lg px-3 py-2.5 text-sm text-gray-700 dark:text-gray-300 focus:ring-2 focus:ring-indigo-500 transition';
-
-    const iconSpan = document.createElement('span');
-    iconSpan.className = "text-gray-400";
-    iconSpan.innerHTML = svgs.calendar;
-
-    const textSpan = document.createElement('span');
-    const updateDisplay = () => {
-        if (input.value) {
-            const parts = input.value.split('-');
-            if(parts.length === 3) {
-                textSpan.innerText = `${parts[2]}/${parts[1]}/${parts[0]}`;
-                textSpan.classList.remove('text-gray-400');
-            }
-        } else {
-            textSpan.innerText = 'Selecione uma data';
-            textSpan.classList.add('text-gray-400');
-        }
-    };
-    updateDisplay();
-
-    input.addEventListener('change', updateDisplay);
-    input.addEventListener('input', updateDisplay);
-
-    trigger.appendChild(iconSpan);
-    trigger.appendChild(textSpan);
-
-    trigger.onclick = (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        closeAllCustomMenus();
-
-        if (window.matchMedia("(max-width: 768px)").matches) {
-            input.showPicker(); 
-            return;
-        }
-
-        const rect = trigger.getBoundingClientRect();
-        const calendar = document.createElement('div');
-        calendar.className = 'custom-floating-menu fixed z-[9999] p-4 bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-xl shadow-2xl animate-scale-in w-64';
-
-        const spaceBelow = window.innerHeight - rect.bottom;
-        if (spaceBelow < 320) {
-            calendar.style.bottom = (window.innerHeight - rect.top + 4) + 'px';
-        } else {
-            calendar.style.top = (rect.bottom + 4) + 'px';
-        }
-        calendar.style.left = rect.left + 'px';
-
-        let dateObj = input.value ? new Date(input.value + 'T00:00:00') : new Date();
-        let currentMonth = dateObj.getMonth();
-        let currentYear = dateObj.getFullYear();
-
-        const renderCalendar = (month, year) => {
-            calendar.innerHTML = '';
-            const header = document.createElement('div');
-            header.className = 'flex justify-between items-center mb-3';
-
-            const prevBtn = document.createElement('button');
-            prevBtn.innerHTML = '&lt;';
-            prevBtn.className = 'p-1 hover:bg-gray-100 dark:hover:bg-neutral-700 rounded text-gray-600 dark:text-gray-300 font-bold w-8 h-8';
-            prevBtn.onclick = (e) => { e.stopPropagation(); renderCalendar(month === 0 ? 11 : month - 1, month === 0 ? year - 1 : year); };
-
-            const title = document.createElement('span');
-            title.className = 'font-bold text-gray-800 dark:text-white text-sm capitalize';
-            title.innerText = new Date(year, month).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
-
-            const nextBtn = document.createElement('button');
-            nextBtn.innerHTML = '&gt;';
-            nextBtn.className = 'p-1 hover:bg-gray-100 dark:hover:bg-neutral-700 rounded text-gray-600 dark:text-gray-300 font-bold w-8 h-8';
-            nextBtn.onclick = (e) => { e.stopPropagation(); renderCalendar(month === 11 ? 0 : month + 1, month === 11 ? year + 1 : year); };
-
-            header.appendChild(prevBtn);
-            header.appendChild(title);
-            header.appendChild(nextBtn);
-            calendar.appendChild(header);
-
-            const grid = document.createElement('div');
-            grid.className = 'grid grid-cols-7 gap-1 text-center text-xs mb-1';
-            ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].forEach(d => {
-                const el = document.createElement('span');
-                el.className = 'text-gray-400 font-bold';
-                el.innerText = d;
-                grid.appendChild(el);
-            });
-            calendar.appendChild(grid);
-
-            const daysContainer = document.createElement('div');
-            daysContainer.className = 'grid grid-cols-7 gap-1 text-center text-sm';
-
-            const firstDay = new Date(year, month, 1).getDay();
-            const daysInMonth = new Date(year, month + 1, 0).getDate();
-
-            for (let i = 0; i < firstDay; i++) daysContainer.appendChild(document.createElement('div'));
-
-            for (let d = 1; d <= daysInMonth; d++) {
-                const dayBtn = document.createElement('button');
-                dayBtn.innerText = d;
-                dayBtn.className = 'w-8 h-8 rounded-full flex items-center justify-center hover:bg-indigo-50 dark:hover:bg-neutral-700 text-gray-700 dark:text-gray-300 transition';
-
-                if (input.value) {
-                    const sel = new Date(input.value + 'T00:00:00');
-                    if (d === sel.getDate() && month === sel.getMonth() && year === sel.getFullYear()) {
-                        dayBtn.className = 'w-8 h-8 rounded-full flex items-center justify-center bg-indigo-600 text-white font-bold shadow-md';
-                    }
-                }
-
-                dayBtn.onclick = (e) => {
-                    e.stopPropagation();
-                    const yearStr = year;
-                    const monthStr = String(month + 1).padStart(2, '0');
-                    const dayStr = String(d).padStart(2, '0');
-                    input.value = `${yearStr}-${monthStr}-${dayStr}`;
-                    const event = new Event('change', { bubbles: true });
-                    input.dispatchEvent(event);
-                    calendar.remove();
-                };
-                daysContainer.appendChild(dayBtn);
-            }
-            calendar.appendChild(daysContainer);
-        };
-
-        renderCalendar(currentMonth, currentYear);
-        document.body.appendChild(calendar);
-
-        const closeHandler = (evt) => {
-            if (!calendar.contains(evt.target) && evt.target !== trigger) {
-                calendar.remove();
-                document.removeEventListener('click', closeHandler);
-            }
-        };
-        setTimeout(() => document.addEventListener('click', closeHandler), 0);
-    };
-
-    wrapper.appendChild(trigger);
-    input.parentNode.insertBefore(wrapper, input);
-}
-
-// ============================================================
-// --- SISTEMA DE BOOTSTRAP INTELIGENTE ---
-// ============================================================
-
-const sessionActive = localStorage.getItem('salvese_session_active');
-
-const forceLoadTimeout = setTimeout(() => {
-    const loadingScreen = document.getElementById('loading-screen');
-    if (loadingScreen && !loadingScreen.classList.contains('hidden')) {
-        console.warn("Timeout de carregamento. Forçando entrada...");
-        if (sessionActive === 'true') {
-            loadAppOfflineMode();
-        } else {
-            showLoginScreen();
-        }
-    }
-}, 3000);
-
-onAuthStateChanged(auth, async (user) => {
-    clearTimeout(forceLoadTimeout);
-
-    if (user) {
-        console.log("Usuário autenticado.");
-        currentUser = user;
-        localStorage.setItem('salvese_session_active', 'true');
-
-        try {
-            const docRef = doc(db, "users", user.uid);
-            const docSnap = await getDoc(docRef);
-
-            if (docSnap.exists()) {
-                userProfile = docSnap.data();
-                if (!userProfile.semester) userProfile.semester = "N/A";
-                localStorage.setItem('salvese_user_profile', JSON.stringify(userProfile));
-                showAppInterface();
-                initRealtimeSync(user.uid);
-            } else {
-                showProfileSetupScreen();
-            }
-        } catch (e) {
-            console.error("Erro ao buscar perfil:", e);
-            if (sessionActive === 'true') loadAppOfflineMode();
-            else showProfileSetupScreen();
-        }
-
-    } else {
-        currentUser = null;
-        userProfile = null;
-        if (unsubscribeData) unsubscribeData();
-
-        if (sessionActive === 'true' && !navigator.onLine) {
-            loadAppOfflineMode();
-        } else {
-            localStorage.removeItem('salvese_session_active');
-            showLoginScreen();
-        }
-    }
-});
-
-function showAppInterface() {
-    const loginScreen = document.getElementById('login-screen');
-    const profileScreen = document.getElementById('profile-setup-screen');
-    const appContent = document.querySelector('.app-content-wrapper');
-    const loadingScreen = document.getElementById('loading-screen');
-
-    if (loginScreen) loginScreen.classList.add('hidden');
-    if (profileScreen) profileScreen.classList.add('hidden');
-    if (appContent) appContent.classList.remove('hidden');
-
-    updateUserInterfaceInfo();
-    refreshAllUI();
-
-    setTimeout(() => {
-        try { initCustomUI(); } catch(e) { console.log("Custom UI falhou, usando nativo"); }
-    }, 300);
-
-    if (loadingScreen && !loadingScreen.classList.contains('hidden')) {
-        loadingScreen.classList.add('opacity-0');
-        setTimeout(() => loadingScreen.classList.add('hidden'), 500);
-    }
-}
-
-function showLoginScreen() {
-    const loginScreen = document.getElementById('login-screen');
-    const profileScreen = document.getElementById('profile-setup-screen');
-    const appContent = document.querySelector('.app-content-wrapper');
-    const loadingScreen = document.getElementById('loading-screen');
-
-    if (loginScreen) loginScreen.classList.remove('hidden');
-    if (profileScreen) profileScreen.classList.add('hidden');
-    if (appContent) appContent.classList.add('hidden');
-
-    if (loadingScreen && !loadingScreen.classList.contains('hidden')) {
-        loadingScreen.classList.add('opacity-0');
-        setTimeout(() => loadingScreen.classList.add('hidden'), 500);
-    }
-}
-
-function showProfileSetupScreen() {
-    const loginScreen = document.getElementById('login-screen');
-    const profileScreen = document.getElementById('profile-setup-screen');
-    const appContent = document.querySelector('.app-content-wrapper');
-    const loadingScreen = document.getElementById('loading-screen');
-
-    if (loginScreen) loginScreen.classList.add('hidden');
-    if (profileScreen) profileScreen.classList.remove('hidden');
-    if (appContent) appContent.classList.add('hidden');
-    if (loadingScreen) loadingScreen.classList.add('hidden');
-}
-
-function loadAppOfflineMode() {
-    const savedProfile = localStorage.getItem('salvese_user_profile');
-    if (savedProfile) {
-        userProfile = JSON.parse(savedProfile);
-    } else {
-        userProfile = { displayName: 'Modo Offline', handle: 'offline', semester: 'N/A' };
-    }
-    showAppInterface();
-}
-
-window.loginWithGoogle = async () => {
-    const provider = new GoogleAuthProvider();
-    try {
-        await signInWithPopup(auth, provider);
-    } catch (error) {
-        alert("Erro ao fazer login: " + error.message);
-    }
-};
-
-window.logoutApp = async () => {
-    try {
-        await signOut(auth);
-        localStorage.removeItem('salvese_session_active');
-        location.reload();
-    } catch (error) {
-        localStorage.removeItem('salvese_session_active');
-        location.reload();
-    }
-};
-
-window.saveUserProfile = async () => {
-    const handleInput = document.getElementById('input-handle').value.toLowerCase().trim();
-    const nameInput = document.getElementById('input-display-name').value.trim();
-    const errorMsg = document.getElementById('profile-error');
-
-    if (!handleInput || !nameInput) {
-        errorMsg.innerText = "Preencha todos os campos.";
-        return;
-    }
-
-    const handleRegex = /^[a-z0-9_]+$/;
-    if (!handleRegex.test(handleInput)) {
-        errorMsg.innerText = "Usuário deve conter apenas letras minúsculas, números e _";
-        return;
-    }
-
-    try {
-        const usernameRef = doc(db, "usernames", handleInput);
-        const usernameSnap = await getDoc(usernameRef);
-
-        if (usernameSnap.exists()) {
-            errorMsg.innerText = "Este nome de usuário já está em uso.";
-            return;
-        }
-
-        await setDoc(doc(db, "usernames", handleInput), { uid: currentUser.uid });
-
-        const profileData = {
-            handle: handleInput,
-            displayName: nameInput,
-            email: currentUser.email,
-            photoURL: currentUser.photoURL,
-            createdAt: new Date().toISOString(),
-            semester: "N/A",
-            lastHandleChange: Date.now()
-        };
-
-        await setDoc(doc(db, "users", currentUser.uid), profileData);
-
-        const initialData = {
-            schedule: JSON.parse(localStorage.getItem('salvese_schedule')) || [],
-            tasks: JSON.parse(localStorage.getItem('salvese_tasks')) || [],
-            reminders: JSON.parse(localStorage.getItem('salvese_reminders')) || [],
-            lastUpdated: new Date().toISOString()
-        };
-
-        await setDoc(doc(db, "users", currentUser.uid, "data", "appData"), initialData);
-
-        userProfile = profileData;
-        localStorage.setItem('salvese_session_active', 'true');
-        localStorage.setItem('salvese_user_profile', JSON.stringify(userProfile));
-
-        showAppInterface();
-        initRealtimeSync(currentUser.uid);
-
-    } catch (error) {
-        console.error("Erro ao criar perfil:", error);
-        errorMsg.innerText = "Erro ao salvar perfil. Verifique sua conexão.";
-    }
-};
-
-function initRealtimeSync(uid) {
-    const dataRef = doc(db, "users", uid, "data", "appData");
-    unsubscribeData = onSnapshot(dataRef, (doc) => {
-        if (doc.exists()) {
-            const cloudData = doc.data();
-            localStorage.setItem('salvese_schedule', JSON.stringify(cloudData.schedule || []));
-            localStorage.setItem('salvese_tasks', JSON.stringify(cloudData.tasks || []));
-            localStorage.setItem('salvese_reminders', JSON.stringify(cloudData.reminders || []));
-
-            scheduleData = cloudData.schedule || [];
-            tasksData = cloudData.tasks || [];
-            remindersData = cloudData.reminders || [];
-
-            refreshAllUI();
-        }
-    }, (error) => console.log("Modo offline ou erro:", error.code));
-
-    onSnapshot(doc(db, "users", uid), (docSnap) => {
-        if (docSnap.exists()) {
-            userProfile = docSnap.data();
-            localStorage.setItem('salvese_user_profile', JSON.stringify(userProfile));
-            updateUserInterfaceInfo();
-            if (document.getElementById('view-config') && !document.getElementById('view-config').classList.contains('hidden')) {
-                window.renderSettings();
-            }
-        }
-    });
-}
-
-function updateUserInterfaceInfo() {
-    const nameDisplay = document.getElementById('user-display-name');
-    const handleDisplay = document.getElementById('user-display-id');
-
-    if (userProfile) {
-        if (nameDisplay) nameDisplay.innerText = userProfile.displayName;
-        if (handleDisplay) handleDisplay.innerText = "@" + userProfile.handle;
-    }
-}
-
-function refreshAllUI() {
-    if (window.renderSchedule) window.renderSchedule();
-    if (window.renderTasks) window.renderTasks();
-    if (window.renderReminders) window.renderReminders();
-    if (window.updateDashboardTasksWidget) window.updateDashboardTasksWidget();
-    if (window.updateNextClassWidget) window.updateNextClassWidget();
-    if (window.renderSettings) window.renderSettings();
-}
-
-// ... (Modal functions unchanged) ...
-function openCustomInputModal(title, placeholder, initialValue, onConfirm) {
-    const modal = document.getElementById('custom-input-modal');
-    const modalTitle = document.getElementById('custom-modal-title');
-    const modalInput = document.getElementById('custom-modal-input');
-    const btnConfirm = document.getElementById('custom-modal-confirm');
-    const btnCancel = document.getElementById('custom-modal-cancel');
-
-    if (!modal) return console.error("Modal não encontrado no HTML");
-
-    modalTitle.innerText = title;
-    modalInput.placeholder = placeholder || "";
-    modalInput.value = initialValue || "";
-
-    const newBtnConfirm = btnConfirm.cloneNode(true);
-    btnConfirm.parentNode.replaceChild(newBtnConfirm, btnConfirm);
-
-    const newBtnCancel = btnCancel.cloneNode(true);
-    btnCancel.parentNode.replaceChild(newBtnCancel, btnCancel);
-
-    newBtnConfirm.addEventListener('click', () => {
-        const val = modalInput.value;
-        modal.classList.add('hidden');
-        if (onConfirm) onConfirm(val);
-    });
-
-    newBtnCancel.addEventListener('click', () => {
-        modal.classList.add('hidden');
-    });
-
-    modalInput.onkeypress = (e) => {
-        if (e.key === 'Enter') newBtnConfirm.click();
-    };
-
-    modal.classList.remove('hidden');
-    modalInput.focus();
-}
-
-function openCustomConfirmModal(title, message, onConfirm) {
-    const modal = document.getElementById('custom-confirm-modal');
-    const modalTitle = document.getElementById('custom-confirm-title');
-    const modalMsg = document.getElementById('custom-confirm-msg');
-    const btnYes = document.getElementById('custom-confirm-yes');
-    const btnNo = document.getElementById('custom-confirm-no');
-
-    if (!modal) return;
-
-    modalTitle.innerText = title;
-    modalMsg.innerText = message;
-
-    const newBtnYes = btnYes.cloneNode(true);
-    btnYes.parentNode.replaceChild(newBtnYes, btnYes);
-
-    const newBtnNo = btnNo.cloneNode(true);
-    btnNo.parentNode.replaceChild(newBtnNo, btnNo);
-
-    newBtnYes.addEventListener('click', () => {
-        modal.classList.add('hidden');
-        if (onConfirm) onConfirm();
-    });
-
-    newBtnNo.addEventListener('click', () => {
-        modal.classList.add('hidden');
-    });
-
-    modal.classList.remove('hidden');
-}
-
-window.manualBackup = async function () {
-    const btn = document.getElementById('btn-manual-backup');
-    if (btn) {
-        const originalText = btn.innerHTML;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando...';
-        btn.disabled = true;
-    }
-
-    await saveData();
-
-    setTimeout(() => {
-        showModal('Backup', 'Seus dados foram sincronizados com a nuvem com sucesso!');
-        if (btn) {
-            btn.innerHTML = originalText;
-            btn.disabled = false;
-        }
-    }, 800);
-}
-
-window.editName = function () {
-    openCustomInputModal(
-        "Alterar Nome de Exibição",
-        "Digite seu novo nome...",
-        userProfile.displayName,
-        async (newName) => {
-            if (newName && newName.trim() !== "" && newName !== userProfile.displayName) {
-                if (!currentUser) return showModal("Erro", "Você precisa estar online.");
-
-                try {
-                    await setDoc(doc(db, "users", currentUser.uid), { displayName: newName.trim() }, { merge: true });
-                    await updateProfile(currentUser, { displayName: newName.trim() });
-                    showModal("Sucesso", "Nome alterado com sucesso!");
-                } catch (e) {
-                    showModal("Erro", "Falha ao alterar nome: " + e.message);
-                }
-            }
-        }
-    );
-}
-
-window.editHandle = function () {
-    if (!userProfile || !currentUser) return;
-
-    const lastChange = userProfile.lastHandleChange || 0;
-    const now = Date.now();
-    const daysSinceLastChange = (now - lastChange) / (1000 * 60 * 60 * 24);
-
-    if (daysSinceLastChange < 7 && userProfile.createdAt !== userProfile.lastHandleChange) {
-        const daysLeft = Math.ceil(7 - daysSinceLastChange);
-        return showModal("Aguarde", `Você só pode alterar seu usuário a cada 7 dias. Aguarde mais ${daysLeft} dia(s).`);
-    }
-
-    openCustomInputModal(
-        "Alterar @Usuário",
-        "Sem o @ (apenas letras e números)",
-        userProfile.handle,
-        async (newHandle) => {
-            if (!newHandle || newHandle.trim() === "" || newHandle === userProfile.handle) return;
-
-            const cleanHandle = newHandle.toLowerCase().trim();
-            const handleRegex = /^[a-z0-9_]+$/;
-
-            if (!handleRegex.test(cleanHandle)) {
-                return showModal("Inválido", "Use apenas letras minúsculas, números e _.");
-            }
-
-            openCustomConfirmModal(
-                "Confirmar Troca",
-                `Deseja alterar para @${cleanHandle}? Essa ação não pode ser desfeita por 7 dias.`,
-                async () => {
-                    try {
-                        const newHandleRef = doc(db, "usernames", cleanHandle);
-                        const docSnap = await getDoc(newHandleRef);
-
-                        if (docSnap.exists()) {
-                            return showModal("Indisponível", "Este usuário já está em uso.");
-                        }
-
-                        await setDoc(newHandleRef, { uid: currentUser.uid });
-
-                        if (userProfile.handle) {
-                            await deleteDoc(doc(db, "usernames", userProfile.handle));
-                        }
-
-                        await setDoc(doc(db, "users", currentUser.uid), {
-                            handle: cleanHandle,
-                            lastHandleChange: Date.now()
-                        }, { merge: true });
-
-                        showModal("Sucesso", `Seu usuário agora é @${cleanHandle}`);
-
-                    } catch (e) {
-                        console.error(e);
-                        showModal("Erro", "Erro ao atualizar usuário. Tente novamente.");
-                    }
-                }
-            );
-        }
-    );
-}
-
-window.editSemester = function () {
-    openCustomInputModal(
-        "Semestre Atual",
-        "Ex: 2025.1",
-        userProfile.semester,
-        async (newSemester) => {
-            if (newSemester !== null && currentUser) {
-                try {
-                    await setDoc(doc(db, "users", currentUser.uid), { semester: newSemester }, { merge: true });
-                } catch (e) {
-                    showModal("Erro", "Erro ao salvar semestre: " + e.message);
-                }
-            }
-        }
-    );
-}
-
-window.changePassword = function() {
-    openCustomConfirmModal(
-        "Redefinir Senha",
-        "Você receberá um e-mail para criar uma nova senha.",
-        async () => {
-            if (!currentUser || !currentUser.email) return showModal("Erro", "E-mail não disponível.");
-            try {
-                await sendPasswordResetEmail(auth, currentUser.email);
-                showModal("Enviado", "Verifique sua caixa de entrada (e spam) para redefinir sua senha.");
-            } catch (e) {
-                showModal("Erro", "Não foi possível enviar o e-mail: " + e.message);
-            }
-        }
-    );
-}
-
-window.renderSettings = function () {
-    const container = document.getElementById('settings-content');
-    if (!container || !userProfile) return;
-
-    let dateStr = "N/A";
-    if (userProfile.createdAt) {
-        const date = new Date(userProfile.createdAt);
-        dateStr = date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
-    }
-
-    const photo = userProfile.photoURL || "https://files.catbox.moe/pmdtq6.png";
-
-    const createActionCard = (onclick, svgIcon, title, subtitle, colorClass = "text-gray-500 group-hover:text-indigo-500") => `
-        <button onclick="${onclick}" class="group w-full bg-white dark:bg-darkcard border border-gray-100 dark:border-darkborder p-4 rounded-2xl flex items-center justify-between hover:border-indigo-500 dark:hover:border-indigo-500 hover:shadow-md transition-all duration-200 mb-3 text-left">
-            <div class="flex items-center gap-4">
-                <div class="w-10 h-10 rounded-full bg-gray-50 dark:bg-neutral-800 flex items-center justify-center ${colorClass} transition-colors">
-                    ${svgIcon}
-                </div>
-                <div>
-                    <p class="font-bold text-gray-800 dark:text-gray-200 text-sm">${title}</p>
-                    <p class="text-xs text-gray-400 dark:text-gray-500">${subtitle}</p>
-                </div>
-            </div>
-            <div class="text-gray-300 dark:text-neutral-700 group-hover:text-indigo-500 transition-colors">
-                ${svgs.chevron}
-            </div>
-        </button>
-    `;
-
-    container.innerHTML = `
-        <div class="max-w-2xl mx-auto w-full pb-24 space-y-6">
-            
-            <div class="bg-white dark:bg-darkcard rounded-3xl shadow-sm border border-gray-200 dark:border-darkborder p-6 md:p-8 flex flex-col items-center text-center relative overflow-hidden">
-                 <div class="absolute top-0 left-0 w-full h-24 bg-gradient-to-r from-indigo-500 to-purple-600 opacity-10 dark:opacity-20"></div>
-                 
-                 <div class="relative group mb-4 mt-4">
-                    <div class="w-28 h-28 rounded-full overflow-hidden p-1 border-4 border-white dark:border-darkcard shadow-lg relative z-10 bg-white dark:bg-neutral-800">
-                        <img src="${photo}" class="w-full h-full object-cover rounded-full" onerror="this.src='https://files.catbox.moe/pmdtq6.png'">
-                    </div>
-                    <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition rounded-full flex items-center justify-center cursor-pointer m-1 z-20" onclick="changePhoto()">
-                        <i class="fas fa-camera text-white text-2xl"></i>
-                    </div>
-                </div>
-
-                <h2 class="text-2xl font-black text-gray-900 dark:text-white mb-0.5 tracking-tight">
-                    ${userProfile.displayName}
-                </h2>
-                <p class="text-indigo-600 dark:text-indigo-400 font-bold text-sm mb-4 bg-indigo-50 dark:bg-indigo-900/20 px-3 py-1 rounded-full">@${userProfile.handle}</p>
-                
-                <div class="grid grid-cols-2 gap-4 w-full max-w-sm mt-2">
-                    <div class="bg-gray-50 dark:bg-neutral-800/50 p-3 rounded-xl">
-                         <p class="text-xs text-gray-400 uppercase font-bold mb-1">Semestre</p>
-                         <p class="font-bold text-gray-800 dark:text-white">${userProfile.semester || 'N/A'}</p>
-                    </div>
-                    <div class="bg-gray-50 dark:bg-neutral-800/50 p-3 rounded-xl">
-                         <p class="text-xs text-gray-400 uppercase font-bold mb-1">Membro Desde</p>
-                         <p class="font-bold text-gray-800 dark:text-white">${dateStr.split(' de ')[2] || dateStr}</p>
-                    </div>
-                </div>
-            </div>
-
-            <div>
-                <h3 class="px-4 text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Gerenciar Conta</h3>
-                ${createActionCard('changePhoto()', svgs.photo, 'Foto de Perfil', 'Atualize sua imagem de exibição')}
-                ${createActionCard('editName()', svgs.user, 'Nome de Exibição', 'Como seu nome aparece no app')}
-                ${createActionCard('editHandle()', svgs.at, 'Nome de Usuário', 'Seu identificador único @handle')}
-                ${createActionCard('editSemester()', svgs.school, 'Semestre Atual', 'Para organizar suas matérias')}
-            </div>
-
-            <div>
-                <h3 class="px-4 text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Segurança & Dados</h3>
-                ${createActionCard('changePassword()', svgs.lock, 'Redefinir Senha', 'Receba um e-mail para trocar a senha')}
-                ${createActionCard('manualBackup()', svgs.cloud, 'Backup Manual', 'Forçar sincronização com a nuvem')}
-                
-                <button onclick="logoutApp()" class="group w-full bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/30 p-4 rounded-2xl flex items-center justify-between hover:bg-red-100 dark:hover:bg-red-900/20 transition-all duration-200 text-left mt-4">
-                    <div class="flex items-center gap-4">
-                        <div class="w-10 h-10 rounded-full bg-white dark:bg-red-900/20 flex items-center justify-center text-red-500">
-                            ${svgs.logout}
-                        </div>
-                        <div>
-                            <p class="font-bold text-red-600 dark:text-red-400 text-sm">Sair da Conta</p>
-                            <p class="text-xs text-red-400 dark:text-red-500/70">Encerrar sessão neste dispositivo</p>
-                        </div>
-                    </div>
-                    <div class="text-red-300 dark:text-red-800">
-                        ${svgs.chevron}
-                    </div>
-                </button>
-            </div>
-
-            <div class="text-center pt-4 pb-8">
-                 <p class="text-xs text-gray-300 dark:text-gray-600 font-mono">ID: ${currentUser.uid.substring(0, 8)}...</p>
-                 <p class="text-xs text-gray-300 dark:text-gray-600 mt-1">Salve-se UFRB v2.5 (Dropdown Fixed)</p>
-            </div>
-        </div>
-    `;
-}
-
+// ------------------------------------------------
+// --- LÓGICA DE TEMA (INICIALIZAÇÃO) ---
+// ------------------------------------------------
 function initTheme() {
     if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
         document.documentElement.classList.add('dark');
@@ -927,7 +12,7 @@ function initTheme() {
 }
 initTheme();
 
-window.toggleTheme = function () {
+function toggleTheme() {
     if (document.documentElement.classList.contains('dark')) {
         document.documentElement.classList.remove('dark');
         localStorage.setItem('theme', 'light');
@@ -935,12 +20,14 @@ window.toggleTheme = function () {
         document.documentElement.classList.add('dark');
         localStorage.setItem('theme', 'dark');
     }
-    // Recarrega a agenda para aplicar as novas cores de contraste
-    if(window.renderSchedule) window.renderSchedule();
 }
 
+// ------------------------------------------------
+// --- LÓGICA PWA E OFFLINE ---
+// ------------------------------------------------
+
 const manifest = {
-    "name": "Salve-se UFRB",
+    "name": "Salve-se Painel",
     "short_name": "Salve-se",
     "start_url": ".",
     "display": "standalone",
@@ -963,6 +50,7 @@ if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         navigator.serviceWorker.register('./sw.js')
             .then(reg => {
+                console.log('SW registrado:', reg.scope);
                 reg.update();
             })
             .catch(err => console.log('SW falhou:', err));
@@ -978,6 +66,9 @@ if ('serviceWorker' in navigator) {
             installBtn.addEventListener('click', () => {
                 deferredPrompt.prompt();
                 deferredPrompt.userChoice.then((choiceResult) => {
+                    if (choiceResult.outcome === 'accepted') {
+                        console.log('Usuário aceitou instalar');
+                    }
                     deferredPrompt = null;
                     installBtn.classList.add('hidden');
                 });
@@ -996,7 +87,6 @@ if ('serviceWorker' in navigator) {
                 text.innerText = 'Online';
                 icon.className = 'fas fa-wifi';
                 setTimeout(() => toast.classList.remove('show'), 3000);
-                if (currentUser) refreshAllUI();
             } else {
                 toast.className = 'network-status offline show';
                 text.innerText = 'Offline';
@@ -1004,40 +94,49 @@ if ('serviceWorker' in navigator) {
             }
         }
     }
+
     window.addEventListener('online', updateNetworkStatus);
     window.addEventListener('offline', updateNetworkStatus);
 }
 
-async function saveData() {
+// ------------------------------------------------
+// --- GESTÃO DE DADOS ---
+// ------------------------------------------------
+let scheduleData = JSON.parse(localStorage.getItem('salvese_schedule')) || [];
+let tasksData = JSON.parse(localStorage.getItem('salvese_tasks')) || [];
+let remindersData = JSON.parse(localStorage.getItem('salvese_reminders')) || [];
+let selectedClassIdToDelete = null;
+
+// Variável global para filtro de tarefas
+let currentTaskFilter = 'all'; // 'all', 'active', 'completed'
+
+function saveData() {
     localStorage.setItem('salvese_schedule', JSON.stringify(scheduleData));
     localStorage.setItem('salvese_tasks', JSON.stringify(tasksData));
     localStorage.setItem('salvese_reminders', JSON.stringify(remindersData));
 
-    refreshAllUI();
-
-    if (currentUser) {
-        try {
-            const dataToSave = {
-                schedule: scheduleData,
-                tasks: tasksData,
-                reminders: remindersData,
-                lastUpdated: new Date().toISOString()
-            };
-            await setDoc(doc(db, "users", currentUser.uid, "data", "appData"), dataToSave, { merge: true });
-        } catch (e) {
-            console.log("Salvamento local ok. Nuvem pendente.");
-        }
-    }
+    if (window.renderSchedule) window.renderSchedule();
+    if (window.renderTasks) window.renderTasks();
+    if (window.renderReminders) window.renderReminders();
+    
+    updateDashboardTasksWidget(); // Nova função do dashboard
+    
+    if (window.updateNextClassWidget) window.updateNextClassWidget();
 }
+
+// ------------------------------------------------
+// --- NOVA LÓGICA DE TAREFAS (TODO) ---
+// ------------------------------------------------
 
 window.addTask = function () {
     const input = document.getElementById('todo-input');
-    const priorityInput = document.getElementById('todo-priority');
-    const categoryInput = document.getElementById('todo-category');
-
+    const priorityInput = document.getElementById('todo-priority'); // Novo input (esperado no HTML)
+    const categoryInput = document.getElementById('todo-category'); // Novo input (esperado no HTML)
+    
     const text = input.value.trim();
     if (!text) return;
 
+    // Valores padrão caso os inputs novos ainda não existam no DOM
     const priority = priorityInput ? priorityInput.value : 'normal';
     const category = categoryInput ? categoryInput.value : 'geral';
 
@@ -1072,28 +171,31 @@ window.clearCompleted = function () {
     saveData();
 };
 
-window.setTaskFilter = function (filter) {
+window.setTaskFilter = function(filter) {
     currentTaskFilter = filter;
+    // Atualiza botões visuais (esperado no HTML)
     ['filter-all', 'filter-active', 'filter-completed'].forEach(id => {
         const btn = document.getElementById(id);
-        if (btn) {
-            if (id === `filter-${filter}`) btn.classList.add('bg-indigo-100', 'text-indigo-700', 'dark:bg-indigo-900/50', 'dark:text-indigo-300');
+        if(btn) {
+            if(id === `filter-${filter}`) btn.classList.add('bg-indigo-100', 'text-indigo-700', 'dark:bg-indigo-900/50', 'dark:text-indigo-300');
             else btn.classList.remove('bg-indigo-100', 'text-indigo-700', 'dark:bg-indigo-900/50', 'dark:text-indigo-300');
         }
     });
-    window.renderTasks();
+    renderTasks();
 };
 
+// Função auxiliar para cores de prioridade
 function getPriorityInfo(prio) {
-    switch (prio) {
+    switch(prio) {
         case 'high': return { label: 'Alta', color: 'text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400 border-red-100 dark:border-red-900' };
         case 'medium': return { label: 'Média', color: 'text-orange-600 bg-orange-50 dark:bg-orange-900/20 dark:text-orange-400 border-orange-100 dark:border-orange-900' };
         default: return { label: 'Normal', color: 'text-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400 border-blue-100 dark:border-blue-900' };
     }
 }
 
+// Função auxiliar para ícones de categoria
 function getCategoryIcon(cat) {
-    switch (cat) {
+    switch(cat) {
         case 'estudo': return '<i class="fas fa-book"></i>';
         case 'trabalho': return '<i class="fas fa-briefcase"></i>';
         case 'pessoal': return '<i class="fas fa-user"></i>';
@@ -1104,17 +206,19 @@ function getCategoryIcon(cat) {
 window.renderTasks = function () {
     const list = document.getElementById('todo-list');
     if (!list) return;
-
+    
     list.innerHTML = '';
-
+    
+    // Filtra
     let filteredTasks = tasksData;
     if (currentTaskFilter === 'active') filteredTasks = tasksData.filter(t => !t.done);
     if (currentTaskFilter === 'completed') filteredTasks = tasksData.filter(t => t.done);
 
+    // Ordena: Pendentes primeiro, depois por prioridade (High > Medium > Normal), depois por data
     const priorityWeight = { 'high': 3, 'medium': 2, 'normal': 1 };
-
+    
     const sortedTasks = [...filteredTasks].sort((a, b) => {
-        if (a.done !== b.done) return a.done ? 1 : -1;
+        if (a.done !== b.done) return a.done ? 1 : -1; // Feitas vão pro final
         if (priorityWeight[b.priority || 'normal'] !== priorityWeight[a.priority || 'normal']) {
             return priorityWeight[b.priority || 'normal'] - priorityWeight[a.priority || 'normal'];
         }
@@ -1135,9 +239,9 @@ window.renderTasks = function () {
         const div = document.createElement('div');
         const prioInfo = getPriorityInfo(t.priority || 'normal');
         const catIcon = getCategoryIcon(t.category || 'geral');
-
+        
         div.className = `group flex items-center gap-3 p-3 rounded-xl border transition-all duration-200 ${t.done ? 'bg-gray-50/50 dark:bg-neutral-900/30 border-transparent opacity-60' : 'bg-white dark:bg-darkcard border-gray-200 dark:border-darkborder hover:border-indigo-300 dark:hover:border-indigo-800 shadow-sm hover:shadow-md'}`;
-
+        
         div.innerHTML = `
             <button onclick="toggleTask('${t.id}')" class="w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all duration-300 ${t.done ? 'bg-emerald-500 border-emerald-500 text-white scale-90' : 'border-gray-300 dark:border-gray-600 hover:border-indigo-500 text-transparent'}">
                 <i class="fas fa-check text-[10px]"></i>
@@ -1159,25 +263,29 @@ window.renderTasks = function () {
         `;
         list.appendChild(div);
     });
-
-    window.updateDashboardTasksWidget();
+    
+    updateDashboardTasksWidget(); // Atualiza o widget da home sempre que renderizar a lista
 }
 
-window.updateDashboardTasksWidget = function () {
+// --- NOVO: Widget de Tarefas na Home ---
+window.updateDashboardTasksWidget = function() {
     const container = document.getElementById('dashboard-tasks-list');
-    const taskCountEl = document.getElementById('task-count-badge');
-
+    const taskCountEl = document.getElementById('task-count-badge'); // Novo badge
+    
+    // Filtra apenas as pendentes
     const pendingTasks = tasksData.filter(t => !t.done);
-
-    const dashCountOld = document.getElementById('dash-task-count');
-    if (dashCountOld) dashCountOld.innerText = pendingTasks.length;
-
-    if (taskCountEl) {
+    
+    // Atualiza contadores em todo lugar
+    const dashCountOld = document.getElementById('dash-task-count'); // Retrocompatibilidade
+    if(dashCountOld) dashCountOld.innerText = pendingTasks.length;
+    
+    if(taskCountEl) {
         taskCountEl.innerText = pendingTasks.length;
         taskCountEl.className = pendingTasks.length > 0 ? 'bg-indigo-600 text-white px-2 py-0.5 rounded-full text-xs font-bold' : 'hidden';
     }
-
+    
     if (!container) return;
+
     container.innerHTML = '';
 
     if (pendingTasks.length === 0) {
@@ -1192,17 +300,18 @@ window.updateDashboardTasksWidget = function () {
         return;
     }
 
+    // Ordena por prioridade para mostrar as mais importantes
     const priorityWeight = { 'high': 3, 'medium': 2, 'normal': 1 };
     const topTasks = [...pendingTasks].sort((a, b) => {
         return priorityWeight[b.priority || 'normal'] - priorityWeight[a.priority || 'normal'];
-    }).slice(0, 3);
+    }).slice(0, 3); // Pega só as top 3
 
     topTasks.forEach(t => {
         const prioInfo = getPriorityInfo(t.priority || 'normal');
         const item = document.createElement('div');
         item.className = "flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-neutral-800 transition cursor-pointer border border-transparent hover:border-gray-100 dark:hover:border-neutral-700";
-        item.onclick = () => switchPage('todo');
-
+        item.onclick = () => switchPage('todo'); // Leva para a página de tarefas
+        
         item.innerHTML = `
             <div class="w-1.5 h-1.5 rounded-full ${t.priority === 'high' ? 'bg-red-500' : (t.priority === 'medium' ? 'bg-orange-500' : 'bg-blue-500')}"></div>
             <span class="flex-1 text-sm text-gray-700 dark:text-gray-300 truncate">${t.text}</span>
@@ -1211,6 +320,7 @@ window.updateDashboardTasksWidget = function () {
         container.appendChild(item);
     });
 
+    // Se tiver mais que 3, mostra "+X mais"
     if (pendingTasks.length > 3) {
         const more = document.createElement('div');
         more.className = "text-center mt-2";
@@ -1219,19 +329,36 @@ window.updateDashboardTasksWidget = function () {
     }
 };
 
+
+// ------------------------------------------------
+// --- CONFIGURAÇÃO DE HORÁRIOS CORRIGIDA ---
+// ------------------------------------------------
+
+// Definição exata dos blocos de horário
 const timeSlots = [
-    { start: "07:00", end: "08:00" }, { start: "08:00", end: "09:00" }, { start: "09:00", end: "10:00" },
-    { start: "10:00", end: "11:00" }, { start: "11:00", end: "12:00" }, { start: "12:00", end: "13:00" },
-    { start: "13:00", end: "14:00" }, { start: "14:00", end: "15:00" }, { start: "15:00", end: "16:00" },
-    { start: "16:00", end: "17:00" }, { start: "17:00", end: "18:00" },
-    { start: "18:00", end: "19:00" },
-    { start: "18:30", end: "19:30" },
-    { start: "19:00", end: "20:00" },
-    { start: "19:30", end: "20:30" }, { start: "20:30", end: "21:30" }, { start: "21:30", end: "22:30" }
+    { start: "07:00", end: "08:00" },
+    { start: "08:00", end: "09:00" },
+    { start: "09:00", end: "10:00" },
+    { start: "10:00", end: "11:00" },
+    { start: "11:00", end: "12:00" },
+    { start: "12:00", end: "13:00" },
+    { start: "13:00", end: "14:00" },
+    { start: "14:00", end: "15:00" },
+    { start: "15:00", end: "16:00" },
+    { start: "16:00", end: "17:00" },
+    { start: "17:00", end: "18:00" }, // Adicionado o slot até 18h
+    { start: "18:30", end: "19:30" }, // Pula intervalo 18h-18h30
+    { start: "19:30", end: "20:30" },
+    { start: "20:30", end: "21:30" },
+    { start: "21:30", end: "22:30" }
 ];
 
 const daysList = ['seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
-const daysDisplay = { 'seg': 'Seg', 'ter': 'Ter', 'qua': 'Qua', 'qui': 'Qui', 'sex': 'Sex', 'sab': 'Sab' };
+const daysDisplay = {'seg': 'Seg', 'ter': 'Ter', 'qua': 'Qua', 'qui': 'Qui', 'sex': 'Sex', 'sab': 'Sab'};
+
+// ------------------------------------------------
+// --- SISTEMA DE GRADE ---
+// ------------------------------------------------
 
 window.renderSchedule = function () {
     const viewContainer = document.getElementById('view-aulas');
@@ -1239,9 +366,11 @@ window.renderSchedule = function () {
 
     viewContainer.innerHTML = '';
 
+    // Container Principal
     const wrapper = document.createElement('div');
     wrapper.className = "max-w-6xl mx-auto pb-20 md:pb-10";
 
+    // Cabeçalho Desktop
     const header = document.createElement('div');
     header.className = "hidden md:flex justify-between items-center mb-6 px-2";
     header.innerHTML = `
@@ -1255,11 +384,13 @@ window.renderSchedule = function () {
     `;
     wrapper.appendChild(header);
 
+    // Cabeçalho Mobile (Só título)
     const mobileHeader = document.createElement('h2');
     mobileHeader.className = "md:hidden text-xl font-bold text-gray-900 dark:text-white mb-6 px-1";
     mobileHeader.innerText = "Minha Grade de Horários";
     wrapper.appendChild(mobileHeader);
 
+    // 1. VERSÃO MOBILE (Lista Vertical por Dia)
     const mobileContainer = document.createElement('div');
     mobileContainer.className = "md:hidden space-y-6";
 
@@ -1267,6 +398,7 @@ window.renderSchedule = function () {
         const daySection = document.createElement('div');
         daySection.className = "flex flex-col gap-3";
 
+        // Header do Dia
         const headerRow = document.createElement('div');
         headerRow.className = "flex justify-between items-center px-1";
         headerRow.innerHTML = `
@@ -1277,9 +409,10 @@ window.renderSchedule = function () {
         `;
         daySection.appendChild(headerRow);
 
+        // Filtra aulas do dia
         const classesToday = scheduleData
             .filter(c => c.day === dayKey)
-            .sort((a, b) => parseInt(a.start.replace(':', '')) - parseInt(b.start.replace(':', '')));
+            .sort((a, b) => parseInt(a.start.replace(':','')) - parseInt(b.start.replace(':','')));
 
         const cardsContainer = document.createElement('div');
         cardsContainer.className = "space-y-3";
@@ -1293,28 +426,29 @@ window.renderSchedule = function () {
             classesToday.forEach(aula => {
                 const colorKey = aula.color || 'indigo';
                 const palette = colorPalettes[colorKey] || colorPalettes['indigo'];
-
-                const card = document.createElement('div');
-                // CORREÇÃO DO MODO ESCURO: Usando classes do Tailwind para cores dinâmicas em vez de RGB inline
-                card.className = `relative rounded-xl p-4 cursor-pointer active:scale-[0.98] transition-transform overflow-hidden group bg-${colorKey}-50 dark:bg-${colorKey}-900/20`;
                 
+                const card = document.createElement('div');
+                card.className = "relative rounded-xl p-4 cursor-pointer active:scale-[0.98] transition-transform overflow-hidden group";
+                card.style.backgroundColor = `rgba(${palette[500]}, 0.12)`;
+                
+                // Fonte AUMENTADA AQUI
                 card.innerHTML = `
                     <div class="absolute left-0 top-2 bottom-2 w-1.5 rounded-r-full" style="background-color: rgb(${palette[500]})"></div>
                     <div class="pl-3 flex justify-between items-start">
                         <div class="flex-1 pr-2">
-                            <h4 class="font-bold text-xl leading-tight mb-1 text-${colorKey}-700 dark:text-${colorKey}-300">${aula.name}</h4>
+                            <h4 class="font-bold text-xl leading-tight mb-1" style="color: rgb(${palette[700]}); filter: brightness(0.8) contrast(1.5);">${aula.name}</h4>
                             <div class="dark:text-gray-200 text-gray-900 font-medium">
-                                <p class="text-base font-medium opacity-90 text-${colorKey}-600 dark:text-${colorKey}-400">${aula.prof}</p>
+                                <p class="text-base font-medium opacity-90" style="color: rgb(${palette[600]})">${aula.prof}</p>
                                 <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">${aula.room}</p>
                             </div>
                         </div>
                         <div class="text-right flex flex-col items-end">
-                             <div class="text-sm font-bold opacity-80 mb-0.5 text-${colorKey}-700 dark:text-${colorKey}-300">${aula.start}</div>
+                             <div class="text-sm font-bold opacity-80 mb-0.5" style="color: rgb(${palette[700]})">${aula.start}</div>
                              <div class="text-sm opacity-60 dark:text-gray-400">${aula.end}</div>
                         </div>
                     </div>
                 `;
-
+                
                 card.onclick = () => openEditClassModal(aula.id);
                 cardsContainer.appendChild(card);
             });
@@ -1325,12 +459,13 @@ window.renderSchedule = function () {
 
     wrapper.appendChild(mobileContainer);
 
+    // 2. VERSÃO DESKTOP (Tabela)
     const desktopContainer = document.createElement('div');
     desktopContainer.className = "hidden md:block bg-white dark:bg-darkcard rounded-xl border border-gray-200 dark:border-darkborder shadow-sm overflow-hidden";
-
+    
     let tableHTML = `
         <div class="overflow-x-auto">
-            <table class="w-full text-sm border-collapse schedule-table">
+            <table class="w-full text-sm border-collapse">
                 <thead class="bg-gray-50 dark:bg-neutral-900 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider">
                     <tr>
                         <th class="p-4 text-left w-40 border-b dark:border-darkborder sticky left-0 bg-gray-50 dark:bg-neutral-900 z-10">Horário</th>
@@ -1344,6 +479,7 @@ window.renderSchedule = function () {
 
     timeSlots.forEach((slot, index) => {
         tableHTML += `<tr>`;
+        // Mostra o intervalo completo no Desktop (ex: 07:00 - 08:00)
         tableHTML += `<td class="p-3 font-mono text-xs font-bold text-gray-500 dark:text-gray-400 bg-gray-50/50 dark:bg-neutral-900/50 sticky left-0 z-10 border-r dark:border-darkborder whitespace-nowrap">${slot.start} - ${slot.end}</td>`;
 
         daysList.forEach(day => {
@@ -1351,38 +487,41 @@ window.renderSchedule = function () {
             if (occupied[cellKey]) return;
 
             const foundClass = scheduleData.find(c => c.day === day && c.start === slot.start);
-
+            
             if (foundClass) {
+                // Encontra o índice do horário de fim para calcular o rowspan
                 let endIndex = timeSlots.findIndex(s => s.end === foundClass.end);
-                if (endIndex === -1) endIndex = timeSlots.findIndex(s => s.start === foundClass.end) - 1;
-                if (endIndex === -1) endIndex = index;
-
+                // Se não achar pelo fim (caso raro), tenta achar pelo inicio do proximo
+                if(endIndex === -1) endIndex = timeSlots.findIndex(s => s.start === foundClass.end) - 1;
+                
+                // Se ainda assim não achar, assume duração de 1 slot ou até o fim
+                if (endIndex === -1) endIndex = index; 
+                
                 const span = Math.max(1, (endIndex - index) + 1);
-
+                
                 for (let k = 1; k < span; k++) occupied[`${day}-${index + k}`] = true;
 
                 const colorKey = foundClass.color || 'indigo';
                 const palette = colorPalettes[colorKey] || colorPalettes['indigo'];
-                
-                // CORREÇÃO CONTRASTE DARK MODE DESKTOP
-                // Usando classes utilitárias dinâmicas do Tailwind para o texto escuro/claro
-                const bgClass = `bg-${colorKey}-50 dark:bg-${colorKey}-900/20`;
+                const bgStyle = `background-color: rgba(${palette[500]}, 0.15)`;
                 const borderStyle = `border-left: 4px solid rgb(${palette[500]})`;
-                
+                const textStyle = `color: rgb(${palette[700]})`;
+
+                // Fonte AUMENTADA na tabela também
                 tableHTML += `
                     <td rowspan="${span}" class="p-1 align-top h-full border-l border-gray-100 dark:border-neutral-800 relative group cursor-pointer hover:brightness-95 dark:hover:brightness-110 transition" onclick="openEditClassModal('${foundClass.id}')">
-                        <div class="h-full w-full rounded p-2 flex flex-col justify-center text-left shadow-sm ${bgClass}" style="${borderStyle}">
-                            <p class="text-sm font-bold truncate text-${colorKey}-700 dark:text-${colorKey}-300">${foundClass.name}</p>
-                            <p class="text-xs truncate opacity-90 text-${colorKey}-600 dark:text-${colorKey}-400">${foundClass.prof}</p>
+                        <div class="h-full w-full rounded p-2 flex flex-col justify-center text-left shadow-sm" style="${bgStyle}; ${borderStyle}">
+                            <p class="text-sm font-bold truncate" style="${textStyle}">${foundClass.name}</p>
+                            <p class="text-xs text-gray-600 dark:text-gray-300 truncate opacity-80">${foundClass.prof}</p>
                             <p class="text-[10px] text-gray-500 dark:text-gray-400 truncate mt-1 bg-white/50 dark:bg-black/20 rounded w-fit px-1">${foundClass.room}</p>
                         </div>
                     </td>
                 `;
             } else {
                 tableHTML += `
-                    <td class="p-1 border-l border-gray-100 dark:border-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-800 transition cursor-pointer group schedule-cell" onclick="openAddClassModal('${day}', '${slot.start}')">
-                        <div class="add-btn-minimal">
-                            <i class="fas fa-plus"></i>
+                    <td class="p-1 border-l border-gray-100 dark:border-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-800 transition cursor-pointer group" onclick="openAddClassModal('${day}', '${slot.start}')">
+                        <div class="w-full h-full flex items-center justify-center opacity-0 group-hover:opacity-100 text-gray-300 dark:text-neutral-600">
+                            <i class="fas fa-plus text-xs"></i>
                         </div>
                     </td>
                 `;
@@ -1398,29 +537,22 @@ window.renderSchedule = function () {
     viewContainer.appendChild(wrapper);
 };
 
+// --- FUNÇÕES DE MODAL E CORES ---
 window.openAddClassModal = function (day, startHourStr) {
     resetModalFields();
     document.getElementById('modal-title').innerText = "Adicionar Aula";
     document.getElementById('btn-delete-class').classList.add('hidden');
-
-    if (day) {
-        const daySelect = document.getElementById('class-day');
-        daySelect.value = day;
-        if(daySelect.refreshCustomUI) daySelect.refreshCustomUI();
-    } else {
-        const todayIndex = new Date().getDay();
-        const map = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
-        if (todayIndex > 0 && todayIndex < 7) {
-            const daySelect = document.getElementById('class-day');
-            daySelect.value = map[todayIndex];
-            if(daySelect.refreshCustomUI) daySelect.refreshCustomUI();
-        }
+    
+    if (day) document.getElementById('class-day').value = day;
+    else {
+         const todayIndex = new Date().getDay();
+         const map = ['dom','seg','ter','qua','qui','sex','sab'];
+         if(todayIndex > 0 && todayIndex < 7) document.getElementById('class-day').value = map[todayIndex];
     }
 
     if (startHourStr) {
-        const startSelect = document.getElementById('class-start');
-        startSelect.value = startHourStr;
-        if(startSelect.refreshCustomUI) startSelect.refreshCustomUI();
+        document.getElementById('class-start').value = startHourStr;
+        // Tenta definir fim padrão como +2 slots (2 horas)
         updateEndTime(2);
     }
     toggleModal(true);
@@ -1436,19 +568,9 @@ window.openEditClassModal = function (id) {
     document.getElementById('class-name').value = classItem.name;
     document.getElementById('class-prof').value = classItem.prof;
     document.getElementById('class-room').value = classItem.room;
-    
-    const daySelect = document.getElementById('class-day');
-    daySelect.value = classItem.day;
-    if(daySelect.refreshCustomUI) daySelect.refreshCustomUI();
-
-    const startSelect = document.getElementById('class-start');
-    startSelect.value = classItem.start;
-    if(startSelect.refreshCustomUI) startSelect.refreshCustomUI();
-
-    const endSelect = document.getElementById('class-end');
-    endSelect.value = classItem.end;
-    if(endSelect.refreshCustomUI) endSelect.refreshCustomUI();
-
+    document.getElementById('class-day').value = classItem.day;
+    document.getElementById('class-start').value = classItem.start;
+    document.getElementById('class-end').value = classItem.end;
     window.selectedColor = classItem.color || 'cyan';
     renderColorPicker();
     toggleModal(true);
@@ -1507,81 +629,67 @@ window.performDeleteClass = function () {
     closeDeleteConfirmation();
 };
 
-// ------------------------------------------------------------------
-// --- CORREÇÃO: OTIMIZAÇÃO DE POPULAÇÃO DOS HORÁRIOS (EVITA PISCAS) ---
-// ------------------------------------------------------------------
 function resetModalFields() {
     document.getElementById('class-id').value = ''; document.getElementById('class-name').value = ''; document.getElementById('class-prof').value = '';
-    document.getElementById('class-room').value = ''; 
+    document.getElementById('class-room').value = ''; document.getElementById('class-day').value = 'seg'; window.selectedColor = 'cyan';
     
-    const daySelect = document.getElementById('class-day');
-    daySelect.value = 'seg';
-    if(daySelect.refreshCustomUI) daySelect.refreshCustomUI();
-    
-    window.selectedColor = 'cyan';
-
-    const startSel = document.getElementById('class-start');
+    const startSel = document.getElementById('class-start'); 
     const endSel = document.getElementById('class-end');
-
-    // Construir string HTML completa antes de inserir no DOM
-    // Isso evita re-renderizações múltiplas e garante que o MutationObserver dispare apenas uma vez
-    let startOptions = '';
-    timeSlots.forEach(t => {
-        startOptions += `<option value="${t.start}">${t.start}</option>`;
-    });
-    startSel.innerHTML = startOptions;
-
-    let endOptions = '';
-    timeSlots.forEach(t => {
-        endOptions += `<option value="${t.end}">${t.end}</option>`;
-    });
-    endSel.innerHTML = endOptions;
-
-    startSel.value = "07:00";
     
-    // Força atualização da UI após popular
-    if (startSel.refreshCustomUI) startSel.refreshCustomUI();
+    startSel.innerHTML = ''; 
+    endSel.innerHTML = '';
     
-    updateEndTime(2); // Isso vai atualizar o endSel e chamar seu refreshCustomUI
+    // Popula opções de Início (todos os slots disponíveis)
+    timeSlots.forEach(t => { 
+        const opt = `<option value="${t.start}">${t.start}</option>`; 
+        startSel.innerHTML += opt; 
+    });
+    
+    // Popula opções de Fim (todos os finais de slots disponíveis)
+    timeSlots.forEach(t => { 
+        const opt = `<option value="${t.end}">${t.end}</option>`; 
+        endSel.innerHTML += opt; 
+    });
+    
+    startSel.value = "07:00"; 
+    updateEndTime(2); // Define fim padrão como 2 slots depois
     renderColorPicker();
 }
 
-// ------------------------------------------------------------------
-// --- CORREÇÃO: SINCRONIZAÇÃO DE HORÁRIO DE TÉRMINO ---
-// ------------------------------------------------------------------
-window.updateEndTime = function (slotsToAdd = 2) {
+function updateEndTime(slotsToAdd = 2) {
     const startSel = document.getElementById('class-start');
     const endSel = document.getElementById('class-end');
-    
-    if (!startSel.value) return; // Guard clause
-
     const startHourStr = startSel.value;
+    
+    // Encontra o índice do horário de início
     const idx = timeSlots.findIndex(s => s.start === startHourStr);
-
+    
     if (idx !== -1) {
-        let targetIdx = idx + (slotsToAdd - 1);
-        if (targetIdx >= timeSlots.length) targetIdx = timeSlots.length - 1;
-        endSel.value = timeSlots[targetIdx].end;
+        // Tenta definir o fim X slots depois (ex: 2 horas de aula)
+        let targetIdx = idx + (slotsToAdd - 1); 
         
-        // Importante: Notificar a UI customizada
-        if (endSel.refreshCustomUI) endSel.refreshCustomUI();
+        // Se passar do limite, pega o último horário
+        if (targetIdx >= timeSlots.length) targetIdx = timeSlots.length - 1;
+        
+        endSel.value = timeSlots[targetIdx].end;
     }
 }
 
-window.toggleModal = function (show) {
-    const modal = document.getElementById('class-modal');
+// MODAL COM SUPORTE A HISTÓRICO (VOLTAR DO CELULAR)
+function toggleModal(show) {
+    const modal = document.getElementById('class-modal'); 
     const content = document.getElementById('class-modal-content');
-    if (show) {
-        history.pushState({ modal: 'class' }, null, '#class-modal');
-        modal.classList.remove('hidden');
-        setTimeout(() => { modal.classList.remove('opacity-0'); content.classList.remove('scale-95'); content.classList.add('scale-100'); }, 10);
-        // Garante que os dropdowns dentro do modal sejam inicializados
-        setTimeout(initCustomUI, 100);
-    } else {
-        modal.classList.add('opacity-0');
-        content.classList.remove('scale-100');
-        content.classList.add('scale-95');
-        setTimeout(() => modal.classList.add('hidden'), 300);
+    if (show) { 
+        // Adiciona ao histórico para o botão voltar funcionar
+        history.pushState({modal: 'class'}, null, '#class-modal');
+        
+        modal.classList.remove('hidden'); 
+        setTimeout(() => { modal.classList.remove('opacity-0'); content.classList.remove('scale-95'); content.classList.add('scale-100'); }, 10); 
+    } else { 
+        modal.classList.add('opacity-0'); 
+        content.classList.remove('scale-100'); 
+        content.classList.add('scale-95'); 
+        setTimeout(() => modal.classList.add('hidden'), 300); 
     }
 }
 
@@ -1600,7 +708,9 @@ function renderColorPicker() {
     });
 }
 
-window.updateNextClassWidget = function () {
+// --- OUTRAS FUNCIONALIDADES (TASKS, REMINDERS, BUS, WIDGETS) ---
+
+function updateNextClassWidget() {
     const container = document.getElementById('next-class-content');
     if (!container) return;
 
@@ -1701,44 +811,37 @@ window.updateNextClassWidget = function () {
     }
 }
 
-window.toggleRemindersModal = function () {
+// Reminders Logic (Com suporte a voltar)
+function toggleRemindersModal() {
     const modal = document.getElementById('reminders-modal');
     const content = modal ? modal.firstElementChild : null;
     if (!modal) return;
 
     if (modal.classList.contains('hidden')) {
-        history.pushState({ modal: 'reminders' }, null, '#reminders-modal');
+        // Push History
+        history.pushState({modal: 'reminders'}, null, '#reminders-modal');
         renderReminders();
         modal.classList.remove('hidden');
-        setTimeout(() => { modal.classList.remove('opacity-0'); if (content) { content.classList.remove('scale-95'); content.classList.add('scale-100'); } }, 10);
-
-        setTimeout(initCustomUI, 100);
+        setTimeout(() => { modal.classList.remove('opacity-0'); if(content) { content.classList.remove('scale-95'); content.classList.add('scale-100'); } }, 10);
     } else {
-        modal.classList.add('opacity-0'); if (content) { content.classList.remove('scale-100'); content.classList.add('scale-95'); }
+        modal.classList.add('opacity-0'); if(content) { content.classList.remove('scale-100'); content.classList.add('scale-95'); }
         setTimeout(() => modal.classList.add('hidden'), 300);
     }
 }
 
-window.showReminderForm = function () {
+function showReminderForm() {
     document.getElementById('btn-add-reminder').classList.add('hidden');
     document.getElementById('reminder-form').classList.remove('hidden');
     document.getElementById('rem-date').valueAsDate = new Date();
-    
-    const prioSelect = document.getElementById('rem-prio');
-    prioSelect.value = 'medium';
-    if (prioSelect.refreshCustomUI) prioSelect.refreshCustomUI();
-
-    // Garante a inicialização do UI customizado para os novos elementos
-    setTimeout(initCustomUI, 50);
 }
 
-window.hideReminderForm = function () {
+function hideReminderForm() {
     document.getElementById('reminder-form').classList.add('hidden');
     document.getElementById('btn-add-reminder').classList.remove('hidden');
     document.getElementById('rem-desc').value = '';
 }
 
-window.addReminder = function () {
+function addReminder() {
     const desc = document.getElementById('rem-desc').value.trim();
     const date = document.getElementById('rem-date').value;
     const prio = document.getElementById('rem-prio').value;
@@ -1755,24 +858,25 @@ window.addReminder = function () {
     hideReminderForm();
 }
 
-window.deleteReminder = function (id) {
+function deleteReminder(id) {
     remindersData = remindersData.filter(r => r.id !== id);
     saveData();
 }
 
-window.renderReminders = function () {
+function renderReminders() {
     const listModal = document.getElementById('reminders-list-modal');
     const listHome = document.getElementById('home-reminders-list');
     const badge = document.getElementById('notification-badge');
 
     const sorted = [...remindersData].sort((a, b) => new Date(a.date) - new Date(b.date));
 
-    if (badge) {
+    if(badge) {
         if (sorted.length > 0) badge.classList.remove('hidden'); else badge.classList.add('hidden');
     }
 
     const generateHTML = (rem, isHome) => {
         const dateObj = new Date(rem.date + 'T00:00:00');
+
         let prioColor = 'bg-gray-100 text-gray-600 dark:bg-neutral-800 dark:text-gray-400';
         if (rem.prio === 'high') prioColor = 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400';
         if (rem.prio === 'medium') prioColor = 'bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400';
@@ -1796,7 +900,7 @@ window.renderReminders = function () {
         `;
     };
 
-    if (listModal) {
+    if(listModal) {
         if (sorted.length === 0) {
             listModal.innerHTML = `
                 <div class="flex flex-col items-center justify-center h-32 text-gray-400 dark:text-gray-600">
@@ -1808,7 +912,7 @@ window.renderReminders = function () {
         }
     }
 
-    if (listHome) {
+    if(listHome) {
         if (sorted.length === 0) {
             listHome.innerHTML = `
                 <div class="flex flex-col items-center justify-center text-center p-4 border-2 border-dashed border-gray-100 dark:border-neutral-800 rounded-lg h-full">
@@ -1820,32 +924,37 @@ window.renderReminders = function () {
     }
 }
 
+// Inicialização e Listeners do Botão Voltar
 document.addEventListener('DOMContentLoaded', () => {
-    window.renderTasks();
-    window.renderReminders();
+    renderTasks();
+    renderReminders();
     if (window.renderSchedule) window.renderSchedule();
-    window.updateNextClassWidget();
-
+    updateNextClassWidget();
+    
+    // Inicializa o highlight da aba mobile
     const activeMobileLink = document.querySelector(`#mobile-menu nav a[onclick*="'home'"]`);
-    if (activeMobileLink) {
-        activeMobileLink.classList.add('bg-indigo-50', 'text-indigo-600', 'dark:bg-indigo-900/50', 'dark:text-indigo-300');
-        activeMobileLink.classList.remove('text-gray-600', 'dark:text-gray-400');
+    if(activeMobileLink) {
+         activeMobileLink.classList.add('bg-indigo-50', 'text-indigo-600', 'dark:bg-indigo-900/50', 'dark:text-indigo-300');
+         activeMobileLink.classList.remove('text-gray-600', 'dark:text-gray-400');
     }
 
-    setInterval(window.updateNextClassWidget, 60000);
+    setInterval(updateNextClassWidget, 60000);
 });
 
+// --- LÓGICA DO BOTÃO VOLTAR (POPSTATE) ---
 window.addEventListener('popstate', (event) => {
+    // 1. Se tiver modal aberto, fecha
     const classModal = document.getElementById('class-modal');
     const remindersModal = document.getElementById('reminders-modal');
     const genericModal = document.getElementById('generic-modal');
 
     if (classModal && !classModal.classList.contains('hidden')) {
-        classModal.classList.add('opacity-0');
+        // Fecha o modal diretamente sem mexer no histórico de novo
+        classModal.classList.add('opacity-0'); 
         setTimeout(() => classModal.classList.add('hidden'), 300);
         return;
     }
-
+    
     if (remindersModal && !remindersModal.classList.contains('hidden')) {
         remindersModal.classList.add('opacity-0');
         setTimeout(() => remindersModal.classList.add('hidden'), 300);
@@ -1857,25 +966,27 @@ window.addEventListener('popstate', (event) => {
         return;
     }
 
+    // 2. Se não tiver modal, verifica navegação
     if (event.state && event.state.view) {
+        // Navega visualmente sem adicionar ao histórico (addToHistory = false)
         switchPage(event.state.view, false);
     } else {
+        // Estado inicial
         switchPage('home', false);
     }
 });
 
-window.showModal = function (title, message) {
+function showModal(title, message) {
     const m = document.getElementById('generic-modal');
     document.getElementById('generic-modal-title').innerText = title;
     document.getElementById('generic-modal-message').innerText = message;
     if (m) {
-        history.pushState({ modal: 'generic' }, null, '#alert');
+        history.pushState({modal: 'generic'}, null, '#alert');
         m.classList.remove('hidden');
         setTimeout(() => { m.classList.remove('opacity-0'); m.firstElementChild.classList.remove('scale-95'); m.firstElementChild.classList.add('scale-100'); }, 10);
     }
 }
-
-window.closeGenericModal = function () {
+function closeGenericModal() {
     const m = document.getElementById('generic-modal');
     if (m) {
         m.classList.add('opacity-0'); m.firstElementChild.classList.remove('scale-100'); m.firstElementChild.classList.add('scale-95');
@@ -1883,7 +994,7 @@ window.closeGenericModal = function () {
     }
 }
 
-window.toggleColorMenu = function (device) {
+function toggleColorMenu(device) {
     const menu = document.getElementById(`color-menu-${device}`);
     if (!menu) return;
     const isHidden = menu.classList.contains('hidden');
@@ -1895,7 +1006,6 @@ window.toggleColorMenu = function (device) {
             const rgb = colorPalettes[color][500];
             btn.className = `w-6 h-6 rounded-full border border-gray-200 dark:border-gray-700 hover:scale-110 transition transform focus:outline-none ring-2 ring-transparent focus:ring-offset-1 focus:ring-gray-400`;
             btn.style.backgroundColor = `rgb(${rgb})`;
-            btn.title = color.charAt(0).toUpperCase() + color.slice(1);
             btn.onclick = () => setThemeColor(color);
             menu.appendChild(btn);
         });
@@ -1913,37 +1023,17 @@ const colorPalettes = {
     pink: { 50: '253 242 248', 100: '252 231 243', 200: '251 204 231', 300: '249 168 212', 400: '244 114 182', 500: '236 72 153', 600: '219 39 119', 700: '190 24 93', 800: '157 23 77', 900: '131 24 67' },
     orange: { 50: '255 247 237', 100: '255 237 213', 200: '254 215 170', 300: '253 186 116', 400: '251 146 60', 500: '249 115 22', 600: '234 88 12', 700: '194 65 12', 800: '154 52 18', 900: '124 45 18' },
     indigo: { 50: '238 242 255', 100: '224 231 255', 200: '199 210 254', 300: '165 180 252', 400: '129 140 248', 500: '99 102 241', 600: '79 70 229', 700: '67 56 202', 800: '55 48 163', 900: '49 46 129' },
-    teal: { 50: '240 253 250', 100: '204 251 241', 200: '153 246 228', 300: '94 234 212', 400: '45 212 191', 500: '20 184 166', 600: '13 148 136', 700: '15 118 110', 800: '17 94 89', 900: '19 78 74' },
-    rose: { 50: '255 241 242', 100: '255 228 230', 200: '254 205 211', 300: '253 164 175', 400: '251 113 133', 500: '244 63 94', 600: '225 29 72', 700: '190 18 60', 800: '159 18 57', 900: '136 19 55' },
-    lime: { 50: '247 254 231', 100: '236 252 203', 200: '217 249 157', 300: '190 242 100', 400: '163 230 53', 500: '132 204 22', 600: '101 163 13', 700: '77 124 15', 800: '63 98 18', 900: '54 83 20' },
-    violet: { 50: '245 243 255', 100: '237 233 254', 200: '221 214 254', 300: '196 181 253', 400: '167 139 250', 500: '139 92 246', 600: '124 58 237', 700: '109 40 217', 800: '91 33 182', 900: '76 29 149' },
-    black: { 50: '250 250 250', 100: '244 244 245', 200: '228 228 231', 300: '212 212 216', 400: '161 161 170', 500: '113 113 122', 600: '82 82 91', 700: '63 63 70', 800: '39 39 42', 900: '24 24 27' },
-    blue: { 50: '239 246 255', 100: '219 234 254', 200: '191 219 254', 300: '147 197 253', 400: '96 165 250', 500: '59 130 246', 600: '37 99 235', 700: '29 78 216', 800: '30 64 175', 900: '30 58 138' },
-    emerald: { 50: '236 253 245', 100: '209 250 229', 200: '167 243 208', 300: '110 231 183', 400: '52 211 153', 500: '16 185 129', 600: '5 150 105', 700: '4 120 87', 800: '6 95 70', 900: '6 78 59' },
-    fuchsia: { 50: '253 244 255', 100: '250 232 255', 200: '245 208 254', 300: '240 171 252', 400: '232 121 249', 500: '217 70 239', 600: '192 38 211', 700: '162 28 175', 800: '134 25 143', 900: '112 26 117' },
-    sky: { 50: '240 249 255', 100: '224 242 254', 200: '186 230 253', 300: '125 211 252', 400: '56 189 248', 500: '14 165 233', 600: '2 132 199', 700: '3 105 161', 800: '7 89 133', 900: '12 74 110' },
-    amber: { 50: '255 251 235', 100: '254 243 199', 200: '253 230 138', 300: '252 211 77', 400: '251 191 36', 500: '245 158 11', 600: '217 119 6', 700: '180 83 9', 800: '146 64 14', 900: '120 53 15' },
-    slate: { 50: '248 250 252', 100: '241 245 249', 200: '226 232 240', 300: '203 213 225', 400: '148 163 184', 500: '100 116 139', 600: '71 85 105', 700: '51 65 85', 800: '30 41 59', 900: '15 23 42' },
-    neutral: { 50: '250 250 250', 100: '245 245 245', 200: '229 229 229', 300: '212 212 212', 400: '163 163 163', 500: '115 115 115', 600: '82 82 82', 700: '64 64 64', 800: '38 38 38', 900: '23 23 23' },
-    stone: { 50: '250 250 249', 100: '245 245 244', 200: '231 229 228', 300: '214 211 209', 400: '168 162 158', 500: '120 113 108', 600: '87 83 78', 700: '68 64 60', 800: '41 37 36', 900: '28 25 23' },
-    brown: { 50: '239 235 233', 100: '215 204 200', 200: '188 170 164', 300: '161 136 127', 400: '141 110 99', 500: '121 85 72', 600: '109 76 65', 700: '93 64 55', 800: '78 52 46', 900: '62 39 35' },
-    midnight: { 50: '230 230 250', 100: '210 210 240', 200: '180 180 220', 300: '150 150 200', 400: '100 100 180', 500: '25 25 112', 600: '20 20 90', 700: '15 15 70', 800: '10 10 50', 900: '5 5 30' }
+    teal: { 50: '240 253 250', 100: '204 251 241', 200: '153 246 228', 300: '94 234 212', 400: '45 212 191', 500: '20 184 166', 600: '13 148 136', 700: '15 118 110', 800: '17 94 89', 900: '19 78 74' }
 };
 
 function setThemeColor(colorName) {
     const palette = colorPalettes[colorName];
     if (!palette) return;
-
-    const iconColor = colorName === 'black' ? `rgb(${palette[900]})` : `rgb(${palette[600]})`;
-
+    const iconColor = `rgb(${palette[600]})`;
     document.querySelectorAll('#desktop-palette-icon, #mobile-palette-icon').forEach(icon => {
         icon.classList.remove('text-indigo-600');
         icon.style.color = iconColor;
-        if (colorName === 'black' && document.documentElement.classList.contains('dark')) {
-            icon.style.color = '#ffffff';
-        }
     });
-
     updateColorVars(palette);
     localStorage.setItem('salvese_color', JSON.stringify(palette));
     document.querySelectorAll('.color-menu').forEach(m => m.classList.add('hidden'));
@@ -1962,40 +1052,46 @@ document.addEventListener('click', (e) => {
     }
 });
 
-window.switchPage = function (pageId, addToHistory = true) {
+function switchPage(pageId, addToHistory = true) {
+    // Esconde todas as views
     document.querySelectorAll('[id^="view-"]').forEach(el => el.classList.add('hidden'));
     const target = document.getElementById(`view-${pageId}`);
     if (target) target.classList.remove('hidden');
 
+    // Atualiza navegação DESKTOP
     document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
     const activeLink = document.getElementById(`nav-${pageId}`);
     if (activeLink) activeLink.classList.add('active');
 
+    // Atualiza navegação MOBILE (Correção solicitada)
     const mobileNavLinks = document.querySelectorAll('#mobile-menu nav a');
     mobileNavLinks.forEach(link => {
+        // Remove estilo ativo de todos
         link.classList.remove('bg-indigo-50', 'text-indigo-600', 'dark:bg-indigo-900/50', 'dark:text-indigo-300');
         link.classList.add('text-gray-600', 'dark:text-gray-400');
 
-        if (link.getAttribute('onclick').includes(`'${pageId}'`)) {
-            link.classList.add('bg-indigo-50', 'text-indigo-600', 'dark:bg-indigo-900/50', 'dark:text-indigo-300');
-            link.classList.remove('text-gray-600', 'dark:text-gray-400');
+        // Verifica se o link é da página atual
+        if(link.getAttribute('onclick').includes(`'${pageId}'`)) {
+             link.classList.add('bg-indigo-50', 'text-indigo-600', 'dark:bg-indigo-900/50', 'dark:text-indigo-300');
+             link.classList.remove('text-gray-600', 'dark:text-gray-400');
         }
     });
 
-    const titles = { home: 'Página Principal', onibus: 'Transporte', calc: 'Calculadora', pomo: 'Modo Foco', todo: 'Tarefas', email: 'Templates', aulas: 'Grade Horária', config: 'Configurações' };
+    const titles = { home: 'Página Principal', onibus: 'Transporte', calc: 'Calculadora', pomo: 'Modo Foco', todo: 'Tarefas', email: 'Templates', aulas: 'Grade Horária', fluxo: 'Fluxograma' };
     const pageTitleEl = document.getElementById('page-title');
-    if (pageTitleEl) pageTitleEl.innerText = titles[pageId] || 'Salve-se UFRB';
+    if (pageTitleEl) pageTitleEl.innerText = titles[pageId] || 'Salve-se';
+    
+    // Trigger render if switching to schedule
+    if(pageId === 'aulas' && window.renderSchedule) window.renderSchedule();
 
-    if (pageId === 'aulas' && window.renderSchedule) window.renderSchedule();
-    if (pageId === 'config' && window.renderSettings) window.renderSettings();
-
-    if (addToHistory) {
-        history.pushState({ view: pageId }, null, `#${pageId}`);
+    // Adiciona ao histórico para o botão voltar
+    if(addToHistory) {
+        history.pushState({view: pageId}, null, `#${pageId}`);
     }
 }
 
 let clockMode = 0;
-window.cycleClockMode = function () { clockMode = (clockMode + 1) % 4; updateClock(); }
+function cycleClockMode() { clockMode = (clockMode + 1) % 4; updateClock(); }
 function updateClock() {
     const now = new Date();
     let timeString = "";
@@ -2007,7 +1103,8 @@ function updateClock() {
         const time = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
         timeString = `${date} • ${time}`;
     }
-
+    
+    // Atualiza o relógio em ambos os locais (Desktop e o novo do cabeçalho se existir)
     const clockEls = document.querySelectorAll('#clock');
     clockEls.forEach(el => el.innerText = timeString);
 }
@@ -2029,27 +1126,6 @@ const busSchedule = [
     createTrip('15:35', '16:00', 'saida-garagem'), createTrip('16:00', '16:25', 'volta-e-recolhe'), createTrip('17:30', '17:55', 'saida-garagem'), createTrip('17:55', '18:15', 'volta-campus'), createTrip('18:15', '18:40', 'volta-e-recolhe'),
     createTrip('20:40', '21:00', 'volta-e-recolhe', 'fast'), createTrip('21:40', '22:00', 'volta-e-recolhe', 'fast'), createTrip('22:30', '22:50', 'volta-e-recolhe', 'fast')
 ];
-function renderAvatarMedia(containerId, url) {
-    const container = document.getElementById(containerId);
-    if (!container) return;
-    if (!url) { container.innerHTML = '<i class="fas fa-user text-gray-400"></i>'; return; }
-
-    const isVideo = url.match(/\.(mp4|webm|mov|gifv)$/i);
-    container.innerHTML = '';
-
-    if (isVideo) {
-        const videoUrl = url.replace('.gifv', '.mp4');
-        const video = document.createElement('video');
-        video.src = videoUrl; video.autoplay = true; video.loop = true; video.muted = true; video.playsInline = true;
-        video.className = "w-full h-full object-cover";
-        container.appendChild(video);
-    } else {
-        const img = document.createElement('img');
-        img.src = url; img.className = "w-full h-full object-cover";
-        img.onerror = function () { this.style.display = 'none'; };
-        container.appendChild(img);
-    }
-}
 function renderBusTable() {
     const tbody = document.getElementById('bus-table-body');
     if (!tbody) return;
@@ -2072,7 +1148,7 @@ function updateNextBus() {
     }
     const container = document.getElementById('bus-dynamic-area'); const title = document.getElementById('dash-bus-title'); const subtitle = document.getElementById('dash-bus-subtitle');
     const statusDot = document.getElementById('bus-status-dot'); const statusText = document.getElementById('bus-status-text');
-
+    
     if (!container || !title) return;
 
     if (activeBus) {
@@ -2101,10 +1177,10 @@ function updateNextBus() {
 }
 renderBusTable(); updateNextBus(); setInterval(updateNextBus, 1000);
 
-window.addGradeRow = function () {
+function addGradeRow() {
     const container = document.getElementById('grades-container');
     if (!container) return;
-
+    
     const div = document.createElement('div'); div.className = "flex gap-3 items-center fade-in";
     div.innerHTML = `
         <div class="flex-grow relative group">
@@ -2125,16 +1201,16 @@ function parseLocalFloat(val) {
     return parseFloat(val.replace(',', '.'));
 }
 
-window.calculateAverage = function () {
+function calculateAverage() {
     let totalScore = 0, totalWeight = 0, hasInput = false;
     const passingEl = document.getElementById('passing-grade');
-    if (!passingEl) return;
+    if(!passingEl) return;
     const passing = parseFloat(passingEl.value) || 6.0;
 
     document.querySelectorAll('.grade-input').forEach((inp, i) => {
         const val = parseLocalFloat(inp.value);
         const weightInps = document.querySelectorAll('.weight-input');
-        if (weightInps[i]) {
+        if(weightInps[i]) {
             let wStr = weightInps[i].value;
             let w = parseLocalFloat(wStr);
             if (isNaN(w) && !isNaN(val)) w = 1;
@@ -2178,15 +1254,15 @@ window.calculateAverage = function () {
     }
 }
 
-window.resetCalc = function () {
+function resetCalc() {
     const container = document.getElementById('grades-container');
-    if (container) container.innerHTML = '';
+    if(container) container.innerHTML = '';
     addGradeRow(); addGradeRow();
     calculateAverage();
 }
 
 addGradeRow(); addGradeRow();
-if (document.getElementById('passing-grade')) document.getElementById('passing-grade').addEventListener('input', calculateAverage);
+if(document.getElementById('passing-grade')) document.getElementById('passing-grade').addEventListener('input', calculateAverage);
 
 let timerInterval1, timeLeft1 = 25 * 60, isRunning1 = false, currentMode1 = 'pomodoro';
 const modes1 = { 'pomodoro': 25 * 60, 'short': 5 * 60, 'long': 15 * 60 };
@@ -2194,13 +1270,13 @@ function updateTimerDisplay() {
     const m = Math.floor(timeLeft1 / 60), s = timeLeft1 % 60;
     const display = document.getElementById('timer-display');
     const circle = document.getElementById('timer-circle');
-
-    if (display) display.innerText = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-    if (circle) circle.style.strokeDashoffset = 816 - (timeLeft1 / modes1[currentMode1]) * 816;
+    
+    if(display) display.innerText = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    if(circle) circle.style.strokeDashoffset = 816 - (timeLeft1 / modes1[currentMode1]) * 816;
 }
-window.toggleTimer = function () {
+function toggleTimer() {
     const btn = document.getElementById('btn-start');
-    if (!btn) return;
+    if(!btn) return;
     if (isRunning1) {
         clearInterval(timerInterval1); isRunning1 = false; btn.innerHTML = '<i class="fas fa-play pl-1"></i>'; btn.classList.replace('bg-red-600', 'bg-indigo-600'); btn.classList.replace('hover:bg-red-700', 'hover:bg-indigo-700');
     }
@@ -2213,18 +1289,18 @@ window.toggleTimer = function () {
         }, 1000);
     }
 }
-window.resetTimer = function () { if (isRunning1) toggleTimer(); timeLeft1 = modes1[currentMode1]; updateTimerDisplay(); }
-window.setTimerMode = function (m) {
+function resetTimer() { if (isRunning1) toggleTimer(); timeLeft1 = modes1[currentMode1]; updateTimerDisplay(); }
+function setTimerMode(m) {
     ['pomodoro', 'short', 'long'].forEach(mode => {
         const btn = document.getElementById(`mode-${mode}`);
         if (btn) {
             if (mode === m) { btn.classList.add('bg-white', 'dark:bg-neutral-700', 'text-gray-800', 'dark:text-white', 'shadow-sm'); btn.classList.remove('text-gray-500', 'dark:text-gray-400'); }
             else { btn.classList.remove('bg-white', 'dark:bg-neutral-700', 'text-gray-800', 'dark:text-white', 'shadow-sm'); btn.classList.add('text-gray-500', 'dark:text-gray-400'); }
         }
-    });
-    currentMode1 = m;
+    }); 
+    currentMode1 = m; 
     const label = document.getElementById('timer-label');
-    if (label) label.innerText = m === 'pomodoro' ? 'Foco' : (m === 'short' ? 'Curta' : 'Longa');
+    if(label) label.innerText = m === 'pomodoro' ? 'Foco' : (m === 'short' ? 'Curta' : 'Longa'); 
     resetTimer();
 }
 
@@ -2234,75 +1310,10 @@ const templates = {
     absence: `Prezado(a) Prof(a). [Nome],\n\nJustifico minha falta no dia [Data] devido a [Motivo]. Segue anexo (se houver).\n\nAtenciosamente,\n[Seu Nome]`,
     tcc: `Prezado(a) Prof(a). [Nome],\n\nTenho interesse em sua área de pesquisa e gostaria de saber se há disponibilidade para orientação de TCC sobre [Tema].\n\nAtenciosamente,\n[Seu Nome]`
 };
-window.loadTemplate = function (k) { document.getElementById('email-content').value = templates[k]; }
-window.copyEmail = function () { const e = document.getElementById('email-content'); e.select(); document.execCommand('copy'); }
-window.openPortal = function () { window.open('https://sistemas.ufrb.edu.br/sigaa/verTelaLogin.do', '_blank'); }
+function loadTemplate(k) { document.getElementById('email-content').value = templates[k]; }
+function copyEmail() { const e = document.getElementById('email-content'); e.select(); document.execCommand('copy'); }
 
-// --- CORREÇÃO DO UPLOAD DE FOTO/VÍDEO ---
-window.changePhoto = function () {
-    console.log("Abrindo seletor de arquivos...");
-
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*,video/mp4,video/x-m4v,video/*';
-    input.style.display = 'none';
-
-    document.body.appendChild(input);
-
-    input.onchange = async (e) => {
-        const file = e.target.files[0];
-        document.body.removeChild(input);
-
-        if (!file) return;
-
-        if (file.size > 10 * 1024 * 1024) {
-            return showModal("Arquivo Grande", "O arquivo deve ter menos de 10MB.");
-        }
-
-        showModal("Aguarde", "Enviando mídia para o servidor...");
-
-        const formData = new FormData();
-        formData.append('image', file);
-
-        try {
-            const response = await fetch('https://api.imgur.com/3/image', {
-                method: 'POST',
-                headers: { 'Authorization': 'Client-ID 513bb727cecf9ac' },
-                body: formData
-            });
-
-            const data = await response.json();
-
-            if (data.success && currentUser) {
-                const newUrl = data.data.link;
-
-                await updateProfile(currentUser, { photoURL: newUrl });
-                await setDoc(doc(db, "users", currentUser.uid), { photoURL: newUrl }, { merge: true });
-
-                userProfile.photoURL = newUrl;
-                updateUserInterfaceInfo();
-
-                if (!document.getElementById('view-config').classList.contains('hidden')) {
-                    renderSettings();
-                }
-
-                const genericModal = document.getElementById('generic-modal');
-                if (genericModal && !genericModal.classList.contains('hidden')) {
-                    closeGenericModal();
-                }
-
-                showModal("Sucesso", "Perfil atualizado com sucesso!");
-            } else {
-                throw new Error('O servidor não aceitou o arquivo.');
-            }
-
-        } catch (error) {
-            console.error("Erro:", error);
-            showModal("Erro", "Falha no envio: " + error.message);
-        }
-    };
-
-    setTimeout(() => {
-        input.click();
-    }, 10);
-};
+// --- Função para Abrir Portal Acadêmico ---
+function openPortal() {
+    window.open('https://sistemas.ufrb.edu.br/sigaa/verTelaLogin.do', '_blank');
+}

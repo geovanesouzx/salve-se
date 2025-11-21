@@ -31,7 +31,7 @@ const firebaseConfig = {
 };
 
 // --- CONFIGURAÇÃO DAS IAs ---
-const GEMINI_API_KEY = "AIzaSyAZgpqT4iz9NgLzpYJsIvc4tgeaJ1qHUaI"; 
+const GEMINI_API_KEY = "AIzaSyCVGN5yxdscAjDgOcXTZgsb4qy3Ucy0Ve8"; 
 const GEMINI_MODEL = "gemini-2.5-flash-preview-09-2025";
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
 

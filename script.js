@@ -31,7 +31,7 @@ const firebaseConfig = {
 };
 
 // Configuração da IA (Gemini) - Ajustado para o ambiente
-const apiKey = ""; // A chave será injetada pelo ambiente de execução
+const apiKey = "AIzaSyCXIMgQMP_P95FJ_vmUp05n7Z99U02fBdo"; // A chave será injetada pelo ambiente de execução
 const GEMINI_MODEL = "gemini-2.5-flash-preview-09-2025";
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
 

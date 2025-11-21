@@ -71,7 +71,7 @@ const svgs = {
 };
 
 // ============================================================
-// --- SISTEMA DE CUSTOM UI (CORRIGIDO) ---
+// --- SISTEMA DE CUSTOM UI (DROPDOWNS CORRIGIDOS) ---
 // ============================================================
 
 function initCustomUI() {
@@ -100,24 +100,41 @@ function createCustomSelect(select) {
     const labelSpan = document.createElement('span');
     
     const updateLabel = () => {
-        if (select.options.length > 0 && select.selectedIndex >= 0) {
-            labelSpan.innerText = select.options[select.selectedIndex].text;
-            labelSpan.classList.remove('text-gray-400');
-        } else {
-            labelSpan.innerText = 'Selecione';
-            labelSpan.classList.add('text-gray-400');
+        // Lógica reforçada para encontrar o texto correto
+        let text = 'Selecione';
+        if (select.options.length > 0) {
+            // Tenta pelo selectedIndex primeiro
+            if (select.selectedIndex >= 0) {
+                text = select.options[select.selectedIndex].text;
+            } 
+            // Fallback: tenta achar pelo valor se o index parecer errado (ex: reset dinâmico)
+            else if (select.value) {
+                const opt = Array.from(select.options).find(o => o.value === select.value);
+                if (opt) text = opt.text;
+            }
+            // Fallback final: pega o primeiro
+            else {
+                text = select.options[0].text;
+            }
         }
+        
+        labelSpan.innerText = text;
+        if (text === 'Selecione') labelSpan.classList.add('text-gray-400');
+        else labelSpan.classList.remove('text-gray-400');
     };
     
     updateLabel();
+    
+    // Observer para detectar mudanças no HTML do select (ex: horários recarregados)
+    const observer = new MutationObserver(() => {
+        // Pequeno delay para garantir que o DOM atualizou
+        setTimeout(updateLabel, 0);
+    });
+    observer.observe(select, { childList: true, subtree: true, attributes: true });
+
+    // Listener nativo
     select.addEventListener('change', updateLabel);
     select.refreshCustomUI = updateLabel;
-
-    // CORREÇÃO: Observar mudanças nas opções (útil quando options são preenchidas dinamicamente)
-    const observer = new MutationObserver(() => {
-        updateLabel();
-    });
-    observer.observe(select, { childList: true, subtree: true });
 
     trigger.appendChild(labelSpan);
     trigger.innerHTML += svgs.chevronDown;
@@ -131,7 +148,6 @@ function createCustomSelect(select) {
             closeAllCustomMenus();
             return;
         }
-        
         closeAllCustomMenus();
 
         const rect = trigger.getBoundingClientRect();
@@ -139,6 +155,7 @@ function createCustomSelect(select) {
         menu.className = 'custom-floating-menu fixed z-[9999] bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-lg shadow-2xl animate-scale-in flex flex-col overflow-hidden';
         menu.dataset.triggerId = select.id || 'temp-' + Date.now();
         
+        // Posicionamento inteligente
         const spaceBelow = window.innerHeight - rect.bottom;
         const menuHeight = Math.min(select.options.length * 40 + 10, 250);
         
@@ -166,15 +183,19 @@ function createCustomSelect(select) {
 
             item.addEventListener('click', (ev) => {
                 ev.stopPropagation();
-                select.value = opt.value;
-                select.selectedIndex = index; // Garante atualização do índice
                 
-                // Força atualização visual imediata
+                // ATUALIZAÇÃO FORÇADA E IMEDIATA
+                select.value = opt.value;
+                select.selectedIndex = index;
+                
+                // Atualiza label visualmente na hora
                 labelSpan.innerText = opt.text;
                 labelSpan.classList.remove('text-gray-400');
                 
+                // Dispara evento para outros scripts
                 const event = new Event('change', { bubbles: true });
                 select.dispatchEvent(event);
+                
                 menu.remove();
             });
             menu.appendChild(item);
@@ -889,7 +910,7 @@ window.renderSettings = function () {
 
             <div class="text-center pt-4 pb-8">
                  <p class="text-xs text-gray-300 dark:text-gray-600 font-mono">ID: ${currentUser.uid.substring(0, 8)}...</p>
-                 <p class="text-xs text-gray-300 dark:text-gray-600 mt-1">Salve-se UFRB v2.4 (Dropdown Fix)</p>
+                 <p class="text-xs text-gray-300 dark:text-gray-600 mt-1">Salve-se UFRB v2.5 (Dropdown Fixed)</p>
             </div>
         </div>
     `;
@@ -1486,6 +1507,9 @@ window.performDeleteClass = function () {
     closeDeleteConfirmation();
 };
 
+// ------------------------------------------------------------------
+// --- CORREÇÃO: OTIMIZAÇÃO DE POPULAÇÃO DOS HORÁRIOS (EVITA PISCAS) ---
+// ------------------------------------------------------------------
 function resetModalFields() {
     document.getElementById('class-id').value = ''; document.getElementById('class-name').value = ''; document.getElementById('class-prof').value = '';
     document.getElementById('class-room').value = ''; 
@@ -1499,37 +1523,47 @@ function resetModalFields() {
     const startSel = document.getElementById('class-start');
     const endSel = document.getElementById('class-end');
 
-    startSel.innerHTML = '';
-    endSel.innerHTML = '';
-
+    // Construir string HTML completa antes de inserir no DOM
+    // Isso evita re-renderizações múltiplas e garante que o MutationObserver dispare apenas uma vez
+    let startOptions = '';
     timeSlots.forEach(t => {
-        const opt = `<option value="${t.start}">${t.start}</option>`;
-        startSel.innerHTML += opt;
+        startOptions += `<option value="${t.start}">${t.start}</option>`;
     });
+    startSel.innerHTML = startOptions;
 
+    let endOptions = '';
     timeSlots.forEach(t => {
-        const opt = `<option value="${t.end}">${t.end}</option>`;
-        endSel.innerHTML += opt;
+        endOptions += `<option value="${t.end}">${t.end}</option>`;
     });
+    endSel.innerHTML = endOptions;
 
     startSel.value = "07:00";
+    
+    // Força atualização da UI após popular
     if (startSel.refreshCustomUI) startSel.refreshCustomUI();
     
-    updateEndTime(2);
+    updateEndTime(2); // Isso vai atualizar o endSel e chamar seu refreshCustomUI
     renderColorPicker();
 }
 
+// ------------------------------------------------------------------
+// --- CORREÇÃO: SINCRONIZAÇÃO DE HORÁRIO DE TÉRMINO ---
+// ------------------------------------------------------------------
 window.updateEndTime = function (slotsToAdd = 2) {
     const startSel = document.getElementById('class-start');
     const endSel = document.getElementById('class-end');
-    const startHourStr = startSel.value;
+    
+    if (!startSel.value) return; // Guard clause
 
+    const startHourStr = startSel.value;
     const idx = timeSlots.findIndex(s => s.start === startHourStr);
 
     if (idx !== -1) {
         let targetIdx = idx + (slotsToAdd - 1);
         if (targetIdx >= timeSlots.length) targetIdx = timeSlots.length - 1;
         endSel.value = timeSlots[targetIdx].end;
+        
+        // Importante: Notificar a UI customizada
         if (endSel.refreshCustomUI) endSel.refreshCustomUI();
     }
 }

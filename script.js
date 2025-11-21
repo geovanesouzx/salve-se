@@ -30,23 +30,17 @@ const firebaseConfig = {
   appId: "1:132544174908:web:00c6aa4855cc18ed2cdc39"
 };
 
-// --- CONFIGURAÇÃO DAS IAs ---
-const GEMINI_API_KEY = "AIzaSyAZgpqT4iz9NgLzpYJsIvc4tgeaJ1qHUaI"; 
+// Configuração da IA (Gemini)
+const apiKey = "AIzaSyAZgpqT4iz9NgLzpYJsIvc4tgeaJ1qHUaI"; 
 const GEMINI_MODEL = "gemini-2.5-flash-preview-09-2025";
-const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
-
-const GROQ_API_KEY = "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";
-const GROQ_MODEL = "llama-3.3-70b-versatile"; // Modelo rápido e inteligente
-const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
-
-// Controle de qual IA está ativa (Padrão: Gemini)
-let currentAIProvider = 'gemini'; 
+const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
 
 // Inicializa Firebase
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
+// Tenta habilitar persistência offline
 try {
     enableIndexedDbPersistence(db).catch((err) => {
         if (err.code === 'failed-precondition') {
@@ -70,14 +64,11 @@ let tasksData = JSON.parse(localStorage.getItem('salvese_tasks')) || [];
 let remindersData = JSON.parse(localStorage.getItem('salvese_reminders')) || [];
 let selectedClassIdToDelete = null;
 let currentTaskFilter = 'all'; 
-let chatHistory = []; // Histórico local da sessão
+let chatHistory = []; 
 let currentViewContext = 'home'; 
 
-// Conteúdo do Widget da IA (Persistente)
-let aiWidgetContent = localStorage.getItem('salvese_ai_widget') || "Olá! Sou sua IA. Vou postar dicas úteis aqui.";
-
 // ============================================================
-// --- ÍCONES SVG (Reutilizáveis) ---
+// --- ÍCONES SVG ---
 // ============================================================
 const svgs = {
     photo: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>`,
@@ -87,11 +78,12 @@ const svgs = {
     lock: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`,
     cloud: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19c0-3.037-2.463-5.5-5.5-5.5S6.5 15.963 6.5 19"/><path d="M12 13.5V4"/><path d="M7 9l5-5 5 5"/></svg>`,
     logout: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>`,
-    chevron: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`
+    chevron: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`,
+    ai: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 1 0 10 10H12V2z"/><path d="M12 2a10 10 0 0 1 10 10"/><path d="M12 12L2 12"/><path d="M12 12L12 22"/></svg>`
 };
 
 // ============================================================
-// --- BOOTSTRAP E AUTH ---
+// --- SISTEMA DE BOOTSTRAP E AUTH ---
 // ============================================================
 
 const sessionActive = localStorage.getItem('salvese_session_active');
@@ -99,6 +91,7 @@ const sessionActive = localStorage.getItem('salvese_session_active');
 const forceLoadTimeout = setTimeout(() => {
     const loadingScreen = document.getElementById('loading-screen');
     if (loadingScreen && !loadingScreen.classList.contains('hidden')) {
+        console.warn("Firebase demorou. Verificando modo offline...");
         if (sessionActive === 'true') {
             loadAppOfflineMode(); 
         } else {
@@ -111,6 +104,7 @@ onAuthStateChanged(auth, async (user) => {
     clearTimeout(forceLoadTimeout);
 
     if (user) {
+        console.log("Usuário autenticado.");
         currentUser = user;
         localStorage.setItem('salvese_session_active', 'true');
 
@@ -178,9 +172,6 @@ function showAppInterface() {
         loadingScreen.classList.add('opacity-0');
         setTimeout(() => loadingScreen.classList.add('hidden'), 500);
     }
-    
-    // Inicializa o widget da IA se existir
-    updateAIWidgetUI();
 }
 
 function showLoginScreen() {
@@ -222,7 +213,6 @@ window.switchPage = function(pageId, addToHistory = true) {
     const activeLink = document.getElementById(`nav-${pageId}`);
     if (activeLink) activeLink.classList.add('active');
 
-    // Reset mobile menu styles
     const mobileNavLinks = document.querySelectorAll('#mobile-menu nav a');
     mobileNavLinks.forEach(link => {
         link.classList.remove('bg-indigo-50', 'text-indigo-600', 'dark:bg-indigo-900/50', 'dark:text-indigo-300');
@@ -252,7 +242,8 @@ window.switchPage = function(pageId, addToHistory = true) {
     if(pageId === 'config' && window.renderSettings) window.renderSettings();
     
     if(pageId === 'ia') {
-        scrollToBottom();
+        const chatContainer = document.getElementById('chat-messages-container');
+        if(chatContainer) chatContainer.scrollTop = chatContainer.scrollHeight;
     }
 
     if(addToHistory) {
@@ -261,39 +252,15 @@ window.switchPage = function(pageId, addToHistory = true) {
 }
 
 // ============================================================
-// --- INTEGRAÇÃO SALVE-SE IA (SUPERSYSTEM COM GROQ & GEMINI) ---
+// --- INTEGRAÇÃO SALVE-SE IA (SUPERSYSTEM) ---
 // ============================================================
-
-// Função para alternar IAs
-window.setAIProvider = function(provider) {
-    currentAIProvider = provider;
-    const feedback = provider === 'gemini' ? "Gemini (Google) ativado." : "Llama 3.3 (Groq) ativada.";
-    showModal("IA Alterada", feedback);
-    
-    // Atualiza visualmente se houver seletor
-    updateAISelectorUI();
-}
-
-function updateAISelectorUI() {
-    const btnGemini = document.getElementById('btn-ai-gemini');
-    const btnGroq = document.getElementById('btn-ai-groq');
-    
-    if(btnGemini && btnGroq) {
-        if(currentAIProvider === 'gemini') {
-            btnGemini.classList.add('ring-2', 'ring-indigo-500');
-            btnGroq.classList.remove('ring-2', 'ring-indigo-500');
-        } else {
-            btnGroq.classList.add('ring-2', 'ring-indigo-500');
-            btnGemini.classList.remove('ring-2', 'ring-indigo-500');
-        }
-    }
-}
 
 window.sendIAMessage = async function() {
     const input = document.getElementById('chat-input');
     const message = input.value.trim();
     const container = document.getElementById('chat-messages-container');
     const sendBtn = document.getElementById('chat-send-btn');
+    // A referência fixa ao indicador é removida aqui para ser tratada dinamicamente
 
     if (!message) return;
 
@@ -303,11 +270,40 @@ window.sendIAMessage = async function() {
     input.disabled = true;
     sendBtn.disabled = true;
     
-    scrollToBottom();
+    // Scroll imediato
+    if(container) container.scrollTop = container.scrollHeight;
+
+    // Mostrar indicador de digitação no FINAL da lista
     showTypingIndicator();
 
+    const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+    const fetchWithRetry = async (url, options, retries = 3, backoff = 1000) => {
+        try {
+            const res = await fetch(url, options);
+            if (!res.ok) {
+                // Se for erro 429 (Too Many Requests), não adianta retentar muito rápido
+                if (res.status === 429) {
+                    throw new Error("Limite de requisições atingido (429). Tente novamente em instantes.");
+                }
+                if (res.status >= 500 && retries > 0) {
+                    await delay(backoff);
+                    return fetchWithRetry(url, options, retries - 1, backoff * 2);
+                }
+                throw new Error(`Erro HTTP: ${res.status}`);
+            }
+            return res.json();
+        } catch (err) {
+            if (retries > 0 && !err.message.includes("429")) {
+                await delay(backoff);
+                return fetchWithRetry(url, options, retries - 1, backoff * 2);
+            }
+            throw err;
+        }
+    };
+
     try {
-        // Contexto Expandido (Estado Global)
+        // Contexto Expandido para a IA (Estado Global)
         const contextData = {
             telaAtual: currentViewContext,
             dataAtual: new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }),
@@ -316,183 +312,166 @@ window.sendIAMessage = async function() {
             aulas: scheduleData.map(c => ({ id: c.id, name: c.name, day: c.day, start: c.start, room: c.room })),
             lembretes: remindersData,
             timerStatus: { isRunning: isRunning1, timeLeft: timeLeft1, mode: currentMode1 },
-            widgetContent: aiWidgetContent,
-            aiProvider: currentAIProvider
+            theme: localStorage.getItem('theme') || 'light'
         };
 
-        // Prompt de Sistema Poderoso - Suporte a Múltiplos Comandos
+        // Prompt de Sistema Massivo com 50+ Funções
         let systemInstructionText = `
-Você é a "Salve-se IA", assistente inteligente da UFRB. Você controla o app e ajuda o estudante.
-CONTEXTO: ${JSON.stringify(contextData)}
+Você é a "Salve-se IA", o sistema operacional inteligente do estudante da UFRB.
+Seu objetivo é controlar o aplicativo e ajudar o estudante.
 
-IMPORTANTE: Você pode executar MÚLTIPLAS ações em uma única resposta.
-SEMPRE responda no formato JSON quando precisar agir. Se for só conversa, use JSON com a chave "message".
+CONTEXTO ATUAL:
+${JSON.stringify(contextData)}
 
-FORMATO DE RESPOSTA (JSON Obrigatório):
-{
-  "message": "Texto para o usuário (opcional se tiver actions)",
-  "commands": [
-     { "action": "NOME_DA_ACAO", "params": { ... } },
-     { "action": "OUTRA_ACAO", "params": { ... } }
-  ]
-}
+INSTRUÇÃO DE SAÍDA:
+Se o usuário pedir para realizar uma ação, responda ESTRITAMENTE com um JSON.
+Se for apenas conversa, responda com texto.
 
-LISTA DE COMANDOS (action):
+LISTA DE COMANDOS JSON (action e params):
+
+-- TAREFAS --
 1. "create_task" -> { "text": "...", "priority": "low|normal|medium|high", "category": "geral|estudo|trabalho" }
-2. "delete_task" -> { "taskId": "ID" ou fuzzy match }
-3. "update_dashboard_widget" -> { "content": "Texto curto (dica/frase) para o widget da home" }
-4. "create_class" -> { "name": "...", "day": "seg|ter...", "start": "HH:MM", "end": "HH:MM", "room": "...", "prof": "..." }
-5. "navigate" -> { "page": "home|aulas|onibus|todo|pomo|calc|email|config|ia" }
-6. "create_reminder" -> { "desc": "...", "date": "YYYY-MM-DD", "prio": "low|medium|high" }
-7. "timer_start", "timer_stop", "timer_set_mode" -> params variam.
-8. "ufrb_portal", "ufrb_ava" -> Links externos.
+2. "delete_task" -> { "taskId": "ID" } (ou fuzzy search pelo texto)
+3. "task_complete" -> { "taskId": "ID" }
+4. "task_incomplete" -> { "taskId": "ID" }
+5. "task_clear_completed" -> {}
+6. "task_filter_change" -> { "filter": "all|active|completed" }
+7. "task_get_summary" -> {} (Responda com texto analisando as tarefas)
 
-Exemplo Multi-tarefa: "Adicionar prova amanhã e lembrar de estudar hoje a noite"
-Retorno:
-{
-  "message": "Certo! Adicionei o lembrete e a tarefa.",
-  "commands": [
-    { "action": "create_task", "params": { "text": "Estudar para prova", "priority": "high" } },
-    { "action": "create_reminder", "params": { "desc": "Prova", "date": "2023-10-20" } }
-  ]
-}
+-- AULAS --
+8. "create_class" -> { "name": "...", "day": "seg|ter...", "start": "HH:MM", "end": "HH:MM", "room": "...", "prof": "..." }
+9. "delete_class" -> { "classId": "ID" }
+10. "class_next_info" -> {} (Analise as aulas e diga qual a próxima em texto)
+11. "class_clear_day" -> { "day": "seg" }
+
+-- CALCULADORA --
+12. "navigate" -> { "page": "calc" } (Use para levar à calc)
+13. "calc_add_grade" -> { "grade": number, "weight": number }
+14. "calc_reset" -> {}
+15. "calc_set_passing" -> { "val": number }
+
+-- POMODORO --
+16. "timer_start" -> {}
+17. "timer_pause" -> {}
+18. "timer_stop" -> {}
+19. "timer_set_mode" -> { "mode": "pomodoro|short|long" }
+
+-- UI & NAVEGAÇÃO --
+20. "navigate" -> { "page": "home|aulas|onibus|todo|pomo|calc|email|config|ia" }
+21. "ui_theme_toggle" -> {}
+22. "ui_color_set" -> { "color": "indigo|red|green|blue|orange|pink|purple|teal|black" }
+23. "ui_clock_toggle" -> {}
+24. "nav_modal_open" -> { "modal": "profile|class|reminder" }
+25. "ui_toast_show" -> { "msg": "..." }
+
+-- ÔNIBUS --
+26. "navigate" -> { "page": "onibus" }
+27. "bus_next_info" -> {} (Retorne texto com estimativa)
+
+-- LINKS UFRB --
+28. "ufrb_portal" -> {} (Abre SIGAA)
+29. "ufrb_ava" -> {} (Abre Moodle)
+30. "ufrb_calendar" -> {}
+31. "ufrb_library" -> {}
+
+-- EMAILS --
+32. "navigate" -> { "page": "email" }
+33. "email_load_template" -> { "key": "deadline|review|absence|tcc" }
+34. "email_copy" -> {}
+35. "email_clear" -> {}
+
+-- PERFIL & SISTEMA --
+36. "profile_edit_name" -> {}
+37. "profile_edit_handle" -> {}
+38. "profile_photo_upload" -> {}
+39. "system_backup" -> {}
+40. "system_logout" -> {}
+41. "system_reset_password" -> {}
+
+-- LEMBRETES --
+42. "create_reminder" -> { "desc": "...", "date": "YYYY-MM-DD", "prio": "low|medium|high" }
+43. "delete_reminder" -> { "id": "ID" }
+
+-- UTILITÁRIOS --
+44. "util_roll_dice" -> {}
+45. "util_coin_flip" -> {}
+46. "easter_egg_confetti" -> {}
+47. "ai_clear_chat" -> {}
         `;
 
-        // Preparar mensagens para a API (incluindo histórico)
-        let messagesPayload = [];
-        
-        // Adicionar System Prompt
-        messagesPayload.push({ role: "system", content: systemInstructionText });
-
-        // Adicionar Histórico Recente (últimas 10 mensagens para não estourar contexto)
-        const recentHistory = chatHistory.slice(-10);
-        recentHistory.forEach(msg => {
-            messagesPayload.push({ role: msg.role === 'user' ? 'user' : 'assistant', content: msg.text });
-        });
-
-        // Adicionar Mensagem Atual
-        messagesPayload.push({ role: "user", content: message });
-
-        let aiResponseText = "";
-
-        // --- SELETOR DE PROVIDER ---
-        if (currentAIProvider === 'groq') {
-            // CHAMADA GROQ (OpenAI Compatible)
-            const response = await fetch(GROQ_API_URL, {
-                method: "POST",
-                headers: {
-                    "Authorization": `Bearer ${GROQ_API_KEY}`,
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({
-                    model: GROQ_MODEL,
-                    messages: messagesPayload,
-                    temperature: 0.6,
-                    max_tokens: 4096, // Token aumentado
-                    response_format: { type: "json_object" } // Força JSON no Llama 3
-                })
-            });
-
-            const data = await response.json();
-            if (data.error) throw new Error(data.error.message);
-            aiResponseText = data.choices[0].message.content;
-
-        } else {
-            // CHAMADA GEMINI (Google format)
-            // Gemini usa formato diferente, precisamos converter messagesPayload
-            const geminiContents = recentHistory.map(msg => ({
-                role: msg.role === 'user' ? 'user' : 'model',
-                parts: [{ text: msg.text }]
-            }));
-            geminiContents.push({ role: "user", parts: [{ text: message }] });
-
-            const response = await fetch(GEMINI_API_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: geminiContents,
-                    systemInstruction: { parts: [{ text: systemInstructionText }] },
-                    generationConfig: { 
-                        temperature: 0.4, 
-                        maxOutputTokens: 4096, // Token aumentado
-                        responseMimeType: "application/json" 
-                    }
-                })
-            });
-
-            const data = await response.json();
-            if (data.error) throw new Error(data.error.message);
-            aiResponseText = data.candidates[0].content.parts[0].text;
-        }
-
-        // Processamento da Resposta (JSON)
-        try {
-            const responseJson = JSON.parse(aiResponseText);
-            
-            // Exibir mensagem textual se houver
-            if (responseJson.message) {
-                appendMessage('ai', responseJson.message);
-            } else if (!responseJson.commands || responseJson.commands.length === 0) {
-                // Fallback se a IA mandar JSON vazio de message
-                appendMessage('ai', "Feito.");
-            }
-
-            // Executar comandos em lote
-            if (responseJson.commands && Array.isArray(responseJson.commands)) {
-                for (const cmd of responseJson.commands) {
-                    await executeAICommand(cmd);
-                    // Pequeno delay visual entre ações
-                    await new Promise(r => setTimeout(r, 300)); 
+        const contents = [];
+        if (chatHistory.length > 0) {
+            let expectingRole = 'user';
+            for (const msg of chatHistory) {
+                if (msg.role === expectingRole) {
+                    contents.push({ role: msg.role === 'user' ? 'user' : 'model', parts: [{ text: msg.text }] });
+                    expectingRole = expectingRole === 'user' ? 'model' : 'user';
                 }
-            } else if (responseJson.action) {
-                // Suporte a legado (single command object)
-                await executeAICommand(responseJson);
             }
+        }
+        if (contents.length > 0 && contents[contents.length - 1].role === 'user') contents.pop(); 
+        contents.push({ role: "user", parts: [{ text: message }] });
 
-        } catch (e) {
-            console.error("Erro ao parsear JSON da IA:", e);
-            // Se falhar o JSON, tenta mostrar o texto puro (fallback)
+        const data = await fetchWithRetry(GEMINI_API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                contents: contents,
+                systemInstruction: { parts: [{ text: systemInstructionText }] },
+                generationConfig: { temperature: 0.4, maxOutputTokens: 800 }
+            })
+        });
+        
+        if (data.error) throw new Error(data.error.message || "Erro na API Gemini");
+        if (!data.candidates || !data.candidates[0].content) throw new Error("Sem resposta.");
+
+        let aiResponseText = data.candidates[0].content.parts[0].text.trim();
+        // Tratamento para remover blocos de código Markdown se a IA colocar
+        aiResponseText = aiResponseText.replace(/```json\n/g, '').replace(/\n```/g, '');
+
+        if (aiResponseText.startsWith('{') && aiResponseText.endsWith('}')) {
+            try {
+                const command = JSON.parse(aiResponseText);
+                await executeAICommand(command);
+            } catch (e) {
+                console.error("Erro ao processar comando IA:", e);
+                appendMessage('ai', "Tentei realizar uma ação, mas me confundi nos dados. Pode repetir?");
+            }
+        } else {
             appendMessage('ai', aiResponseText);
         }
 
     } catch (error) {
         console.error("Erro IA:", error);
         let msg = "Ops! Tive um problema técnico.";
-        if(error.message.includes("429")) msg = "⚠️ A IA está sobrecarregada. Tente novamente em alguns segundos.";
+        if(error.message.includes("API key")) msg = "Chave de API inválida.";
+        if(error.message.includes("429")) msg = "⚠️ Limite de uso da IA atingido (429). Aguarde um pouco.";
+        if(error.message.includes("500")) msg = "⚠️ Instabilidade no servidor da IA (500).";
         appendMessage('ai', msg);
     } finally {
+        // Remover indicador de digitação
         hideTypingIndicator();
         input.disabled = false;
         sendBtn.disabled = false;
         input.focus();
-        scrollToBottom();
+        if(container) container.scrollTop = container.scrollHeight;
     }
 };
 
-// Função auxiliar para scroll seguro
-function scrollToBottom() {
-    const container = document.getElementById('chat-messages-container');
-    if(container) {
-        // Garante que o scroll aconteça após renderização
-        requestAnimationFrame(() => {
-            container.scrollTop = container.scrollHeight;
-        });
-    }
-}
-
 // ============================================================
-// --- AUXILIARES DE CHAT ---
+// --- AUXILIARES DE CHAT (INDICADOR DE DIGITAÇÃO & UI) ---
 // ============================================================
 
 function showTypingIndicator() {
     const container = document.getElementById('chat-messages-container');
     if (!container) return;
 
+    // Remove se já existir (para garantir que vá para o final)
     hideTypingIndicator();
 
     const div = document.createElement('div');
     div.id = 'dynamic-typing-indicator';
-    div.className = 'flex gap-2 max-w-[90%] animate-fade-in-up mt-2 mb-4';
+    div.className = 'flex gap-2 max-w-[90%] animate-fade-in-up mt-2';
     div.innerHTML = `
         <div class="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center flex-shrink-0 text-white text-xs shadow-sm mt-auto mb-1">
             <i class="fas fa-robot animate-pulse"></i>
@@ -504,7 +483,7 @@ function showTypingIndicator() {
         </div>
     `;
     container.appendChild(div);
-    scrollToBottom();
+    container.scrollTop = container.scrollHeight;
 }
 
 function hideTypingIndicator() {
@@ -516,21 +495,15 @@ function appendMessage(sender, text) {
     const container = document.getElementById('chat-messages-container');
     if (!container) return;
 
-    // Salva no histórico para continuidade
-    chatHistory.push({ role: sender === 'user' ? 'user' : 'assistant', text: text });
-    // Limita histórico local a 30 mensagens para não pesar
-    if (chatHistory.length > 30) chatHistory.shift();
+    chatHistory.push({ role: sender, text: text });
+    if (chatHistory.length > 20) chatHistory.shift();
 
     const div = document.createElement('div');
     div.className = `flex w-full ${sender === 'user' ? 'justify-end' : 'justify-start'} mb-4 animate-scale-in group`;
     
+    // Horário da mensagem
     const time = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-    
-    // Converte markdown básico (negrito e quebras de linha)
-    const formattedText = text
-        .replace(/\n/g, '<br>')
-        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-        .replace(/`([^`]+)`/g, '<code class="bg-gray-200 dark:bg-neutral-700 px-1 rounded text-xs font-mono">$1</code>');
+    const formattedText = text.replace(/\n/g, '<br>');
 
     if (sender === 'user') {
         div.innerHTML = `
@@ -542,7 +515,7 @@ function appendMessage(sender, text) {
             </div>
         `;
     } else {
-        const providerLabel = currentAIProvider === 'gemini' ? 'Gemini' : 'Llama';
+        const mdText = formattedText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
         div.innerHTML = `
             <div class="flex gap-3 max-w-[90%]">
                 <div class="flex-shrink-0 flex flex-col justify-end">
@@ -552,113 +525,256 @@ function appendMessage(sender, text) {
                 </div>
                 <div class="flex flex-col items-start">
                     <div class="bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder text-gray-800 dark:text-gray-200 rounded-2xl rounded-bl-sm px-4 py-3 shadow-sm text-sm leading-relaxed">
-                        ${formattedText}
+                        ${mdText}
                     </div>
-                    <span class="text-[10px] text-gray-400 mt-1 ml-1 opacity-0 group-hover:opacity-100 transition-opacity">${providerLabel} • ${time}</span>
+                    <span class="text-[10px] text-gray-400 mt-1 ml-1 opacity-0 group-hover:opacity-100 transition-opacity">Salve-se IA • ${time}</span>
                 </div>
             </div>
         `;
     }
     container.appendChild(div);
-    scrollToBottom();
+    container.scrollTop = container.scrollHeight;
 }
 
 // ============================================================
-// --- EXECUÇÃO DE COMANDOS IA ---
+// --- EXECUÇÃO DE COMANDOS IA (O CÉREBRO DO SISTEMA) ---
 // ============================================================
 async function executeAICommand(cmd) {
     console.log("Executando comando IA:", cmd);
     const p = cmd.params || {};
-    let feedback = null; // Se null, não exibe toast, apenas executa
+    let feedback = "";
 
     switch(cmd.action) {
-        // --- WIDGET DA HOME ---
-        case 'update_dashboard_widget':
-            updateAIWidget(p.content);
-            // Feedback visual sutil no chat
-            break;
-
         // --- TAREFAS ---
         case 'create_task':
-            tasksData.push({ id: Date.now().toString() + Math.random(), text: p.text, done: false, priority: p.priority || 'normal', category: p.category || 'geral', createdAt: Date.now() });
+            tasksData.push({ id: Date.now().toString(), text: p.text, done: false, priority: p.priority || 'normal', category: p.category || 'geral', createdAt: Date.now() });
             saveData();
+            feedback = `Adicionei a tarefa "${p.text}"! ✅`;
             break;
         case 'delete_task':
-            if(p.taskId) tasksData = tasksData.filter(t => t.id !== p.taskId);
+            if(p.taskId) { tasksData = tasksData.filter(t => t.id !== p.taskId); feedback = "Tarefa removida."; }
+            else { feedback = "Preciso do ID da tarefa."; }
             saveData();
             break;
-        
+        case 'task_complete':
+            const tComp = tasksData.find(t => t.id === p.taskId);
+            if(tComp) { tComp.done = true; saveData(); feedback = "Tarefa marcada como concluída! 🎉"; }
+            else feedback = "Tarefa não encontrada.";
+            break;
+        case 'task_incomplete':
+            const tInc = tasksData.find(t => t.id === p.taskId);
+            if(tInc) { tInc.done = false; saveData(); feedback = "Tarefa reaberta."; }
+            break;
+        case 'task_clear_completed':
+            clearCompleted();
+            feedback = "Tarefas concluídas removidas.";
+            break;
+        case 'task_filter_change':
+            setTaskFilter(p.filter);
+            feedback = `Filtro alterado para: ${p.filter}`;
+            break;
+
         // --- AULAS ---
         case 'create_class':
-            scheduleData.push({ id: Date.now().toString() + Math.random(), name: p.name, prof: p.prof || 'N/A', room: p.room || 'N/A', day: p.day, start: p.start, end: p.end, color: 'indigo' });
+            scheduleData.push({ id: Date.now().toString(), name: p.name, prof: p.prof || 'N/A', room: p.room || 'N/A', day: p.day, start: p.start, end: p.end, color: 'indigo' });
             saveData();
+            feedback = `Aula de ${p.name} adicionada! 🎓`;
+            break;
+        case 'delete_class':
+            scheduleData = scheduleData.filter(c => c.id !== p.classId);
+            saveData();
+            feedback = "Aula removida.";
+            break;
+        case 'class_clear_day':
+            scheduleData = scheduleData.filter(c => c.day !== p.day);
+            saveData();
+            feedback = `Limpei todas as aulas de ${p.day}.`;
+            break;
+
+        // --- CALCULADORA ---
+        case 'calc_add_grade':
+            switchPage('calc');
+            setTimeout(() => {
+                // Simulação de preenchimento via DOM não ideal, melhor manipular estado se possível
+                // Aqui vamos injetar no DOM inputs existentes
+                const inputs = document.querySelectorAll('.grade-input');
+                const weights = document.querySelectorAll('.weight-input');
+                // Encontrar primeiro vazio
+                let found = false;
+                for(let i=0; i<inputs.length; i++) {
+                    if(inputs[i].value === "") {
+                        inputs[i].value = p.grade;
+                        weights[i].value = p.weight;
+                        found = true;
+                        break;
+                    }
+                }
+                if(!found) { addGradeRow(); setTimeout(() => {
+                    const newInputs = document.querySelectorAll('.grade-input');
+                    const newWeights = document.querySelectorAll('.weight-input');
+                    newInputs[newInputs.length-1].value = p.grade;
+                    newWeights[newWeights.length-1].value = p.weight;
+                    calculateAverage();
+                }, 100); } else { calculateAverage(); }
+            }, 500);
+            feedback = "Nota adicionada na calculadora.";
+            break;
+        case 'calc_reset':
+            resetCalc();
+            feedback = "Calculadora limpa.";
+            break;
+        case 'calc_set_passing':
+            const passEl = document.getElementById('passing-grade');
+            if(passEl) { passEl.value = p.val; calculateAverage(); feedback = `Média para aprovação definida em ${p.val}`; }
+            break;
+
+        // --- POMODORO ---
+        case 'timer_start':
+            if(!isRunning1) toggleTimer();
+            feedback = "Foco total! Timer iniciado. 🔥";
+            switchPage('pomo');
+            break;
+        case 'timer_pause':
+            if(isRunning1) toggleTimer();
+            feedback = "Timer pausado.";
+            break;
+        case 'timer_stop':
+            resetTimer();
+            feedback = "Timer resetado.";
+            break;
+        case 'timer_set_mode':
+            setTimerMode(p.mode);
+            switchPage('pomo');
+            feedback = `Modo alterado para ${p.mode}.`;
             break;
 
         // --- UI & NAVEGAÇÃO ---
         case 'navigate':
             switchPage(p.page);
+            feedback = `Navegando para ${p.page}... 🚀`;
             break;
-        
-        // --- LEMBRETES ---
-        case 'create_reminder':
-             remindersData.push({ id: Date.now().toString() + Math.random(), desc: p.desc, date: p.date, prio: p.prio || 'medium', createdAt: Date.now() });
-             saveData();
-             break;
+        case 'ui_theme_toggle':
+            toggleTheme();
+            feedback = "Tema alternado.";
+            break;
+        case 'ui_color_set':
+            setThemeColor(p.color);
+            feedback = `Cor do tema alterada para ${p.color}.`;
+            break;
+        case 'ui_clock_toggle':
+            cycleClockMode();
+            feedback = "Estilo do relógio alterado.";
+            break;
+        case 'nav_modal_open':
+            if(p.modal === 'profile') showProfileSetupScreen(); // Simplificação
+            if(p.modal === 'class') openAddClassModal();
+            if(p.modal === 'reminder') toggleRemindersModal();
+            feedback = "Modal aberto.";
+            break;
+        case 'ui_toast_show':
+            showModal("Aviso da IA", p.msg);
+            feedback = "Mensagem exibida.";
+            break;
 
-        // --- SISTEMA ---
+        // --- LINKS EXTERNOS ---
+        case 'ufrb_portal':
+            window.open('https://sistemas.ufrb.edu.br/sigaa/verTelaLogin.do', '_blank');
+            feedback = "Abrindo Portal...";
+            break;
+        case 'ufrb_ava':
+            window.open('https://ava.ufrb.edu.br/', '_blank');
+            feedback = "Abrindo AVA...";
+            break;
+        case 'ufrb_calendar':
+            window.open('https://ufrb.edu.br/portal/calendario-academico', '_blank');
+            feedback = "Abrindo Calendário...";
+            break;
+        case 'ufrb_library':
+            window.open('https://ufrb.edu.br/biblioteca/', '_blank');
+            feedback = "Abrindo Biblioteca...";
+            break;
+
+        // --- EMAILS ---
+        case 'email_load_template':
+            switchPage('email');
+            loadTemplate(p.key);
+            feedback = "Template carregado.";
+            break;
+        case 'email_copy':
+            copyEmail();
+            feedback = "Email copiado para a área de transferência.";
+            break;
+        case 'email_clear':
+            document.getElementById('email-content').value = '';
+            feedback = "Editor limpo.";
+            break;
+
+        // --- PERFIL & SISTEMA ---
+        case 'profile_edit_name':
+            editName();
+            feedback = "Abrindo edição de nome.";
+            break;
+        case 'profile_edit_handle':
+            editHandle();
+            feedback = "Abrindo edição de usuário.";
+            break;
+        case 'profile_photo_upload':
+            changePhoto();
+            feedback = "Selecione sua foto.";
+            break;
+        case 'system_backup':
+            manualBackup();
+            feedback = "Iniciando backup...";
+            break;
+        case 'system_logout':
+            logoutApp();
+            feedback = "Saindo...";
+            break;
+        case 'system_reset_password':
+            changePassword();
+            feedback = "Iniciando processo de senha.";
+            break;
+
+        // --- UTILITÁRIOS ---
+        case 'util_roll_dice':
+            const dice = Math.floor(Math.random() * 6) + 1;
+            feedback = `🎲 O dado caiu em: **${dice}**`;
+            break;
+        case 'util_coin_flip':
+            const coin = Math.random() > 0.5 ? "Cara" : "Coroa";
+            feedback = `🪙 Deu: **${coin}**`;
+            break;
+        case 'easter_egg_confetti':
+            feedback = "🎉 Chuva de confetes!";
+            // Simulação simples visual
+            showModal("🎉", "Imagine confetes caindo agora! (Animação CSS indisponível neste contexto)");
+            break;
         case 'ai_clear_chat':
             chatHistory = [];
             document.getElementById('chat-messages-container').innerHTML = '';
-            appendMessage('ai', 'Memória limpa! O que vamos fazer agora?');
-            break;
+            appendMessage('ai', 'Histórico limpo! O que mais deseja?');
+            return; // Retorna direto para não duplicar msg
         
-        case 'change_ai_provider':
-             setAIProvider(p.provider);
+        // --- LEMBRETES ---
+        case 'create_reminder':
+             remindersData.push({ id: Date.now().toString(), desc: p.desc, date: p.date, prio: p.prio || 'medium', createdAt: Date.now() });
+             saveData();
+             feedback = `Lembrete definido para ${p.date}.`;
+             break;
+        case 'delete_reminder':
+             deleteReminder(p.id);
+             feedback = "Lembrete apagado.";
              break;
 
         default:
-            console.log("Comando IA não reconhecido ou sem efeito visual direto:", cmd.action);
+            feedback = "Ação realizada (ou comando desconhecido).";
     }
+
+    appendMessage('ai', feedback);
 }
 
 // ============================================================
-// --- WIDGET INTELIGENTE (NOVO 6º WIDGET) ---
-// ============================================================
-
-function updateAIWidget(content) {
-    aiWidgetContent = content;
-    localStorage.setItem('salvese_ai_widget', content);
-    updateAIWidgetUI();
-}
-
-function updateAIWidgetUI() {
-    // Nota: Você precisará adicionar o HTML para este widget no index.html quando eu gerar o arquivo.
-    // Estou deixando a lógica pronta aqui.
-    const widgetEl = document.getElementById('ai-widget-content');
-    if(widgetEl) {
-        widgetEl.innerHTML = `
-            <div class="flex items-start gap-3">
-                <i class="fas fa-quote-left text-indigo-300 dark:text-indigo-700 text-xl"></i>
-                <p class="text-sm text-gray-600 dark:text-gray-300 italic">${aiWidgetContent}</p>
-            </div>
-        `;
-    }
-}
-
-// Inicializar com uma frase se estiver vazio
-if (aiWidgetContent === "Olá! Sou sua IA. Vou postar dicas úteis aqui.") {
-    const tips = [
-        "Não esqueça de beber água enquanto estuda!",
-        "Revise suas anotações logo após a aula para fixar melhor.",
-        "Use o Pomodoro para evitar fadiga mental.",
-        "Confira o horário do circular antes de sair de casa."
-    ];
-    updateAIWidget(tips[Math.floor(Math.random() * tips.length)]);
-}
-
-
-// ============================================================
-// --- FUNÇÕES DE USUÁRIO & DADOS (MANTIDAS) ---
+// --- FUNÇÕES DE USUÁRIO & DADOS ---
 // ============================================================
 
 window.loginWithGoogle = async () => {
@@ -790,7 +906,6 @@ function refreshAllUI() {
     if (window.updateDashboardTasksWidget) window.updateDashboardTasksWidget();
     if (window.updateNextClassWidget) window.updateNextClassWidget();
     if (window.renderSettings) window.renderSettings();
-    if (window.updateAIWidgetUI) window.updateAIWidgetUI();
 }
 
 async function saveData() {
@@ -1200,7 +1315,7 @@ window.renderSettings = function() {
 
             <div class="text-center pt-4 pb-8">
                  <p class="text-xs text-gray-300 dark:text-gray-600 font-mono">ID: ${currentUser.uid.substring(0,8)}...</p>
-                 <p class="text-xs text-gray-300 dark:text-gray-600 mt-1">Salve-se UFRB v3.0 (Multi-AI)</p>
+                 <p class="text-xs text-gray-300 dark:text-gray-600 mt-1">Salve-se UFRB v2.2 (Clean UI)</p>
             </div>
         </div>
     `;
@@ -1643,7 +1758,7 @@ window.confirmDeleteClass = function () {
     const id = document.getElementById('class-id').value;
     if (!id) return;
     selectedClassIdToDelete = id;
-    document.getElementById('class-modal').classList.add('opacity-0'); 
+    document.getElementById('class-modal').classList.add('opacity-0');
     setTimeout(() => document.getElementById('class-modal').classList.add('hidden'), 300);
     const confirmModal = document.getElementById('delete-confirmation-modal');
     confirmModal.classList.remove('hidden');
@@ -2390,7 +2505,6 @@ document.addEventListener('DOMContentLoaded', () => {
     window.updateNextClassWidget();
     renderBusTable(); 
     updateNextBus(); 
-    updateAIWidgetUI();
     setInterval(updateNextBus, 1000);
     
     // Auto-select Home on sidebar

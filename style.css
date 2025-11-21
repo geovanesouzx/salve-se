@@ -91,3 +91,57 @@ body { font-family: 'Inter', sans-serif; transition: background-color 0.3s, colo
 
 /* Smooth scrolling */
 .scroll-smooth { scroll-behavior: smooth; }
+
+/* =========================================
+   FIX DE PERSONALIZAÇÃO DE WIDGETS
+   ========================================= */
+
+/* Quando o widget tem um fundo escuro personalizado */
+.widget-custom-dark {
+    color: white !important;
+}
+
+/* Força ícones e textos genéricos a ficarem brancos/claros */
+.widget-custom-dark h3,
+.widget-custom-dark p, 
+.widget-custom-dark i:not(.fa-palette):not(.fa-eye-slash), /* Não altera os controles */
+.widget-custom-dark span {
+    color: rgba(255, 255, 255, 0.95) !important;
+}
+
+.widget-custom-dark svg {
+    stroke: white !important;
+}
+
+/* CORREÇÃO CRÍTICA: Elementos INTERNOS que são brancos (ex: cards de tarefas/lembretes) */
+/* Se um elemento dentro do widget tiver fundo branco ou cinza claro, o texto DEVE voltar a ser escuro */
+.widget-custom-dark .bg-white,
+.widget-custom-dark .bg-gray-50,
+.widget-custom-dark .bg-gray-100 {
+    color: #1f2937 !important; /* gray-800 */
+}
+
+/* Garante que textos específicos dentro desses cartões brancos fiquem corretos */
+.widget-custom-dark .bg-white h3,
+.widget-custom-dark .bg-white p,
+.widget-custom-dark .bg-white span,
+.widget-custom-dark .bg-white i,
+.widget-custom-dark .bg-gray-50 p,
+.widget-custom-dark .bg-gray-100 span {
+    color: inherit !important; /* Usa a cor definida acima (#1f2937) */
+}
+
+/* Correção específica para textos secundários dentro de cartões brancos (ex: data, prioridade) */
+.widget-custom-dark .bg-white .text-gray-500,
+.widget-custom-dark .bg-gray-50 .text-gray-500,
+.widget-custom-dark .bg-white .text-gray-400 {
+    color: #6b7280 !important; /* gray-500 */
+}
+
+/* Correção para Inputs dentro de widgets escuros */
+.widget-custom-dark input,
+.widget-custom-dark select,
+.widget-custom-dark textarea {
+    color: #1f2937 !important; /* Texto preto em inputs */
+    background-color: rgba(255, 255, 255, 0.9) !important;
+}

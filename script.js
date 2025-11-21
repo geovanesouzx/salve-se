@@ -181,7 +181,9 @@ function showAppInterface() {
     refreshAllUI();
     
     fixChatLayout();
-    injectWidgetControls(); // INJEÇÃO DE BOTÕES DE PERSONALIZAÇÃO
+    
+    // Injeta controles de widget na inicialização
+    injectWidgetControls();
 
     if(loadingScreen && !loadingScreen.classList.contains('hidden')) {
         loadingScreen.classList.add('opacity-0');
@@ -302,10 +304,10 @@ window.switchPage = function(pageId, addToHistory = true) {
 // Mapeamento de Estilos Disponíveis
 const WIDGET_PRESETS = {
     'default': { label: 'Padrão (Claro/Escuro)', class: 'bg-white dark:bg-darkcard border-gray-200 dark:border-darkborder' },
-    'gradient-indigo': { label: 'Hora de Focar (Roxo)', class: 'bg-gradient-to-br from-indigo-600 to-violet-700 text-white border-transparent shadow-lg !text-white' },
-    'gradient-emerald': { label: 'Natureza (Verde)', class: 'bg-gradient-to-br from-emerald-500 to-teal-600 text-white border-transparent shadow-lg !text-white' },
-    'gradient-sunset': { label: 'Pôr do Sol (Laranja)', class: 'bg-gradient-to-br from-orange-500 to-rose-500 text-white border-transparent shadow-lg !text-white' },
-    'dark-mode': { label: 'Meia-Noite (Preto)', class: 'bg-gray-900 text-white border-gray-800 shadow-lg !text-white' }
+    'gradient-indigo': { label: 'Hora de Focar (Roxo)', class: 'bg-gradient-to-br from-indigo-600 to-violet-700 text-white border-transparent shadow-lg' },
+    'gradient-emerald': { label: 'Natureza (Verde)', class: 'bg-gradient-to-br from-emerald-500 to-teal-600 text-white border-transparent shadow-lg' },
+    'gradient-sunset': { label: 'Pôr do Sol (Laranja)', class: 'bg-gradient-to-br from-orange-500 to-rose-500 text-white border-transparent shadow-lg' },
+    'dark-mode': { label: 'Meia-Noite (Preto)', class: 'bg-gray-900 text-white border-gray-800 shadow-lg' }
 };
 
 // Injeta os botões de controle em cada widget
@@ -338,6 +340,7 @@ function injectWidgetControls() {
         
         widget.appendChild(controlsDiv);
         
+        // Esconde botões antigos hardcoded
         const oldButtons = widget.querySelectorAll('button[onclick^="toggleWidget"]');
         oldButtons.forEach(btn => {
             if(!btn.closest('.widget-controls')) btn.style.display = 'none';
@@ -396,35 +399,50 @@ function applyAllWidgetStyles() {
         const preset = WIDGET_PRESETS[styleKey];
         if(!preset) return;
 
-        widget.className = widget.className.replace(/bg-[\w-\/]+|border-[\w-\/]+|text-[\w-\/]+/g, '').trim();
+        // Limpa classes antigas
+        widget.className = widget.className.replace(/bg-[\w-\/]+|border-[\w-\/]+|text-[\w-\/]+|widget-mode-\w+/g, '').trim();
         widget.classList.remove('bg-white', 'dark:bg-darkcard', 'border-gray-200', 'dark:border-darkborder', 'shadow-sm');
         
+        // Aplica nova base + preset
         widget.className = `rounded-xl border p-6 flex flex-col h-full relative overflow-hidden group transition-all duration-300 ${preset.class}`;
         
         if(styleKey !== 'default') {
+             // Adiciona classe para controle CSS
+            widget.classList.add('widget-custom-dark');
+            
             const textElements = widget.querySelectorAll('h3, p, span, i, div');
             textElements.forEach(el => {
-                if(el.classList.contains('text-gray-800') || el.classList.contains('text-gray-500') || el.classList.contains('text-indigo-600')) {
-                    el.classList.add('!text-white', '!opacity-90');
+                // Ignora filhos que devem manter sua cor (como cards internos de tarefas ou lembretes)
+                if(!el.closest('.bg-white') && !el.closest('.bg-gray-50')) {
+                    if(el.classList.contains('text-gray-800') || el.classList.contains('text-gray-500') || el.classList.contains('text-indigo-600')) {
+                        el.classList.add('!text-white', '!opacity-90');
+                    }
                 }
             });
             
             const icons = widget.querySelectorAll('svg, i');
             icons.forEach(icon => {
-                icon.classList.add('!text-white');
-                icon.style.color = 'white';
+                 if(!icon.closest('.bg-white') && !icon.closest('.bg-gray-50')) {
+                    icon.classList.add('!text-white');
+                    icon.style.color = 'white';
+                 }
             });
+             // Remove classes antigas dos controles para garantir visibilidade
+            const controls = widget.querySelector('.widget-controls');
+            if(controls) {
+                controls.className = "widget-controls absolute top-3 right-3 flex gap-2 z-20 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 dark:bg-black/60 backdrop-blur-sm rounded-lg p-1 shadow-sm";
+            }
         } else {
             const forcedElements = widget.querySelectorAll('.\\!text-white, .\\!opacity-90');
             forcedElements.forEach(el => el.classList.remove('!text-white', '!opacity-90'));
             
             widget.classList.add('bg-white', 'dark:bg-darkcard', 'border-gray-200', 'dark:border-darkborder', 'shadow-sm');
+            widget.classList.remove('widget-custom-dark');
         }
         
-        const controls = widget.querySelector('.widget-controls');
-        if(controls) {
-            controls.className = "widget-controls absolute top-3 right-3 flex gap-2 z-20 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 dark:bg-black/60 backdrop-blur-sm rounded-lg p-1 shadow-sm";
-            controls.querySelectorAll('button').forEach(btn => btn.className = "w-6 h-6 flex items-center justify-center text-gray-600 hover:text-indigo-600 transition");
+        // Re-injeta controles se necessário (segurança)
+        if (!widget.querySelector('.widget-controls')) {
+            injectWidgetControls();
         }
     });
 }
@@ -1122,6 +1140,9 @@ function refreshAllUI() {
     // Se estiver com uma nota aberta, não renderize a lista, apenas atualize o conteúdo se mudou na nuvem
     // (Lógica simplificada: renderNotes() cuida disso)
     if (window.renderNotes && currentViewContext === 'notas') window.renderNotes(false); 
+    
+    // Re-inject controls after refresh
+    injectWidgetControls();
 }
 
 async function saveData() {

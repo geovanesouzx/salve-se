@@ -64,10 +64,23 @@ let tasksData = JSON.parse(localStorage.getItem('salvese_tasks')) || [];
 let remindersData = JSON.parse(localStorage.getItem('salvese_reminders')) || [];
 let selectedClassIdToDelete = null;
 let currentTaskFilter = 'all'; 
+let chatHistory = []; 
 let currentViewContext = 'home'; 
 
-// Recupera histórico salvo ou inicia vazio
-let chatHistory = JSON.parse(localStorage.getItem('salvese_chat_history')) || [];
+// ============================================================
+// --- ÍCONES SVG ---
+// ============================================================
+const svgs = {
+    photo: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>`,
+    user: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`,
+    at: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-3.92 7.94"/></svg>`,
+    school: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>`,
+    lock: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`,
+    cloud: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19c0-3.037-2.463-5.5-5.5-5.5S6.5 15.963 6.5 19"/><path d="M12 13.5V4"/><path d="M7 9l5-5 5 5"/></svg>`,
+    logout: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>`,
+    chevron: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`,
+    ai: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 1 0 10 10H12V2z"/><path d="M12 2a10 10 0 0 1 10 10"/><path d="M12 12L2 12"/><path d="M12 12L12 22"/></svg>`
+};
 
 // ============================================================
 // --- SISTEMA DE BOOTSTRAP E AUTH ---
@@ -154,7 +167,6 @@ function showAppInterface() {
 
     updateUserInterfaceInfo();
     refreshAllUI();
-    renderChatHistory(); // Carrega o chat salvo
 
     if(loadingScreen && !loadingScreen.classList.contains('hidden')) {
         loadingScreen.classList.add('opacity-0');
@@ -201,7 +213,6 @@ window.switchPage = function(pageId, addToHistory = true) {
     const activeLink = document.getElementById(`nav-${pageId}`);
     if (activeLink) activeLink.classList.add('active');
 
-    // Atualiza menu mobile
     const mobileNavLinks = document.querySelectorAll('#mobile-menu nav a');
     mobileNavLinks.forEach(link => {
         link.classList.remove('bg-indigo-50', 'text-indigo-600', 'dark:bg-indigo-900/50', 'dark:text-indigo-300');
@@ -284,75 +295,59 @@ window.sendIAMessage = async function() {
     };
 
     try {
-        // Contexto Expandido para a IA - AGORA COM TODOS OS DETALHES
+        // Contexto Expandido para a IA
         const contextData = {
             telaAtual: currentViewContext,
             dataAtual: new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }),
-            tarefas: tasksData.map(t => ({ id: t.id, text: t.text, priority: t.priority, category: t.category, done: t.done })),
+            tarefas: tasksData.map(t => ({ id: t.id, text: t.text, done: t.done })),
             aulas: scheduleData.map(c => ({ id: c.id, name: c.name, day: c.day, start: c.start, room: c.room })),
-            lembretes: remindersData.map(r => ({ id: r.id, desc: r.desc, date: r.date, prio: r.prio }))
+            lembretes: remindersData.map(r => ({ id: r.id, desc: r.desc, date: r.date }))
         };
 
+        // Prompt de Sistema Avançado com Capacidade de "Ferramentas"
         let systemInstructionText = `
-Você é a "Salve-se IA", uma assistente pessoal e executiva do painel acadêmico UFRB.
-Seu tom é prestativo, inteligente e levemente descontraído.
+Você é a "Salve-se IA", assistente inteligente do painel UFRB.
+Seu objetivo é ajudar o estudante a gerenciar sua vida acadêmica.
+Use um tom amigável e proativo.
 
-DADOS ATUAIS DO SISTEMA:
+DADOS ATUAIS:
 - Data/Hora: ${contextData.dataAtual}
-- Tela do usuário: ${contextData.telaAtual}
-- Lista de Tarefas: ${JSON.stringify(contextData.tarefas)}
-- Grade de Aulas: ${JSON.stringify(contextData.aulas)}
+- Tela Atual: ${contextData.telaAtual}
+- Tarefas Atuais: ${JSON.stringify(contextData.tarefas)}
+- Aulas: ${JSON.stringify(contextData.aulas)}
 - Lembretes: ${JSON.stringify(contextData.lembretes)}
 
-INSTRUÇÕES DE FERRAMENTAS (TOOLS):
-Se o usuário solicitar QUALQUER alteração (criar, editar, apagar) ou navegação, você DEVE responder APENAS com um JSON válido.
-Se for apenas uma pergunta, responda com texto.
-
-FORMATO JSON OBRIGATÓRIO PARA AÇÕES:
+CAPACIDADES (TOOLS):
+Você pode realizar ações reais no sistema. Para isso, sua resposta deve ser **EXCLUSIVAMENTE** um JSON no formato abaixo (sem texto antes ou depois):
 {
   "action": "NOME_DA_ACAO",
   "params": { ... }
 }
 
 AÇÕES DISPONÍVEIS:
-1. "create_task" -> { "text": string, "priority": "normal|medium|high", "category": "geral|estudo|trabalho|pessoal" }
-2. "update_task" -> { "taskId": string, "updates": { "text"?: string, "priority"?: string, "category"?: string, "done"?: boolean } }
-   * Use o ID da tarefa da lista fornecida acima. Se o usuário disser "mude a tarefa de Química", encontre o ID correspondente.
-3. "delete_task" -> { "taskId": string }
-4. "create_reminder" -> { "desc": string, "date": "YYYY-MM-DD", "prio": "low|medium|high" }
-5. "update_reminder" -> { "reminderId": string, "updates": { "desc"?: string, "date"?: string, "prio"?: string } }
-6. "delete_reminder" -> { "reminderId": string }
-7. "create_class" -> { "name": string, "day": "seg|ter|qua|qui|sex|sab", "start": "HH:MM", "end": "HH:MM", "room": string, "prof": string }
-8. "delete_class" -> { "classId": string }
-9. "navigate" -> { "page": "home|aulas|todo|pomo|calc|onibus|config" }
+1. "create_task" -> params: { "text": "Descrição", "priority": "normal|medium|high", "category": "geral|estudo|trabalho" }
+2. "delete_task" -> params: { "taskId": "ID_DA_TAREFA" } (Use fuzzy search no nome se o usuário pedir por nome)
+3. "create_reminder" -> params: { "desc": "Descrição", "date": "YYYY-MM-DD", "prio": "low|medium|high" }
+4. "delete_reminder" -> params: { "reminderId": "ID_DO_LEMBRETE" }
+5. "create_class" -> params: { "name": "Matéria", "day": "seg|ter|qua|qui|sex|sab", "start": "HH:MM", "end": "HH:MM", "room": "Sala", "prof": "Professor" }
+6. "delete_class" -> params: { "classId": "ID_DA_AULA" }
+7. "navigate" -> params: { "page": "home|aulas|todo|pomo|calc|onibus" }
 
-REGRAS DE INTEGRAÇÃO:
-- Se o usuário pedir "Marque a tarefa de Física como feita", use "update_task" com "done": true.
-- Se o usuário pedir "Mude a prioridade da tarefa X para alta", use "update_task".
-- Para datas relativas ("amanhã", "próxima sexta"), calcule com base na Data/Hora atual fornecida.
-- Se não encontrar o item exato pelo nome, escolha o mais provável ou peça confirmação (em texto).
-`;
+Se o usuário pedir algo que exija uma ação, RESPONDA APENAS O JSON.
+Se for apenas uma conversa ou dúvida, responda com texto normal.
+        `;
 
         const contents = [];
-        // Recria histórico, mas mantendo o System Prompt fresco
         if (chatHistory.length > 0) {
             let expectingRole = 'user';
-            // Pegamos apenas as últimas 15 mensagens para economizar tokens e manter o contexto relevante
-            const recentHistory = chatHistory.slice(-15);
-            
-            for (const msg of recentHistory) {
-                // Filtra mensagens de sistema interno ou duplicadas
+            for (const msg of chatHistory) {
                 if (msg.role === expectingRole) {
                     contents.push({ role: msg.role === 'user' ? 'user' : 'model', parts: [{ text: msg.text }] });
                     expectingRole = expectingRole === 'user' ? 'model' : 'user';
                 }
             }
         }
-        
-        // Garante alternância correta para a API
         if (contents.length > 0 && contents[contents.length - 1].role === 'user') contents.pop(); 
-        
-        // Adiciona a mensagem atual
         contents.push({ role: "user", parts: [{ text: message }] });
 
         const data = await fetchWithRetry(GEMINI_API_URL, {
@@ -361,7 +356,7 @@ REGRAS DE INTEGRAÇÃO:
             body: JSON.stringify({
                 contents: contents,
                 systemInstruction: { parts: [{ text: systemInstructionText }] },
-                generationConfig: { temperature: 0.4, maxOutputTokens: 1000 }
+                generationConfig: { temperature: 0.4, maxOutputTokens: 800 }
             })
         });
         
@@ -370,21 +365,14 @@ REGRAS DE INTEGRAÇÃO:
 
         const aiResponseText = data.candidates[0].content.parts[0].text.trim();
 
-        // Lógica robusta para detectar JSON (às vezes a IA coloca markdown ```json ... ```)
-        let cleanResponse = aiResponseText;
-        if (cleanResponse.includes("```json")) {
-            cleanResponse = cleanResponse.split("```json")[1].split("```")[0].trim();
-        } else if (cleanResponse.includes("```")) {
-            cleanResponse = cleanResponse.split("```")[1].split("```")[0].trim();
-        }
-
-        if (cleanResponse.startsWith('{') && cleanResponse.endsWith('}')) {
+        // Verifica se é um comando JSON
+        if (aiResponseText.startsWith('{') && aiResponseText.endsWith('}')) {
             try {
-                const command = JSON.parse(cleanResponse);
+                const command = JSON.parse(aiResponseText);
                 await executeAICommand(command);
             } catch (e) {
                 console.error("Erro ao processar comando IA:", e);
-                appendMessage('ai', "Tentei fazer o que você pediu, mas me confundi nos dados. Pode reformular?");
+                appendMessage('ai', "Tentei realizar uma ação, mas me confundi nos dados. Pode repetir?");
             }
         } else {
             appendMessage('ai', aiResponseText);
@@ -393,7 +381,7 @@ REGRAS DE INTEGRAÇÃO:
     } catch (error) {
         console.error("Erro IA:", error);
         let msg = "Ops! Tive um problema técnico.";
-        if(error.message.includes("API key")) msg = "Chave de API inválida ou expirada.";
+        if(error.message.includes("API key")) msg = "Chave de API inválida.";
         appendMessage('ai', msg);
     } finally {
         if(typingIndicator) typingIndicator.classList.add('hidden');
@@ -404,7 +392,7 @@ REGRAS DE INTEGRAÇÃO:
     }
 };
 
-// Executa os comandos recebidos da IA
+// Função para executar os comandos da IA
 async function executeAICommand(cmd) {
     console.log("Executando comando IA:", cmd);
     const p = cmd.params;
@@ -421,28 +409,16 @@ async function executeAICommand(cmd) {
                 createdAt: Date.now()
             });
             saveData();
-            feedback = `✅ Tarefa criada: **${p.text}**`;
-            break;
-
-        case 'update_task':
-            const taskIndex = tasksData.findIndex(t => t.id === p.taskId);
-            if (taskIndex !== -1) {
-                tasksData[taskIndex] = { ...tasksData[taskIndex], ...p.updates };
-                saveData();
-                feedback = `✏️ Tarefa atualizada com sucesso.`;
-            } else {
-                feedback = "⚠️ Não encontrei essa tarefa para editar.";
-            }
+            feedback = `Adicionei a tarefa "${p.text}" para você! ✅`;
             break;
 
         case 'delete_task':
             if(p.taskId) {
-                const tName = tasksData.find(t => t.id === p.taskId)?.text || "Tarefa";
                 tasksData = tasksData.filter(t => t.id !== p.taskId);
                 saveData();
-                feedback = `🗑️ Tarefa **"${tName}"** removida.`;
+                feedback = "Tarefa removida.";
             } else {
-                feedback = "⚠️ Não identifiquei qual tarefa excluir.";
+                feedback = "Não encontrei o ID dessa tarefa.";
             }
             break;
 
@@ -455,24 +431,13 @@ async function executeAICommand(cmd) {
                 createdAt: Date.now()
             });
             saveData();
-            feedback = `📅 Lembrete **"${p.desc}"** criado para ${p.date}.`;
+            feedback = `Lembrete "${p.desc}" criado para ${p.date}. 📅`;
             break;
         
-        case 'update_reminder':
-            const remIndex = remindersData.findIndex(r => r.id === p.reminderId);
-            if (remIndex !== -1) {
-                remindersData[remIndex] = { ...remindersData[remIndex], ...p.updates };
-                saveData();
-                feedback = `📝 Lembrete atualizado.`;
-            } else {
-                feedback = "⚠️ Lembrete não encontrado.";
-            }
-            break;
-
         case 'delete_reminder':
             remindersData = remindersData.filter(r => r.id !== p.reminderId);
             saveData();
-            feedback = "🗑️ Lembrete removido.";
+            feedback = "Lembrete removido.";
             break;
 
         case 'create_class':
@@ -487,22 +452,22 @@ async function executeAICommand(cmd) {
                 color: 'indigo'
             });
             saveData();
-            feedback = `🎓 Aula de **${p.name}** adicionada à grade!`;
+            feedback = `Aula de ${p.name} adicionada na grade! 🎓`;
             break;
 
         case 'delete_class':
             scheduleData = scheduleData.filter(c => c.id !== p.classId);
             saveData();
-            feedback = "🗑️ Aula removida da grade.";
+            feedback = "Aula removida da grade.";
             break;
 
         case 'navigate':
             switchPage(p.page);
-            feedback = `🚀 Navegando para **${p.page}**...`;
+            feedback = `Navegando para ${p.page}... 🚀`;
             break;
 
         default:
-            feedback = "🤔 Não entendi exatamente qual ação executar.";
+            feedback = "Não entendi qual ação executar.";
     }
 
     appendMessage('ai', feedback);
@@ -512,102 +477,37 @@ function appendMessage(sender, text) {
     const container = document.getElementById('chat-messages-container');
     if (!container) return;
 
-    // Salva no histórico e persiste no LocalStorage
     chatHistory.push({ role: sender, text: text });
-    // Mantém histórico limpo (últimas 30 msgs)
-    if (chatHistory.length > 30) chatHistory.shift();
-    localStorage.setItem('salvese_chat_history', JSON.stringify(chatHistory));
+    if (chatHistory.length > 20) chatHistory.shift();
 
     const div = document.createElement('div');
     div.className = `flex w-full ${sender === 'user' ? 'justify-end' : 'justify-start'} mb-4 animate-scale-in`;
-    
-    // Processamento básico de texto
-    let formattedText = text.replace(/\n/g, '<br>');
-    formattedText = formattedText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>'); // Negrito
-    formattedText = formattedText.replace(/\*(.*?)\*/g, '<em>$1</em>'); // Itálico
+    const formattedText = text.replace(/\n/g, '<br>');
 
     if (sender === 'user') {
         div.innerHTML = `
-            <div class="flex flex-col items-end max-w-[80%]">
-                <div class="bg-indigo-600 text-white rounded-2xl rounded-tr-none px-5 py-3 shadow-md text-sm leading-relaxed">
-                    ${formattedText}
-                </div>
+            <div class="max-w-[80%] bg-indigo-600 text-white rounded-2xl rounded-tr-none px-4 py-3 shadow-md">
+                <p class="text-sm leading-relaxed">${formattedText}</p>
             </div>
         `;
     } else {
+        const mdText = formattedText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
         div.innerHTML = `
-            <div class="flex gap-3 max-w-[90%]">
+            <div class="flex gap-2 max-w-[90%]">
                 <div class="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center flex-shrink-0 text-white text-xs shadow-sm mt-1">
                     <i class="fas fa-robot"></i>
                 </div>
-                <div class="flex flex-col">
-                    <div class="bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder text-gray-800 dark:text-gray-200 rounded-2xl rounded-tl-none px-5 py-4 shadow-sm text-sm leading-relaxed">
-                        ${formattedText}
-                    </div>
+                <div class="bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder text-gray-800 dark:text-gray-200 rounded-2xl rounded-tl-none px-4 py-3 shadow-sm">
+                    <p class="text-sm leading-relaxed">${mdText}</p>
                 </div>
             </div>
         `;
     }
     container.appendChild(div);
-    container.scrollTop = container.scrollHeight;
-}
-
-// Renderiza o histórico salvo ao carregar a página
-function renderChatHistory() {
-    const container = document.getElementById('chat-messages-container');
-    if(!container) return;
-    
-    // Limpa mensagens atuais (menos o welcome inicial se houver, mas melhor limpar tudo e reconstruir)
-    // Vamos manter o welcome hardcoded no HTML apenas se o histórico estiver vazio
-    if (chatHistory.length > 0) {
-        container.innerHTML = ''; // Limpa welcome padrão
-        chatHistory.forEach(msg => {
-            // Função simplificada de append visual sem salvar de novo no array
-            const div = document.createElement('div');
-            div.className = `flex w-full ${msg.role === 'user' ? 'justify-end' : 'justify-start'} mb-4`;
-            let ft = msg.text.replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-            
-            if (msg.role === 'user') {
-                div.innerHTML = `<div class="flex flex-col items-end max-w-[80%]"><div class="bg-indigo-600 text-white rounded-2xl rounded-tr-none px-5 py-3 shadow-md text-sm leading-relaxed">${ft}</div></div>`;
-            } else {
-                div.innerHTML = `<div class="flex gap-3 max-w-[90%]"><div class="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center flex-shrink-0 text-white text-xs shadow-sm mt-1"><i class="fas fa-robot"></i></div><div class="bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder text-gray-800 dark:text-gray-200 rounded-2xl rounded-tl-none px-5 py-4 shadow-sm text-sm leading-relaxed">${ft}</div></div>`;
-            }
-            container.appendChild(div);
-        });
-        container.scrollTop = container.scrollHeight;
-    }
-}
-
-window.startNewChat = function() {
-    // Limpa histórico
-    chatHistory = [];
-    localStorage.removeItem('salvese_chat_history');
-    
-    const container = document.getElementById('chat-messages-container');
-    if(container) {
-        container.innerHTML = `
-            <div class="flex gap-2 max-w-[90%] animate-fade-in-up">
-                <div class="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center flex-shrink-0 text-white text-xs shadow-sm mt-1">
-                    <i class="fas fa-robot"></i>
-                </div>
-                <div class="bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder text-gray-800 dark:text-gray-200 rounded-2xl rounded-tl-none px-4 py-3 shadow-sm">
-                    <p class="text-sm leading-relaxed">Conversa reiniciada! O que vamos organizar agora?</p>
-                </div>
-            </div>
-        `;
-    }
-    
-    // Feedback visual
-    const btn = document.getElementById('btn-new-chat');
-    if(btn) {
-        const original = btn.innerHTML;
-        btn.innerHTML = '<i class="fas fa-check"></i> Limpo';
-        setTimeout(() => btn.innerHTML = original, 1500);
-    }
 }
 
 // ============================================================
-// --- FUNÇÕES DE USUÁRIO & DADOS (Mantidas e integradas) ---
+// --- FUNÇÕES DE USUÁRIO & DADOS ---
 // ============================================================
 
 window.loginWithGoogle = async () => {
@@ -998,6 +898,7 @@ window.changePhoto = function() {
         formData.append('image', file);
 
         try {
+            // Nota: Client-ID exposto, idealmente use um proxy backend
             const response = await fetch('https://api.imgur.com/3/image', {
                 method: 'POST',
                 headers: { 'Authorization': 'Client-ID 513bb727cecf9ac' },
@@ -1152,10 +1053,6 @@ window.renderSettings = function() {
         </div>
     `;
 }
-
-// ... (funções de tarefas, grade, lembretes, onibus, calculadora, pomodoro, outros e tema mantidas iguais) ...
-// Adicione as demais funções do script.js original aqui para que o código fique completo no arquivo.
-// Como o arquivo ficou grande, vou resumir colando as partes finais essenciais para manter o arquivo funcional.
 
 // ============================================================
 // --- FUNCIONALIDADE: TAREFAS (TODO LIST) ---
@@ -1347,10 +1244,6 @@ window.updateDashboardTasksWidget = function() {
     }
 };
 
-// ... (Demais códigos de Grade Horária, Lembretes, Ônibus, Calculadora, Pomodoro e Tema copiados do original para manter funcionalidade) ...
-// Para economizar espaço e garantir que funcione, mantenha o restante do código anterior.
-// Se precisar do código completo, posso reenviar tudo, mas o foco foi a atualização da IA.
-
 // ============================================================
 // --- FUNCIONALIDADE: GRADE HORÁRIA ---
 // ============================================================
@@ -1528,23 +1421,6 @@ window.renderSchedule = function () {
 
     viewContainer.appendChild(wrapper);
 };
-
-// (Restante das funções de Modal, ColorPicker, UpdateWidget, Timer, Templates, Tema e PWA mantidas do arquivo original...)
-// [Código repetitivo omitido para brevidade, mas essencial para o funcionamento completo]
-// Certifique-se de manter as funções:
-// openAddClassModal, openEditClassModal, saveClass, deleteClass logic
-// resetModalFields, updateEndTime, toggleModal, renderColorPicker
-// updateNextClassWidget
-// toggleRemindersModal, showReminderForm, hideReminderForm, addReminder, deleteReminder, renderReminders
-// createTrip, renderBusTable, updateNextBus
-// addGradeRow, calculateAverage, resetCalc
-// toggleTimer, resetTimer, setTimerMode, updateTimerDisplay
-// loadTemplate, copyEmail, openPortal
-// colorPalettes, initTheme, toggleTheme, toggleColorMenu, setThemeColor, updateColorVars
-// clock logic, PWA logic, DOMContentLoaded, popstate listener.
-
-// --- FINALIZE COM AS FUNÇÕES RESTANTES COPIADAS DO SCRIPT ANTERIOR ---
-// Vou recolocar as funções finais para garantir integridade no copy-paste.
 
 window.openAddClassModal = function (day, startHourStr) {
     resetModalFields();
@@ -1806,6 +1682,10 @@ window.updateNextClassWidget = function() {
     }
 }
 
+// ============================================================
+// --- FUNCIONALIDADE: LEMBRETES ---
+// ============================================================
+
 window.toggleRemindersModal = function() {
     const modal = document.getElementById('reminders-modal');
     const content = modal ? modal.firstElementChild : null;
@@ -1916,10 +1796,9 @@ window.renderReminders = function() {
     }
 }
 
-// (Continuando com ônibus, calculadora, etc. - mantendo o restante do código padrão)
-// ... [Restante das funções inalteradas para brevidade, mas assumidas como presentes] ...
-// Se o usuário copiar, certifique-se de que as funções auxiliares como createTrip, renderBusTable, etc. estejam lá.
-// Para garantir que o código funcione, vou incluir as funções essenciais que faltam.
+// ============================================================
+// --- FUNCIONALIDADE: ONIBUS E ROTAS ---
+// ============================================================
 
 function addTime(baseTime, minutesToAdd) { 
     const [h, m] = baseTime.split(':').map(Number); 
@@ -2014,6 +1893,10 @@ function updateNextBus() {
     }
 }
 
+// ============================================================
+// --- FUNCIONALIDADE: CALCULADORA ---
+// ============================================================
+
 window.addGradeRow = function() {
     const container = document.getElementById('grades-container');
     if (!container) return;
@@ -2098,6 +1981,10 @@ window.resetCalc = function() {
     calculateAverage();
 }
 
+// ============================================================
+// --- FUNCIONALIDADE: POMODORO ---
+// ============================================================
+
 let timerInterval1, timeLeft1 = 25 * 60, isRunning1 = false, currentMode1 = 'pomodoro';
 const modes1 = { 'pomodoro': 25 * 60, 'short': 5 * 60, 'long': 15 * 60 };
 
@@ -2142,6 +2029,10 @@ window.setTimerMode = function(m) {
     resetTimer();
 }
 
+// ============================================================
+// --- FUNCIONALIDADE: OUTROS ---
+// ============================================================
+
 const templates = {
     deadline: `Prezado(a) Prof(a). [Nome],\n\nSolicito respeitosamente uma extensão no prazo do trabalho [Nome], originalmente para [Data]. Tive um imprevisto [Motivo] e preciso de mais tempo para entregar com qualidade.\n\nAtenciosamente,\n[Seu Nome]`,
     review: `Prezado(a) Prof(a). [Nome],\n\nGostaria de solicitar a revisão da minha prova de [Matéria]. Fiquei com dúvida na questão [X].\n\nAtenciosamente,\n[Seu Nome]`,
@@ -2153,6 +2044,192 @@ window.loadTemplate = function(k) { document.getElementById('email-content').val
 window.copyEmail = function() { const e = document.getElementById('email-content'); e.select(); document.execCommand('copy'); }
 window.openPortal = function() { window.open('https://sistemas.ufrb.edu.br/sigaa/verTelaLogin.do', '_blank'); }
 
+// ============================================================
+// --- TEMA E CORES ---
+// ============================================================
+
+const colorPalettes = {
+    cyan: { 50: '236 254 255', 100: '207 250 254', 200: '165 243 252', 300: '103 232 249', 400: '34 211 238', 500: '6 182 212', 600: '8 145 178', 700: '14 116 144', 800: '21 94 117', 900: '22 78 99' },
+    red: { 50: '254 242 242', 100: '254 226 226', 200: '254 202 202', 300: '252 165 165', 400: '248 113 113', 500: '239 68 68', 600: '220 38 38', 700: '185 28 28', 800: '153 27 27', 900: '127 29 29' },
+    green: { 50: '240 253 244', 100: '220 252 231', 200: '187 247 208', 300: '134 239 172', 400: '74 222 128', 500: '34 197 94', 600: '22 163 74', 700: '21 128 61', 800: '22 101 52', 900: '20 83 45' },
+    yellow: { 50: '254 252 232', 100: '254 249 195', 200: '254 240 138', 300: '253 224 71', 400: '250 204 21', 500: '234 179 8', 600: '202 138 4', 700: '161 98 7', 800: '133 77 14', 900: '113 63 18' },
+    purple: { 50: '250 245 255', 100: '243 232 255', 200: '233 213 255', 300: '216 180 254', 400: '192 132 252', 500: '168 85 247', 600: '147 51 234', 700: '126 34 206', 800: '107 33 168', 900: '88 28 135' },
+    pink: { 50: '253 242 248', 100: '252 231 243', 200: '251 204 231', 300: '249 168 212', 400: '244 114 182', 500: '236 72 153', 600: '219 39 119', 700: '190 24 93', 800: '157 23 77', 900: '131 24 67' },
+    orange: { 50: '255 247 237', 100: '255 237 213', 200: '254 215 170', 300: '253 186 116', 400: '251 146 60', 500: '249 115 22', 600: '234 88 12', 700: '194 65 12', 800: '154 52 18', 900: '124 45 18' },
+    indigo: { 50: '238 242 255', 100: '224 231 255', 200: '199 210 254', 300: '165 180 252', 400: '129 140 248', 500: '99 102 241', 600: '79 70 229', 700: '67 56 202', 800: '55 48 163', 900: '49 46 129' },
+    teal: { 50: '240 253 250', 100: '204 251 241', 200: '153 246 228', 300: '94 234 212', 400: '45 212 191', 500: '20 184 166', 600: '13 148 136', 700: '15 118 110', 800: '17 94 89', 900: '19 78 74' },
+    rose: { 50: '255 241 242', 100: '255 228 230', 200: '254 205 211', 300: '253 164 175', 400: '251 113 133', 500: '244 63 94', 600: '225 29 72', 700: '190 18 60', 800: '159 18 57', 900: '136 19 55' },
+    lime: { 50: '247 254 231', 100: '236 252 203', 200: '217 249 157', 300: '190 242 100', 400: '163 230 53', 500: '132 204 22', 600: '101 163 13', 700: '77 124 15', 800: '63 98 18', 900: '54 83 20' },
+    violet: { 50: '245 243 255', 100: '237 233 254', 200: '221 214 254', 300: '196 181 253', 400: '167 139 250', 500: '139 92 246', 600: '124 58 237', 700: '109 40 217', 800: '91 33 182', 900: '76 29 149' },
+    black: { 50: '250 250 250', 100: '244 244 245', 200: '228 228 231', 300: '212 212 216', 400: '161 161 170', 500: '113 113 122', 600: '82 82 91', 700: '63 63 70', 800: '39 39 42', 900: '24 24 27' }
+};
+
+function initTheme() {
+    if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.documentElement.classList.add('dark');
+    } else {
+        document.documentElement.classList.remove('dark');
+    }
+    const savedColor = localStorage.getItem('salvese_color');
+    if (savedColor) updateColorVars(JSON.parse(savedColor));
+}
+initTheme();
+
+window.toggleTheme = function() {
+    if (document.documentElement.classList.contains('dark')) {
+        document.documentElement.classList.remove('dark');
+        localStorage.setItem('theme', 'light');
+    } else {
+        document.documentElement.classList.add('dark');
+        localStorage.setItem('theme', 'dark');
+    }
+}
+
+window.toggleColorMenu = function(device) {
+    const menu = document.getElementById(`color-menu-${device}`);
+    if (!menu) return;
+    const isHidden = menu.classList.contains('hidden');
+    document.querySelectorAll('.color-menu').forEach(m => m.classList.add('hidden'));
+    if (isHidden) {
+        menu.innerHTML = '';
+        Object.keys(colorPalettes).forEach(color => {
+            const btn = document.createElement('button');
+            const rgb = colorPalettes[color][500];
+            btn.className = `w-6 h-6 rounded-full border border-gray-200 dark:border-gray-700 hover:scale-110 transition transform focus:outline-none ring-2 ring-transparent focus:ring-offset-1 focus:ring-gray-400`;
+            btn.style.backgroundColor = `rgb(${rgb})`;
+            btn.title = color.charAt(0).toUpperCase() + color.slice(1);
+            btn.onclick = () => setThemeColor(color);
+            menu.appendChild(btn);
+        });
+        menu.classList.remove('hidden');
+        menu.classList.add('visible');
+    }
+}
+
+function setThemeColor(colorName) {
+    const palette = colorPalettes[colorName];
+    if (!palette) return;
+    
+    const iconColor = colorName === 'black' ? `rgb(${palette[900]})` : `rgb(${palette[600]})`;
+    
+    document.querySelectorAll('#desktop-palette-icon, #mobile-palette-icon').forEach(icon => {
+        icon.classList.remove('text-indigo-600');
+        icon.style.color = iconColor;
+        if (colorName === 'black' && document.documentElement.classList.contains('dark')) {
+             icon.style.color = '#ffffff';
+        }
+    });
+
+    updateColorVars(palette);
+    localStorage.setItem('salvese_color', JSON.stringify(palette));
+    document.querySelectorAll('.color-menu').forEach(m => m.classList.add('hidden'));
+}
+
+function updateColorVars(palette) {
+    const root = document.documentElement;
+    Object.keys(palette).forEach(shade => {
+        root.style.setProperty(`--theme-${shade}`, palette[shade]);
+    });
+}
+
+document.addEventListener('click', (e) => {
+    if (!e.target.closest('button[onclick^="toggleColorMenu"]') && !e.target.closest('.color-menu')) {
+        document.querySelectorAll('.color-menu').forEach(m => m.classList.add('hidden'));
+    }
+});
+
+let clockMode = 0;
+window.cycleClockMode = function() { clockMode = (clockMode + 1) % 4; updateClock(); }
+function updateClock() {
+    const now = new Date();
+    let timeString = "";
+    if (clockMode === 0) timeString = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    else if (clockMode === 1) timeString = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    else if (clockMode === 2) timeString = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', hour12: true });
+    else {
+        const date = now.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+        const time = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        timeString = `${date} • ${time}`;
+    }
+    
+    const clockEls = document.querySelectorAll('#clock');
+    clockEls.forEach(el => el.innerText = timeString);
+}
+setInterval(updateClock, 1000); updateClock();
+
+// ============================================================
+// --- PWA E INICIALIZAÇÃO ---
+// ============================================================
+
+const manifest = {
+    "name": "Salve-se UFRB",
+    "short_name": "Salve-se",
+    "start_url": ".",
+    "display": "standalone",
+    "background_color": "#09090b",
+    "theme_color": "#4f46e5",
+    "icons": [
+        { "src": "https://files.catbox.moe/pmdtq6.png", "sizes": "192x192", "type": "image/png" },
+        { "src": "https://files.catbox.moe/pmdtq6.png", "sizes": "512x512", "type": "image/png" }
+    ]
+};
+const stringManifest = JSON.stringify(manifest);
+const blobManifest = new Blob([stringManifest], { type: 'application/json' });
+const manifestURL = URL.createObjectURL(blobManifest);
+const pwaManifestLink = document.querySelector('#pwa-manifest');
+if (pwaManifestLink) {
+    pwaManifestLink.setAttribute('href', manifestURL);
+}
+
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+            .then(reg => {
+                reg.update();
+            })
+            .catch(err => console.log('SW falhou:', err));
+    });
+
+    let deferredPrompt;
+    window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        const installBtn = document.getElementById('btn-install-pwa');
+        if (installBtn) {
+            installBtn.classList.remove('hidden');
+            installBtn.addEventListener('click', () => {
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.then((choiceResult) => {
+                    deferredPrompt = null;
+                    installBtn.classList.add('hidden');
+                });
+            });
+        }
+    });
+
+    function updateNetworkStatus() {
+        const toast = document.getElementById('network-toast');
+        const text = document.getElementById('network-text');
+        const icon = toast ? toast.querySelector('i') : null;
+
+        if (toast && text && icon) {
+            if (navigator.onLine) {
+                toast.className = 'network-status online show';
+                text.innerText = 'Online';
+                icon.className = 'fas fa-wifi';
+                setTimeout(() => toast.classList.remove('show'), 3000);
+                if(currentUser) refreshAllUI(); 
+            } else {
+                toast.className = 'network-status offline show';
+                text.innerText = 'Offline';
+                icon.className = 'fas fa-wifi-slash';
+            }
+        }
+    }
+    window.addEventListener('online', updateNetworkStatus);
+    window.addEventListener('offline', updateNetworkStatus);
+}
+
 // Inicialização DOM
 document.addEventListener('DOMContentLoaded', () => {
     window.renderTasks();
@@ -2163,6 +2240,7 @@ document.addEventListener('DOMContentLoaded', () => {
     updateNextBus(); 
     setInterval(updateNextBus, 1000);
     
+    // Auto-select Home on sidebar
     const activeMobileLink = document.querySelector(`#mobile-menu nav a[onclick*="'home'"]`);
     if(activeMobileLink) {
          activeMobileLink.classList.add('bg-indigo-50', 'text-indigo-600', 'dark:bg-indigo-900/50', 'dark:text-indigo-300');

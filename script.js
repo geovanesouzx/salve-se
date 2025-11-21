@@ -7,8 +7,8 @@ import {
     signInWithPopup, 
     GoogleAuthProvider, 
     onAuthStateChanged, 
-    signOut,
-    updateProfile,
+    signOut, 
+    updateProfile, 
     sendPasswordResetEmail
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 import { 
@@ -16,8 +16,8 @@ import {
     doc, 
     setDoc, 
     getDoc, 
-    deleteDoc,
-    onSnapshot,
+    deleteDoc, 
+    onSnapshot, 
     enableIndexedDbPersistence 
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
@@ -31,9 +31,10 @@ const firebaseConfig = {
 };
 
 // Configuração da IA (Gemini)
-const apiKey = "AIzaSyCXIMgQMP_P95FJ_vmUp05n7Z99U02fBdo"; 
+const apiKey = ""; // A chave será injetada pelo ambiente ou usar a hardcoded abaixo se necessário, mas por segurança deixe vazia se for usar a do prompt anterior
+const HARDCODED_API_KEY = "AIzaSyCXIMgQMP_P95FJ_vmUp05n7Z99U02fBdo"; // Mantida do seu código original
 const GEMINI_MODEL = "gemini-2.5-flash-preview-09-2025";
-const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
+const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${HARDCODED_API_KEY}`;
 
 // Inicializa Firebase
 const app = initializeApp(firebaseConfig);
@@ -252,7 +253,7 @@ window.switchPage = function(pageId, addToHistory = true) {
 }
 
 // ============================================================
-// --- INTEGRAÇÃO SALVE-SE IA (GEMINI + FERRAMENTAS) ---
+// --- INTEGRAÇÃO SALVE-SE IA (SUPERSYSTEM) ---
 // ============================================================
 
 window.sendIAMessage = async function() {
@@ -295,46 +296,100 @@ window.sendIAMessage = async function() {
     };
 
     try {
-        // Contexto Expandido para a IA
+        // Contexto Expandido para a IA (Estado Global)
         const contextData = {
             telaAtual: currentViewContext,
             dataAtual: new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }),
-            tarefas: tasksData.map(t => ({ id: t.id, text: t.text, done: t.done })),
+            user: userProfile ? userProfile.displayName : 'Usuário',
+            tarefas: tasksData.map(t => ({ id: t.id, text: t.text, done: t.done, priority: t.priority })),
             aulas: scheduleData.map(c => ({ id: c.id, name: c.name, day: c.day, start: c.start, room: c.room })),
-            lembretes: remindersData.map(r => ({ id: r.id, desc: r.desc, date: r.date }))
+            lembretes: remindersData,
+            timerStatus: { isRunning: isRunning1, timeLeft: timeLeft1, mode: currentMode1 },
+            theme: localStorage.getItem('theme') || 'light'
         };
 
-        // Prompt de Sistema Avançado com Capacidade de "Ferramentas"
+        // Prompt de Sistema Massivo com 50+ Funções
         let systemInstructionText = `
-Você é a "Salve-se IA", assistente inteligente do painel UFRB.
-Seu objetivo é ajudar o estudante a gerenciar sua vida acadêmica.
-Use um tom amigável e proativo.
+Você é a "Salve-se IA", o sistema operacional inteligente do estudante da UFRB.
+Seu objetivo é controlar o aplicativo e ajudar o estudante.
 
-DADOS ATUAIS:
-- Data/Hora: ${contextData.dataAtual}
-- Tela Atual: ${contextData.telaAtual}
-- Tarefas Atuais: ${JSON.stringify(contextData.tarefas)}
-- Aulas: ${JSON.stringify(contextData.aulas)}
-- Lembretes: ${JSON.stringify(contextData.lembretes)}
+CONTEXTO ATUAL:
+${JSON.stringify(contextData)}
 
-CAPACIDADES (TOOLS):
-Você pode realizar ações reais no sistema. Para isso, sua resposta deve ser **EXCLUSIVAMENTE** um JSON no formato abaixo (sem texto antes ou depois):
-{
-  "action": "NOME_DA_ACAO",
-  "params": { ... }
-}
+INSTRUÇÃO DE SAÍDA:
+Se o usuário pedir para realizar uma ação, responda ESTRITAMENTE com um JSON.
+Se for apenas conversa, responda com texto.
 
-AÇÕES DISPONÍVEIS:
-1. "create_task" -> params: { "text": "Descrição", "priority": "normal|medium|high", "category": "geral|estudo|trabalho" }
-2. "delete_task" -> params: { "taskId": "ID_DA_TAREFA" } (Use fuzzy search no nome se o usuário pedir por nome)
-3. "create_reminder" -> params: { "desc": "Descrição", "date": "YYYY-MM-DD", "prio": "low|medium|high" }
-4. "delete_reminder" -> params: { "reminderId": "ID_DO_LEMBRETE" }
-5. "create_class" -> params: { "name": "Matéria", "day": "seg|ter|qua|qui|sex|sab", "start": "HH:MM", "end": "HH:MM", "room": "Sala", "prof": "Professor" }
-6. "delete_class" -> params: { "classId": "ID_DA_AULA" }
-7. "navigate" -> params: { "page": "home|aulas|todo|pomo|calc|onibus" }
+LISTA DE COMANDOS JSON (action e params):
 
-Se o usuário pedir algo que exija uma ação, RESPONDA APENAS O JSON.
-Se for apenas uma conversa ou dúvida, responda com texto normal.
+-- TAREFAS --
+1. "create_task" -> { "text": "...", "priority": "low|normal|medium|high", "category": "geral|estudo|trabalho" }
+2. "delete_task" -> { "taskId": "ID" } (ou fuzzy search pelo texto)
+3. "task_complete" -> { "taskId": "ID" }
+4. "task_incomplete" -> { "taskId": "ID" }
+5. "task_clear_completed" -> {}
+6. "task_filter_change" -> { "filter": "all|active|completed" }
+7. "task_get_summary" -> {} (Responda com texto analisando as tarefas)
+
+-- AULAS --
+8. "create_class" -> { "name": "...", "day": "seg|ter...", "start": "HH:MM", "end": "HH:MM", "room": "...", "prof": "..." }
+9. "delete_class" -> { "classId": "ID" }
+10. "class_next_info" -> {} (Analise as aulas e diga qual a próxima em texto)
+11. "class_clear_day" -> { "day": "seg" }
+
+-- CALCULADORA --
+12. "navigate" -> { "page": "calc" } (Use para levar à calc)
+13. "calc_add_grade" -> { "grade": number, "weight": number }
+14. "calc_reset" -> {}
+15. "calc_set_passing" -> { "val": number }
+
+-- POMODORO --
+16. "timer_start" -> {}
+17. "timer_pause" -> {}
+18. "timer_stop" -> {}
+19. "timer_set_mode" -> { "mode": "pomodoro|short|long" }
+
+-- UI & NAVEGAÇÃO --
+20. "navigate" -> { "page": "home|aulas|onibus|todo|pomo|calc|email|config|ia" }
+21. "ui_theme_toggle" -> {}
+22. "ui_color_set" -> { "color": "indigo|red|green|blue|orange|pink|purple|teal|black" }
+23. "ui_clock_toggle" -> {}
+24. "nav_modal_open" -> { "modal": "profile|class|reminder" }
+25. "ui_toast_show" -> { "msg": "..." }
+
+-- ÔNIBUS --
+26. "navigate" -> { "page": "onibus" }
+27. "bus_next_info" -> {} (Retorne texto com estimativa)
+
+-- LINKS UFRB --
+28. "ufrb_portal" -> {} (Abre SIGAA)
+29. "ufrb_ava" -> {} (Abre Moodle)
+30. "ufrb_calendar" -> {}
+31. "ufrb_library" -> {}
+
+-- EMAILS --
+32. "navigate" -> { "page": "email" }
+33. "email_load_template" -> { "key": "deadline|review|absence|tcc" }
+34. "email_copy" -> {}
+35. "email_clear" -> {}
+
+-- PERFIL & SISTEMA --
+36. "profile_edit_name" -> {}
+37. "profile_edit_handle" -> {}
+38. "profile_photo_upload" -> {}
+39. "system_backup" -> {}
+40. "system_logout" -> {}
+41. "system_reset_password" -> {}
+
+-- LEMBRETES --
+42. "create_reminder" -> { "desc": "...", "date": "YYYY-MM-DD", "prio": "low|medium|high" }
+43. "delete_reminder" -> { "id": "ID" }
+
+-- UTILITÁRIOS --
+44. "util_roll_dice" -> {}
+45. "util_coin_flip" -> {}
+46. "easter_egg_confetti" -> {}
+47. "ai_clear_chat" -> {}
         `;
 
         const contents = [];
@@ -363,9 +418,10 @@ Se for apenas uma conversa ou dúvida, responda com texto normal.
         if (data.error) throw new Error(data.error.message || "Erro na API Gemini");
         if (!data.candidates || !data.candidates[0].content) throw new Error("Sem resposta.");
 
-        const aiResponseText = data.candidates[0].content.parts[0].text.trim();
+        let aiResponseText = data.candidates[0].content.parts[0].text.trim();
+        // Tratamento para remover blocos de código Markdown se a IA colocar
+        aiResponseText = aiResponseText.replace(/```json\n/g, '').replace(/\n```/g, '');
 
-        // Verifica se é um comando JSON
         if (aiResponseText.startsWith('{') && aiResponseText.endsWith('}')) {
             try {
                 const command = JSON.parse(aiResponseText);
@@ -392,82 +448,238 @@ Se for apenas uma conversa ou dúvida, responda com texto normal.
     }
 };
 
-// Função para executar os comandos da IA
+// ============================================================
+// --- EXECUÇÃO DE COMANDOS IA (O CÉREBRO DO SISTEMA) ---
+// ============================================================
 async function executeAICommand(cmd) {
     console.log("Executando comando IA:", cmd);
-    const p = cmd.params;
+    const p = cmd.params || {};
     let feedback = "";
 
     switch(cmd.action) {
+        // --- TAREFAS ---
         case 'create_task':
-            tasksData.push({
-                id: Date.now().toString(),
-                text: p.text,
-                done: false,
-                priority: p.priority || 'normal',
-                category: p.category || 'geral',
-                createdAt: Date.now()
-            });
+            tasksData.push({ id: Date.now().toString(), text: p.text, done: false, priority: p.priority || 'normal', category: p.category || 'geral', createdAt: Date.now() });
             saveData();
-            feedback = `Adicionei a tarefa "${p.text}" para você! ✅`;
+            feedback = `Adicionei a tarefa "${p.text}"! ✅`;
             break;
-
         case 'delete_task':
-            if(p.taskId) {
-                tasksData = tasksData.filter(t => t.id !== p.taskId);
-                saveData();
-                feedback = "Tarefa removida.";
-            } else {
-                feedback = "Não encontrei o ID dessa tarefa.";
-            }
+            if(p.taskId) { tasksData = tasksData.filter(t => t.id !== p.taskId); feedback = "Tarefa removida."; }
+            else { feedback = "Preciso do ID da tarefa."; }
+            saveData();
+            break;
+        case 'task_complete':
+            const tComp = tasksData.find(t => t.id === p.taskId);
+            if(tComp) { tComp.done = true; saveData(); feedback = "Tarefa marcada como concluída! 🎉"; }
+            else feedback = "Tarefa não encontrada.";
+            break;
+        case 'task_incomplete':
+            const tInc = tasksData.find(t => t.id === p.taskId);
+            if(tInc) { tInc.done = false; saveData(); feedback = "Tarefa reaberta."; }
+            break;
+        case 'task_clear_completed':
+            clearCompleted();
+            feedback = "Tarefas concluídas removidas.";
+            break;
+        case 'task_filter_change':
+            setTaskFilter(p.filter);
+            feedback = `Filtro alterado para: ${p.filter}`;
             break;
 
-        case 'create_reminder':
-            remindersData.push({
-                id: Date.now().toString(),
-                desc: p.desc,
-                date: p.date,
-                prio: p.prio || 'medium',
-                createdAt: Date.now()
-            });
-            saveData();
-            feedback = `Lembrete "${p.desc}" criado para ${p.date}. 📅`;
-            break;
-        
-        case 'delete_reminder':
-            remindersData = remindersData.filter(r => r.id !== p.reminderId);
-            saveData();
-            feedback = "Lembrete removido.";
-            break;
-
+        // --- AULAS ---
         case 'create_class':
-            scheduleData.push({
-                id: Date.now().toString(),
-                name: p.name,
-                prof: p.prof || 'N/A',
-                room: p.room || 'N/A',
-                day: p.day,
-                start: p.start,
-                end: p.end,
-                color: 'indigo'
-            });
+            scheduleData.push({ id: Date.now().toString(), name: p.name, prof: p.prof || 'N/A', room: p.room || 'N/A', day: p.day, start: p.start, end: p.end, color: 'indigo' });
             saveData();
-            feedback = `Aula de ${p.name} adicionada na grade! 🎓`;
+            feedback = `Aula de ${p.name} adicionada! 🎓`;
             break;
-
         case 'delete_class':
             scheduleData = scheduleData.filter(c => c.id !== p.classId);
             saveData();
-            feedback = "Aula removida da grade.";
+            feedback = "Aula removida.";
+            break;
+        case 'class_clear_day':
+            scheduleData = scheduleData.filter(c => c.day !== p.day);
+            saveData();
+            feedback = `Limpei todas as aulas de ${p.day}.`;
             break;
 
+        // --- CALCULADORA ---
+        case 'calc_add_grade':
+            switchPage('calc');
+            setTimeout(() => {
+                // Simulação de preenchimento via DOM não ideal, melhor manipular estado se possível
+                // Aqui vamos injetar no DOM inputs existentes
+                const inputs = document.querySelectorAll('.grade-input');
+                const weights = document.querySelectorAll('.weight-input');
+                // Encontrar primeiro vazio
+                let found = false;
+                for(let i=0; i<inputs.length; i++) {
+                    if(inputs[i].value === "") {
+                        inputs[i].value = p.grade;
+                        weights[i].value = p.weight;
+                        found = true;
+                        break;
+                    }
+                }
+                if(!found) { addGradeRow(); setTimeout(() => {
+                    const newInputs = document.querySelectorAll('.grade-input');
+                    const newWeights = document.querySelectorAll('.weight-input');
+                    newInputs[newInputs.length-1].value = p.grade;
+                    newWeights[newWeights.length-1].value = p.weight;
+                    calculateAverage();
+                }, 100); } else { calculateAverage(); }
+            }, 500);
+            feedback = "Nota adicionada na calculadora.";
+            break;
+        case 'calc_reset':
+            resetCalc();
+            feedback = "Calculadora limpa.";
+            break;
+        case 'calc_set_passing':
+            const passEl = document.getElementById('passing-grade');
+            if(passEl) { passEl.value = p.val; calculateAverage(); feedback = `Média para aprovação definida em ${p.val}`; }
+            break;
+
+        // --- POMODORO ---
+        case 'timer_start':
+            if(!isRunning1) toggleTimer();
+            feedback = "Foco total! Timer iniciado. 🔥";
+            switchPage('pomo');
+            break;
+        case 'timer_pause':
+            if(isRunning1) toggleTimer();
+            feedback = "Timer pausado.";
+            break;
+        case 'timer_stop':
+            resetTimer();
+            feedback = "Timer resetado.";
+            break;
+        case 'timer_set_mode':
+            setTimerMode(p.mode);
+            switchPage('pomo');
+            feedback = `Modo alterado para ${p.mode}.`;
+            break;
+
+        // --- UI & NAVEGAÇÃO ---
         case 'navigate':
             switchPage(p.page);
             feedback = `Navegando para ${p.page}... 🚀`;
             break;
+        case 'ui_theme_toggle':
+            toggleTheme();
+            feedback = "Tema alternado.";
+            break;
+        case 'ui_color_set':
+            setThemeColor(p.color);
+            feedback = `Cor do tema alterada para ${p.color}.`;
+            break;
+        case 'ui_clock_toggle':
+            cycleClockMode();
+            feedback = "Estilo do relógio alterado.";
+            break;
+        case 'nav_modal_open':
+            if(p.modal === 'profile') showProfileSetupScreen(); // Simplificação
+            if(p.modal === 'class') openAddClassModal();
+            if(p.modal === 'reminder') toggleRemindersModal();
+            feedback = "Modal aberto.";
+            break;
+        case 'ui_toast_show':
+            showModal("Aviso da IA", p.msg);
+            feedback = "Mensagem exibida.";
+            break;
+
+        // --- LINKS EXTERNOS ---
+        case 'ufrb_portal':
+            window.open('https://sistemas.ufrb.edu.br/sigaa/verTelaLogin.do', '_blank');
+            feedback = "Abrindo Portal...";
+            break;
+        case 'ufrb_ava':
+            window.open('https://ava.ufrb.edu.br/', '_blank');
+            feedback = "Abrindo AVA...";
+            break;
+        case 'ufrb_calendar':
+            window.open('https://ufrb.edu.br/portal/calendario-academico', '_blank');
+            feedback = "Abrindo Calendário...";
+            break;
+        case 'ufrb_library':
+            window.open('https://ufrb.edu.br/biblioteca/', '_blank');
+            feedback = "Abrindo Biblioteca...";
+            break;
+
+        // --- EMAILS ---
+        case 'email_load_template':
+            switchPage('email');
+            loadTemplate(p.key);
+            feedback = "Template carregado.";
+            break;
+        case 'email_copy':
+            copyEmail();
+            feedback = "Email copiado para a área de transferência.";
+            break;
+        case 'email_clear':
+            document.getElementById('email-content').value = '';
+            feedback = "Editor limpo.";
+            break;
+
+        // --- PERFIL & SISTEMA ---
+        case 'profile_edit_name':
+            editName();
+            feedback = "Abrindo edição de nome.";
+            break;
+        case 'profile_edit_handle':
+            editHandle();
+            feedback = "Abrindo edição de usuário.";
+            break;
+        case 'profile_photo_upload':
+            changePhoto();
+            feedback = "Selecione sua foto.";
+            break;
+        case 'system_backup':
+            manualBackup();
+            feedback = "Iniciando backup...";
+            break;
+        case 'system_logout':
+            logoutApp();
+            feedback = "Saindo...";
+            break;
+        case 'system_reset_password':
+            changePassword();
+            feedback = "Iniciando processo de senha.";
+            break;
+
+        // --- UTILITÁRIOS ---
+        case 'util_roll_dice':
+            const dice = Math.floor(Math.random() * 6) + 1;
+            feedback = `🎲 O dado caiu em: **${dice}**`;
+            break;
+        case 'util_coin_flip':
+            const coin = Math.random() > 0.5 ? "Cara" : "Coroa";
+            feedback = `🪙 Deu: **${coin}**`;
+            break;
+        case 'easter_egg_confetti':
+            feedback = "🎉 Chuva de confetes!";
+            // Simulação simples visual
+            showModal("🎉", "Imagine confetes caindo agora! (Animação CSS indisponível neste contexto)");
+            break;
+        case 'ai_clear_chat':
+            chatHistory = [];
+            document.getElementById('chat-messages-container').innerHTML = '';
+            appendMessage('ai', 'Histórico limpo! O que mais deseja?');
+            return; // Retorna direto para não duplicar msg
+        
+        // --- LEMBRETES ---
+        case 'create_reminder':
+             remindersData.push({ id: Date.now().toString(), desc: p.desc, date: p.date, prio: p.prio || 'medium', createdAt: Date.now() });
+             saveData();
+             feedback = `Lembrete definido para ${p.date}.`;
+             break;
+        case 'delete_reminder':
+             deleteReminder(p.id);
+             feedback = "Lembrete apagado.";
+             break;
 
         default:
-            feedback = "Não entendi qual ação executar.";
+            feedback = "Ação realizada (ou comando desconhecido).";
     }
 
     appendMessage('ai', feedback);

@@ -16,6 +16,7 @@ import {
     doc, 
     setDoc, 
     getDoc, 
+    deleteDoc,
     onSnapshot,
     enableIndexedDbPersistence 
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
@@ -34,33 +35,43 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-// Tenta habilitar persistência offline do próprio Firestore (cache extra)
+// Tenta habilitar persistência offline
 try {
     enableIndexedDbPersistence(db).catch((err) => {
         console.log("Persistência Firestore:", err.code);
     });
 } catch (e) { console.log("Persistência já ativa ou não suportada"); }
 
-// Variáveis Globais de Usuário
+// Variáveis Globais
 let currentUser = null;
 let userProfile = null;
 let unsubscribeData = null;
 
 // ============================================================
+// --- ÍCONES SVG (Estilo Fino/Outline) ---
+// ============================================================
+const svgs = {
+    photo: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>`,
+    user: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`,
+    at: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-3.92 7.94"/></svg>`,
+    school: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>`,
+    lock: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`,
+    cloud: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19c0-3.037-2.463-5.5-5.5-5.5S6.5 15.963 6.5 19"/><path d="M12 13.5V4"/><path d="M7 9l5-5 5 5"/></svg>`, // Upload icon adaptado
+    logout: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>`,
+    chevron: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`
+};
+
+// ============================================================
 // --- SISTEMA DE BOOTSTRAP INTELIGENTE ---
 // ============================================================
 
-// Verifica se existe uma sessão ativa salva no localStorage (O "Crachá")
 const sessionActive = localStorage.getItem('salvese_session_active');
 
-// Timer de Segurança
 const forceLoadTimeout = setTimeout(() => {
     const loadingScreen = document.getElementById('loading-screen');
     if (loadingScreen && !loadingScreen.classList.contains('hidden')) {
         console.warn("Firebase demorou. Verificando modo offline...");
-        
         if (sessionActive === 'true') {
-            console.log("Sessão local encontrada. Forçando entrada offline.");
             loadAppOfflineMode(); 
         } else {
             showLoginScreen();
@@ -68,13 +79,11 @@ const forceLoadTimeout = setTimeout(() => {
     }
 }, 2000); 
 
-// 1. Monitora Estado do Usuário (Login/Logout)
 onAuthStateChanged(auth, async (user) => {
     clearTimeout(forceLoadTimeout);
 
     if (user) {
-        // --- CENÁRIO 1: USUÁRIO LOGADO ---
-        console.log("Usuário autenticado pelo Firebase.");
+        console.log("Usuário autenticado.");
         currentUser = user;
         localStorage.setItem('salvese_session_active', 'true');
 
@@ -84,11 +93,8 @@ onAuthStateChanged(auth, async (user) => {
 
             if (docSnap.exists()) {
                 userProfile = docSnap.data();
-                // Garante que campos novos existam
                 if (!userProfile.semester) userProfile.semester = "N/A";
-                
                 localStorage.setItem('salvese_user_profile', JSON.stringify(userProfile));
-                
                 showAppInterface(); 
                 initRealtimeSync(user.uid); 
             } else {
@@ -101,14 +107,11 @@ onAuthStateChanged(auth, async (user) => {
         }
 
     } else {
-        // --- CENÁRIO 2: SEM USUÁRIO ---
-        console.log("Sem usuário autenticado.");
         currentUser = null;
         userProfile = null;
         if(unsubscribeData) unsubscribeData();
 
         if (sessionActive === 'true' && !navigator.onLine) {
-            console.log("Offline e com sessão salva. Entrando em modo offline.");
             loadAppOfflineMode();
         } else {
             localStorage.removeItem('salvese_session_active');
@@ -116,8 +119,6 @@ onAuthStateChanged(auth, async (user) => {
         }
     }
 });
-
-// --- FUNÇÕES AUXILIARES DE UI ---
 
 function showAppInterface() {
     const loginScreen = document.getElementById('login-screen');
@@ -163,7 +164,6 @@ function showProfileSetupScreen() {
     if(loginScreen) loginScreen.classList.add('hidden');
     if(profileScreen) profileScreen.classList.remove('hidden');
     if(appContent) appContent.classList.add('hidden');
-    
     if(loadingScreen) loadingScreen.classList.add('hidden');
 }
 
@@ -177,31 +177,26 @@ function loadAppOfflineMode() {
     showAppInterface();
 }
 
-// 2. Função de Login Google
 window.loginWithGoogle = async () => {
     const provider = new GoogleAuthProvider();
     try {
         await signInWithPopup(auth, provider);
     } catch (error) {
-        console.error("Erro no login:", error);
         alert("Erro ao fazer login: " + error.message);
     }
 };
 
-// 3. Função de Logout
 window.logoutApp = async () => {
     try {
         await signOut(auth);
         localStorage.removeItem('salvese_session_active'); 
         location.reload();
     } catch (error) {
-        console.error("Erro ao sair:", error);
         localStorage.removeItem('salvese_session_active');
         location.reload();
     }
 };
 
-// 4. Verificar e Salvar Perfil Único
 window.saveUserProfile = async () => {
     const handleInput = document.getElementById('input-handle').value.toLowerCase().trim();
     const nameInput = document.getElementById('input-display-name').value.trim();
@@ -235,7 +230,8 @@ window.saveUserProfile = async () => {
             email: currentUser.email,
             photoURL: currentUser.photoURL,
             createdAt: new Date().toISOString(),
-            semester: "N/A"
+            semester: "N/A",
+            lastHandleChange: Date.now()
         };
         
         await setDoc(doc(db, "users", currentUser.uid), profileData);
@@ -262,9 +258,7 @@ window.saveUserProfile = async () => {
     }
 };
 
-// 5. Sincronização Realtime
 function initRealtimeSync(uid) {
-    // Sincroniza dados do app (Tarefas, Aulas)
     const dataRef = doc(db, "users", uid, "data", "appData");
     unsubscribeData = onSnapshot(dataRef, (doc) => {
         if (doc.exists()) {
@@ -281,7 +275,6 @@ function initRealtimeSync(uid) {
         }
     }, (error) => console.log("Modo offline ou erro:", error.code));
 
-    // Sincroniza perfil (para pegar atualizações de foto/semestre)
     onSnapshot(doc(db, "users", uid), (docSnap) => {
         if(docSnap.exists()) {
             userProfile = docSnap.data();
@@ -301,8 +294,6 @@ function updateUserInterfaceInfo() {
     if(userProfile) {
         if(nameDisplay) nameDisplay.innerText = userProfile.displayName;
         if(handleDisplay) handleDisplay.innerText = "@" + userProfile.handle;
-        // Atualiza foto se existir elemento de avatar no menu
-        const avatarImg = document.querySelector('.app-content-wrapper aside img'); // Exemplo se tiver
     }
 }
 
@@ -316,10 +307,87 @@ function refreshAllUI() {
 }
 
 // ============================================================
-// --- CÓDIGO DA APLICAÇÃO ---
+// --- SISTEMA DE MODAIS CUSTOMIZADOS (Substitui Prompt/Alert) ---
 // ============================================================
 
-// --- FUNÇÕES DE BACKUP MANUAL E CONFIGURAÇÕES ---
+// Função para chamar Modal de Input (estilo Prompt bonito)
+function openCustomInputModal(title, placeholder, initialValue, onConfirm) {
+    // Procura os elementos do modal (serão criados no index.html)
+    const modal = document.getElementById('custom-input-modal');
+    const modalTitle = document.getElementById('custom-modal-title');
+    const modalInput = document.getElementById('custom-modal-input');
+    const btnConfirm = document.getElementById('custom-modal-confirm');
+    const btnCancel = document.getElementById('custom-modal-cancel');
+
+    if(!modal) return console.error("Modal não encontrado no HTML");
+
+    modalTitle.innerText = title;
+    modalInput.placeholder = placeholder || "";
+    modalInput.value = initialValue || "";
+    
+    // Limpa eventos anteriores
+    const newBtnConfirm = btnConfirm.cloneNode(true);
+    btnConfirm.parentNode.replaceChild(newBtnConfirm, btnConfirm);
+    
+    const newBtnCancel = btnCancel.cloneNode(true);
+    btnCancel.parentNode.replaceChild(newBtnCancel, btnCancel);
+
+    // Evento Confirmar
+    newBtnConfirm.addEventListener('click', () => {
+        const val = modalInput.value;
+        modal.classList.add('hidden');
+        if(onConfirm) onConfirm(val);
+    });
+
+    // Evento Cancelar
+    newBtnCancel.addEventListener('click', () => {
+        modal.classList.add('hidden');
+    });
+
+    // Enter para confirmar
+    modalInput.onkeypress = (e) => {
+        if(e.key === 'Enter') newBtnConfirm.click();
+    };
+
+    // Mostrar modal
+    modal.classList.remove('hidden');
+    modalInput.focus();
+}
+
+// Função para chamar Modal de Confirmação (estilo Confirm bonito)
+function openCustomConfirmModal(title, message, onConfirm) {
+    const modal = document.getElementById('custom-confirm-modal'); // Novo ID
+    const modalTitle = document.getElementById('custom-confirm-title');
+    const modalMsg = document.getElementById('custom-confirm-msg');
+    const btnYes = document.getElementById('custom-confirm-yes');
+    const btnNo = document.getElementById('custom-confirm-no');
+
+    if(!modal) return;
+
+    modalTitle.innerText = title;
+    modalMsg.innerText = message;
+
+    const newBtnYes = btnYes.cloneNode(true);
+    btnYes.parentNode.replaceChild(newBtnYes, btnYes);
+    
+    const newBtnNo = btnNo.cloneNode(true);
+    btnNo.parentNode.replaceChild(newBtnNo, btnNo);
+
+    newBtnYes.addEventListener('click', () => {
+        modal.classList.add('hidden');
+        if(onConfirm) onConfirm();
+    });
+
+    newBtnNo.addEventListener('click', () => {
+        modal.classList.add('hidden');
+    });
+
+    modal.classList.remove('hidden');
+}
+
+// ============================================================
+// --- LÓGICA DA APLICAÇÃO ---
+// ============================================================
 
 window.manualBackup = async function() {
     const btn = document.getElementById('btn-manual-backup');
@@ -331,7 +399,6 @@ window.manualBackup = async function() {
 
     await saveData();
 
-    // Simula delay visual para feedback
     setTimeout(() => {
         showModal('Backup', 'Seus dados foram sincronizados com a nuvem com sucesso!');
         if(btn) {
@@ -341,21 +408,108 @@ window.manualBackup = async function() {
     }, 800);
 }
 
-window.editSemester = async function() {
-    const newSemester = prompt("Digite seu semestre de ingresso (ex: 2025.1):", userProfile.semester || "");
-    if (newSemester !== null && currentUser) {
-        try {
-            await setDoc(doc(db, "users", currentUser.uid), { semester: newSemester }, { merge: true });
-            // O onSnapshot vai atualizar a UI automaticamente
-        } catch (e) {
-            alert("Erro ao salvar semestre: " + e.message);
+// --- GESTÃO DE PERFIL E CONFIGURAÇÕES (ATUALIZADO SEM PROMPTS) ---
+
+window.editName = function() {
+    openCustomInputModal(
+        "Alterar Nome de Exibição", 
+        "Digite seu novo nome...", 
+        userProfile.displayName, 
+        async (newName) => {
+            if (newName && newName.trim() !== "" && newName !== userProfile.displayName) {
+                if(!currentUser) return showModal("Erro", "Você precisa estar online.");
+                
+                try {
+                    await setDoc(doc(db, "users", currentUser.uid), { displayName: newName.trim() }, { merge: true });
+                    await updateProfile(currentUser, { displayName: newName.trim() });
+                    showModal("Sucesso", "Nome alterado com sucesso!");
+                } catch (e) {
+                    showModal("Erro", "Falha ao alterar nome: " + e.message);
+                }
+            }
         }
-    }
+    );
 }
 
-// === NOVA FUNÇÃO DE UPLOAD PARA O IMGUR ===
+window.editHandle = function() {
+    if (!userProfile || !currentUser) return;
+
+    const lastChange = userProfile.lastHandleChange || 0;
+    const now = Date.now();
+    const daysSinceLastChange = (now - lastChange) / (1000 * 60 * 60 * 24);
+    
+    if (daysSinceLastChange < 7 && userProfile.createdAt !== userProfile.lastHandleChange) {
+        const daysLeft = Math.ceil(7 - daysSinceLastChange);
+        return showModal("Aguarde", `Você só pode alterar seu usuário a cada 7 dias. Aguarde mais ${daysLeft} dia(s).`);
+    }
+
+    openCustomInputModal(
+        "Alterar @Usuário",
+        "Sem o @ (apenas letras e números)",
+        userProfile.handle,
+        async (newHandle) => {
+            if (!newHandle || newHandle.trim() === "" || newHandle === userProfile.handle) return;
+
+            const cleanHandle = newHandle.toLowerCase().trim();
+            const handleRegex = /^[a-z0-9_]+$/;
+            
+            if (!handleRegex.test(cleanHandle)) {
+                return showModal("Inválido", "Use apenas letras minúsculas, números e _.");
+            }
+
+            openCustomConfirmModal(
+                "Confirmar Troca",
+                `Deseja alterar para @${cleanHandle}? Essa ação não pode ser desfeita por 7 dias.`,
+                async () => {
+                    try {
+                        const newHandleRef = doc(db, "usernames", cleanHandle);
+                        const docSnap = await getDoc(newHandleRef);
+                        
+                        if (docSnap.exists()) {
+                            return showModal("Indisponível", "Este usuário já está em uso.");
+                        }
+
+                        await setDoc(newHandleRef, { uid: currentUser.uid });
+                        
+                        if (userProfile.handle) {
+                            await deleteDoc(doc(db, "usernames", userProfile.handle));
+                        }
+
+                        await setDoc(doc(db, "users", currentUser.uid), { 
+                            handle: cleanHandle,
+                            lastHandleChange: Date.now()
+                        }, { merge: true });
+
+                        showModal("Sucesso", `Seu usuário agora é @${cleanHandle}`);
+
+                    } catch (e) {
+                        console.error(e);
+                        showModal("Erro", "Erro ao atualizar usuário. Tente novamente.");
+                    }
+                }
+            );
+        }
+    );
+}
+
+window.editSemester = function() {
+    openCustomInputModal(
+        "Semestre Atual",
+        "Ex: 2025.1",
+        userProfile.semester,
+        async (newSemester) => {
+            if (newSemester !== null && currentUser) {
+                try {
+                    await setDoc(doc(db, "users", currentUser.uid), { semester: newSemester }, { merge: true });
+                } catch (e) {
+                    showModal("Erro", "Erro ao salvar semestre: " + e.message);
+                }
+            }
+        }
+    );
+}
+
 window.changePhoto = function() {
-    // Cria um input de arquivo invisível
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/*';
@@ -364,7 +518,6 @@ window.changePhoto = function() {
         const file = e.target.files[0];
         if (!file) return;
 
-        // Feedback visual
         const loadingBtn = document.getElementById('btn-change-photo-settings');
         let originalBtnContent = "";
         if(loadingBtn) {
@@ -372,7 +525,6 @@ window.changePhoto = function() {
              loadingBtn.innerHTML = '<i class="fas fa-circle-notch fa-spin mr-2"></i> Enviando...';
              loadingBtn.disabled = true;
         } else {
-             // Fallback se o clique veio do avatar
              showModal("Aguarde", "Enviando sua foto para o servidor...");
         }
 
@@ -380,12 +532,9 @@ window.changePhoto = function() {
         formData.append('image', file);
 
         try {
-            // Faz o upload para a API do Imgur
             const response = await fetch('https://api.imgur.com/3/image', {
                 method: 'POST',
-                headers: {
-                    'Authorization': 'Client-ID 513bb727cecf9ac' // Seu Client ID
-                },
+                headers: { 'Authorization': 'Client-ID 513bb727cecf9ac' },
                 body: formData
             });
 
@@ -394,12 +543,9 @@ window.changePhoto = function() {
             if (data.success && currentUser) {
                 const newUrl = data.data.link;
 
-                // Atualiza no Auth do Firebase
                 await updateProfile(currentUser, { photoURL: newUrl });
-                // Atualiza no Firestore
                 await setDoc(doc(db, "users", currentUser.uid), { photoURL: newUrl }, { merge: true });
                 
-                // Fecha modal de carregamento se estiver aberto
                 const genericModal = document.getElementById('generic-modal');
                 if(genericModal && !genericModal.classList.contains('hidden')) closeGenericModal();
 
@@ -410,9 +556,8 @@ window.changePhoto = function() {
 
         } catch (error) {
             console.error("Erro ao atualizar foto:", error);
-            alert("Erro ao enviar foto: " + error.message);
+            showModal("Erro", "Erro ao enviar foto: " + error.message);
         } finally {
-            // Restaura o botão
             if(loadingBtn) {
                 loadingBtn.innerHTML = originalBtnContent;
                 loadingBtn.disabled = false;
@@ -420,90 +565,131 @@ window.changePhoto = function() {
         }
     };
 
-    // Abre o seletor de arquivos
     input.click();
 }
 
-window.changePassword = async function() {
+window.changePassword = function() {
     if (currentUser && currentUser.email) {
-        if(confirm(`Enviar e-mail de redefinição de senha para ${currentUser.email}?`)) {
-            try {
-                await sendPasswordResetEmail(auth, currentUser.email);
-                showModal("E-mail Enviado", "Verifique sua caixa de entrada para redefinir a senha.");
-            } catch (e) {
-                alert("Erro: " + e.message);
+        openCustomConfirmModal(
+            "Redefinir Senha",
+            `Enviar e-mail de redefinição de senha para ${currentUser.email}?`,
+            async () => {
+                try {
+                    await sendPasswordResetEmail(auth, currentUser.email);
+                    showModal("E-mail Enviado", "Verifique sua caixa de entrada para redefinir a senha.");
+                } catch (e) {
+                    showModal("Erro", "Erro: " + e.message);
+                }
             }
-        }
+        );
     }
 }
 
+// === RENDERIZAÇÃO DA TELA DE CONFIGURAÇÕES (Com ícones SVG finos e sem fundo branco na foto) ===
 window.renderSettings = function() {
     const container = document.getElementById('settings-content');
     if (!container || !userProfile) return;
 
-    // Formata a data de registro
     let dateStr = "N/A";
     if (userProfile.createdAt) {
         const date = new Date(userProfile.createdAt);
         dateStr = date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
     }
 
-    // Foto ou placeholder
     const photo = userProfile.photoURL || "https://files.catbox.moe/pmdtq6.png";
 
+    // Helper para criar cards com SVG
+    const createActionCard = (onclick, svgIcon, title, subtitle, colorClass = "text-gray-500 group-hover:text-indigo-500") => `
+        <button onclick="${onclick}" class="group w-full bg-white dark:bg-darkcard border border-gray-100 dark:border-darkborder p-4 rounded-2xl flex items-center justify-between hover:border-indigo-500 dark:hover:border-indigo-500 hover:shadow-md transition-all duration-200 mb-3 text-left">
+            <div class="flex items-center gap-4">
+                <div class="w-10 h-10 rounded-full bg-gray-50 dark:bg-neutral-800 flex items-center justify-center ${colorClass} transition-colors">
+                    ${svgIcon}
+                </div>
+                <div>
+                    <p class="font-bold text-gray-800 dark:text-gray-200 text-sm">${title}</p>
+                    <p class="text-xs text-gray-400 dark:text-gray-500">${subtitle}</p>
+                </div>
+            </div>
+            <div class="text-gray-300 dark:text-neutral-700 group-hover:text-indigo-500 transition-colors">
+                ${svgs.chevron}
+            </div>
+        </button>
+    `;
+
     container.innerHTML = `
-        <div class="bg-white dark:bg-darkcard rounded-2xl shadow-sm border border-gray-200 dark:border-darkborder p-8 max-w-4xl mx-auto">
-            <div class="flex flex-col md:flex-row items-start gap-8">
-                <!-- Avatar -->
-                <div class="w-32 h-32 md:w-40 md:h-40 rounded-2xl overflow-hidden bg-gray-100 shrink-0 relative group">
-                    <img src="${photo}" class="w-full h-full object-cover" onerror="this.src='https://files.catbox.moe/pmdtq6.png'">
-                    <div class="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition flex items-center justify-center cursor-pointer" onclick="changePhoto()">
+        <div class="max-w-2xl mx-auto w-full pb-24 space-y-6">
+            
+            <!-- Header do Perfil -->
+            <div class="bg-white dark:bg-darkcard rounded-3xl shadow-sm border border-gray-200 dark:border-darkborder p-6 md:p-8 flex flex-col items-center text-center relative overflow-hidden">
+                 <div class="absolute top-0 left-0 w-full h-24 bg-gradient-to-r from-indigo-500 to-purple-600 opacity-10 dark:opacity-20"></div>
+                 
+                 <div class="relative group mb-4 mt-4">
+                    <!-- REMOVIDO bg-white e dark:bg-neutral-800 para suportar PNG transparente sem fundo -->
+                    <div class="w-28 h-28 rounded-full overflow-hidden p-1 border-4 border-white dark:border-darkcard shadow-lg relative z-10">
+                        <img src="${photo}" class="w-full h-full object-cover rounded-full" onerror="this.src='https://files.catbox.moe/pmdtq6.png'">
+                    </div>
+                    <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition rounded-full flex items-center justify-center cursor-pointer m-1 z-20" onclick="changePhoto()">
                         <i class="fas fa-camera text-white text-2xl"></i>
                     </div>
                 </div>
 
-                <!-- Info -->
-                <div class="flex-1 w-full">
-                    <div class="flex justify-between items-start mb-6">
-                        <div>
-                            <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-1">${userProfile.displayName}</h2>
-                            <p class="text-gray-500 dark:text-gray-400 text-sm">${userProfile.email}</p>
-                        </div>
-                        <!-- Adicionei ID aqui para feedback de carregamento -->
-                        <button id="btn-change-photo-settings" onclick="changePhoto()" class="px-4 py-2 bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-neutral-700 transition shadow-sm">
-                            <i class="fas fa-upload mr-2"></i> Mudar Foto
-                        </button>
+                <h2 class="text-2xl font-black text-gray-900 dark:text-white mb-0.5 tracking-tight">
+                    ${userProfile.displayName}
+                </h2>
+                <p class="text-indigo-600 dark:text-indigo-400 font-bold text-sm mb-4 bg-indigo-50 dark:bg-indigo-900/20 px-3 py-1 rounded-full">@${userProfile.handle}</p>
+                
+                <div class="grid grid-cols-2 gap-4 w-full max-w-sm mt-2">
+                    <div class="bg-gray-50 dark:bg-neutral-800/50 p-3 rounded-xl">
+                         <p class="text-xs text-gray-400 uppercase font-bold mb-1">Semestre</p>
+                         <p class="font-bold text-gray-800 dark:text-white">${userProfile.semester || 'N/A'}</p>
                     </div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                        <div>
-                            <p class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Data de Registro</p>
-                            <p class="text-gray-800 dark:text-gray-200 font-medium">${dateStr}</p>
-                        </div>
-                        <div>
-                            <p class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Semestre de Ingresso</p>
-                            <p class="text-gray-800 dark:text-gray-200 font-medium">${userProfile.semester || 'N/A'}</p>
-                        </div>
-                    </div>
-
-                    <div class="flex flex-wrap gap-3 pt-4 border-t border-gray-100 dark:border-neutral-800">
-                        <button onclick="editSemester()" class="px-4 py-2 bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-lg text-sm font-medium hover:text-indigo-600 dark:hover:text-indigo-400 transition">
-                            Editar Semestre
-                        </button>
-                        <button onclick="logoutApp()" class="px-4 py-2 bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-lg text-sm font-medium hover:text-red-600 transition">
-                            Trocar de Conta
-                        </button>
-                        <button onclick="changePassword()" class="px-4 py-2 bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-lg text-sm font-medium hover:text-indigo-600 transition">
-                            Trocar Senha
-                        </button>
+                    <div class="bg-gray-50 dark:bg-neutral-800/50 p-3 rounded-xl">
+                         <p class="text-xs text-gray-400 uppercase font-bold mb-1">Membro Desde</p>
+                         <p class="font-bold text-gray-800 dark:text-white">${dateStr.split(' de ')[2] || dateStr}</p>
                     </div>
                 </div>
+            </div>
+
+            <!-- Seção de Ações (Usando SVG fino) -->
+            <div>
+                <h3 class="px-4 text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Gerenciar Conta</h3>
+                
+                ${createActionCard('changePhoto()', svgs.photo, 'Foto de Perfil', 'Atualize sua imagem de exibição')}
+                ${createActionCard('editName()', svgs.user, 'Nome de Exibição', 'Como seu nome aparece no app')}
+                ${createActionCard('editHandle()', svgs.at, 'Nome de Usuário', 'Seu identificador único @handle')}
+                ${createActionCard('editSemester()', svgs.school, 'Semestre Atual', 'Para organizar suas matérias')}
+            </div>
+
+            <!-- Segurança e Dados -->
+            <div>
+                <h3 class="px-4 text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Segurança & Dados</h3>
+                
+                ${createActionCard('changePassword()', svgs.lock, 'Redefinir Senha', 'Receba um e-mail para trocar a senha')}
+                ${createActionCard('manualBackup()', svgs.cloud, 'Backup Manual', 'Forçar sincronização com a nuvem')}
+                
+                <button onclick="logoutApp()" class="group w-full bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/30 p-4 rounded-2xl flex items-center justify-between hover:bg-red-100 dark:hover:bg-red-900/20 transition-all duration-200 text-left mt-4">
+                    <div class="flex items-center gap-4">
+                        <div class="w-10 h-10 rounded-full bg-white dark:bg-red-900/20 flex items-center justify-center text-red-500">
+                            ${svgs.logout}
+                        </div>
+                        <div>
+                            <p class="font-bold text-red-600 dark:text-red-400 text-sm">Sair da Conta</p>
+                            <p class="text-xs text-red-400 dark:text-red-500/70">Encerrar sessão neste dispositivo</p>
+                        </div>
+                    </div>
+                    <div class="text-red-300 dark:text-red-800">
+                        ${svgs.chevron}
+                    </div>
+                </button>
+            </div>
+
+            <div class="text-center pt-4 pb-8">
+                 <p class="text-xs text-gray-300 dark:text-gray-600 font-mono">ID: ${currentUser.uid.substring(0,8)}...</p>
+                 <p class="text-xs text-gray-300 dark:text-gray-600 mt-1">Salve-se UFRB v2.2 (Clean UI)</p>
             </div>
         </div>
     `;
 }
-
-// --- FIM FUNÇÕES NOVAS ---
 
 function initTheme() {
     if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
@@ -526,7 +712,6 @@ window.toggleTheme = function() {
     }
 }
 
-// --- PWA SETUP ---
 const manifest = {
     "name": "Salve-se UFRB",
     "short_name": "Salve-se",
@@ -596,7 +781,6 @@ if ('serviceWorker' in navigator) {
     window.addEventListener('offline', updateNetworkStatus);
 }
 
-// --- GESTÃO DE DADOS ---
 let scheduleData = JSON.parse(localStorage.getItem('salvese_schedule')) || [];
 let tasksData = JSON.parse(localStorage.getItem('salvese_tasks')) || [];
 let remindersData = JSON.parse(localStorage.getItem('salvese_reminders')) || [];
@@ -604,15 +788,12 @@ let selectedClassIdToDelete = null;
 let currentTaskFilter = 'all'; 
 
 async function saveData() {
-    // 1. Salva Localmente (Imediato)
     localStorage.setItem('salvese_schedule', JSON.stringify(scheduleData));
     localStorage.setItem('salvese_tasks', JSON.stringify(tasksData));
     localStorage.setItem('salvese_reminders', JSON.stringify(remindersData));
 
-    // 2. Atualiza UI
     refreshAllUI();
 
-    // 3. Tenta Salvar no Firebase (Se tiver usuário)
     if (currentUser) {
         try {
             const dataToSave = {
@@ -621,7 +802,6 @@ async function saveData() {
                 reminders: remindersData,
                 lastUpdated: new Date().toISOString()
             };
-            // setDoc com merge: funciona mesmo offline (entra na fila do IndexedDB)
             await setDoc(doc(db, "users", currentUser.uid, "data", "appData"), dataToSave, { merge: true });
         } catch (e) {
             console.log("Salvamento local ok. Nuvem pendente.");
@@ -629,7 +809,6 @@ async function saveData() {
     }
 }
 
-// --- LÓGICA DE TAREFAS ---
 window.addTask = function () {
     const input = document.getElementById('todo-input');
     const priorityInput = document.getElementById('todo-priority'); 
@@ -819,7 +998,6 @@ window.updateDashboardTasksWidget = function() {
     }
 };
 
-// --- GRADE HORÁRIA ---
 const timeSlots = [
     { start: "07:00", end: "08:00" }, { start: "08:00", end: "09:00" }, { start: "09:00", end: "10:00" },
     { start: "10:00", end: "11:00" }, { start: "11:00", end: "12:00" }, { start: "12:00", end: "13:00" },
@@ -994,7 +1172,6 @@ window.renderSchedule = function () {
     viewContainer.appendChild(wrapper);
 };
 
-// --- FUNÇÕES DE MODAL E CORES ---
 window.openAddClassModal = function (day, startHourStr) {
     resetModalFields();
     document.getElementById('modal-title').innerText = "Adicionar Aula";
@@ -1154,8 +1331,6 @@ function renderColorPicker() {
     });
 }
 
-// --- OUTRAS FUNCIONALIDADES ---
-
 window.updateNextClassWidget = function() {
     const container = document.getElementById('next-class-content');
     if (!container) return;
@@ -1257,7 +1432,6 @@ window.updateNextClassWidget = function() {
     }
 }
 
-// Reminders Logic
 window.toggleRemindersModal = function() {
     const modal = document.getElementById('reminders-modal');
     const content = modal ? modal.firstElementChild : null;
@@ -1368,7 +1542,6 @@ window.renderReminders = function() {
     }
 }
 
-// Inicialização
 document.addEventListener('DOMContentLoaded', () => {
     window.renderTasks();
     window.renderReminders();
@@ -1384,7 +1557,6 @@ document.addEventListener('DOMContentLoaded', () => {
     setInterval(window.updateNextClassWidget, 60000);
 });
 
-// Navegação e Histórico
 window.addEventListener('popstate', (event) => {
     const classModal = document.getElementById('class-modal');
     const remindersModal = document.getElementById('reminders-modal');
@@ -1445,6 +1617,7 @@ window.toggleColorMenu = function(device) {
             const rgb = colorPalettes[color][500];
             btn.className = `w-6 h-6 rounded-full border border-gray-200 dark:border-gray-700 hover:scale-110 transition transform focus:outline-none ring-2 ring-transparent focus:ring-offset-1 focus:ring-gray-400`;
             btn.style.backgroundColor = `rgb(${rgb})`;
+            btn.title = color.charAt(0).toUpperCase() + color.slice(1);
             btn.onclick = () => setThemeColor(color);
             menu.appendChild(btn);
         });
@@ -1462,17 +1635,27 @@ const colorPalettes = {
     pink: { 50: '253 242 248', 100: '252 231 243', 200: '251 204 231', 300: '249 168 212', 400: '244 114 182', 500: '236 72 153', 600: '219 39 119', 700: '190 24 93', 800: '157 23 77', 900: '131 24 67' },
     orange: { 50: '255 247 237', 100: '255 237 213', 200: '254 215 170', 300: '253 186 116', 400: '251 146 60', 500: '249 115 22', 600: '234 88 12', 700: '194 65 12', 800: '154 52 18', 900: '124 45 18' },
     indigo: { 50: '238 242 255', 100: '224 231 255', 200: '199 210 254', 300: '165 180 252', 400: '129 140 248', 500: '99 102 241', 600: '79 70 229', 700: '67 56 202', 800: '55 48 163', 900: '49 46 129' },
-    teal: { 50: '240 253 250', 100: '204 251 241', 200: '153 246 228', 300: '94 234 212', 400: '45 212 191', 500: '20 184 166', 600: '13 148 136', 700: '15 118 110', 800: '17 94 89', 900: '19 78 74' }
+    teal: { 50: '240 253 250', 100: '204 251 241', 200: '153 246 228', 300: '94 234 212', 400: '45 212 191', 500: '20 184 166', 600: '13 148 136', 700: '15 118 110', 800: '17 94 89', 900: '19 78 74' },
+    rose: { 50: '255 241 242', 100: '255 228 230', 200: '254 205 211', 300: '253 164 175', 400: '251 113 133', 500: '244 63 94', 600: '225 29 72', 700: '190 18 60', 800: '159 18 57', 900: '136 19 55' },
+    lime: { 50: '247 254 231', 100: '236 252 203', 200: '217 249 157', 300: '190 242 100', 400: '163 230 53', 500: '132 204 22', 600: '101 163 13', 700: '77 124 15', 800: '63 98 18', 900: '54 83 20' },
+    violet: { 50: '245 243 255', 100: '237 233 254', 200: '221 214 254', 300: '196 181 253', 400: '167 139 250', 500: '139 92 246', 600: '124 58 237', 700: '109 40 217', 800: '91 33 182', 900: '76 29 149' },
+    black: { 50: '250 250 250', 100: '244 244 245', 200: '228 228 231', 300: '212 212 216', 400: '161 161 170', 500: '113 113 122', 600: '82 82 91', 700: '63 63 70', 800: '39 39 42', 900: '24 24 27' }
 };
 
 function setThemeColor(colorName) {
     const palette = colorPalettes[colorName];
     if (!palette) return;
-    const iconColor = `rgb(${palette[600]})`;
+    
+    const iconColor = colorName === 'black' ? `rgb(${palette[900]})` : `rgb(${palette[600]})`;
+    
     document.querySelectorAll('#desktop-palette-icon, #mobile-palette-icon').forEach(icon => {
         icon.classList.remove('text-indigo-600');
         icon.style.color = iconColor;
+        if (colorName === 'black' && document.documentElement.classList.contains('dark')) {
+             icon.style.color = '#ffffff';
+        }
     });
+
     updateColorVars(palette);
     localStorage.setItem('salvese_color', JSON.stringify(palette));
     document.querySelectorAll('.color-menu').forEach(m => m.classList.add('hidden'));

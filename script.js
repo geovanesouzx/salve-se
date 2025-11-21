@@ -68,12 +68,15 @@ let unsubscribeData = null;
 let scheduleData = JSON.parse(localStorage.getItem('salvese_schedule')) || [];
 let tasksData = JSON.parse(localStorage.getItem('salvese_tasks')) || [];
 let remindersData = JSON.parse(localStorage.getItem('salvese_reminders')) || [];
-let notesData = JSON.parse(localStorage.getItem('salvese_notes')) || []; // NOVO: Dados das Notas
+let notesData = JSON.parse(localStorage.getItem('salvese_notes')) || [];
+let hiddenWidgets = JSON.parse(localStorage.getItem('salvese_hidden_widgets')) || []; // NOVO: Widgets ocultos
+
 let selectedClassIdToDelete = null;
 let currentTaskFilter = 'all'; 
 let chatHistory = []; 
 let currentViewContext = 'home'; 
-let activeNoteId = null; // NOVO: Nota atualmente aberta
+let activeNoteId = null; 
+let saveTimeout = null; // Para debounce das notas
 
 // Conteúdo do Widget da IA (Persistente)
 let aiWidgetContent = localStorage.getItem('salvese_ai_widget') || "Olá! Sou sua IA. Vou postar dicas úteis aqui.";
@@ -184,6 +187,7 @@ function showAppInterface() {
     }
     
     updateAIWidgetUI();
+    applyWidgetVisibility(); // Aplica estado dos widgets
 }
 
 function showLoginScreen() {
@@ -265,15 +269,17 @@ window.switchPage = function(pageId, addToHistory = true) {
         email: 'Templates', 
         aulas: 'Grade Horária', 
         config: 'Configurações',
-        notas: 'Anotações', // NOVO
-        ia: 'Salve-se IA'
+        notas: 'Anotações',
+        ia: 'Salve-se IA',
+        ocultos: 'Widgets Ocultos' // NOVO
     };
     const pageTitleEl = document.getElementById('page-title');
     if (pageTitleEl) pageTitleEl.innerText = titles[pageId] || 'Salve-se UFRB';
     
     if(pageId === 'aulas' && window.renderSchedule) window.renderSchedule();
     if(pageId === 'config' && window.renderSettings) window.renderSettings();
-    if(pageId === 'notas' && window.renderNotes) window.renderNotes(); // NOVO
+    if(pageId === 'notas' && window.renderNotes) window.renderNotes();
+    if(pageId === 'ocultos' && window.renderHiddenWidgetsPage) window.renderHiddenWidgetsPage(); // NOVO
     
     if(pageId === 'ia') {
         fixChatLayout();
@@ -287,7 +293,7 @@ window.switchPage = function(pageId, addToHistory = true) {
 }
 
 // ============================================================
-// --- INTEGRAÇÃO SALVE-SE IA (ATUALIZADA PARA NOTAS) ---
+// --- INTEGRAÇÃO SALVE-SE IA (ATUALIZADA) ---
 // ============================================================
 
 window.setAIProvider = function(provider) {
@@ -329,7 +335,7 @@ window.sendIAMessage = async function() {
     showTypingIndicator();
 
     try {
-        // Contexto Expandido com NOTAS
+        // Contexto Expandido
         const contextData = {
             telaAtual: currentViewContext,
             dataAtual: new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }),
@@ -337,11 +343,11 @@ window.sendIAMessage = async function() {
             tarefas: tasksData.map(t => ({ id: t.id, text: t.text, done: t.done, priority: t.priority })),
             aulas: scheduleData.map(c => ({ id: c.id, name: c.name, day: c.day, start: c.start, room: c.room })),
             lembretes: remindersData,
-            // Enviamos apenas os títulos das notas para economizar tokens, a menos que uma esteja aberta
-            notas: notesData.map(n => ({ id: n.id, title: n.title, preview: n.content.substring(0, 100) })),
+            // Enviamos apenas os títulos e um pequeno preview
+            notas: notesData.map(n => ({ id: n.id, title: n.title, preview: n.content.substring(0, 50).replace(/<[^>]*>?/gm, '') })),
             notaAberta: activeNoteId ? notesData.find(n => n.id === activeNoteId) : null,
+            widgetsOcultos: hiddenWidgets,
             tema: document.documentElement.classList.contains('dark') ? 'Escuro' : 'Claro',
-            timerStatus: { isRunning: isRunning1, timeLeft: timeLeft1, mode: currentMode1 },
             widgetContent: aiWidgetContent,
             aiProvider: currentAIProvider
         };
@@ -350,28 +356,33 @@ window.sendIAMessage = async function() {
 Você é a "Salve-se IA", assistente da UFRB. 
 CONTEXTO ATUAL: ${JSON.stringify(contextData)}
 
-REGRAS CRÍTICAS (SIGA RIGOROSAMENTE):
-1. **NAVEGAÇÃO PROIBIDA SEM COMANDO:** NUNCA navegue a menos que o usuário peça explicitamente.
-2. **RESPOSTA JSON:** Responda APENAS com um JSON válido.
-3. **FORMATO:**
+REGRAS CRÍTICAS:
+1. Responda APENAS com JSON.
+2. Você pode criar, atualizar ou resumir notas.
+3. Você pode ocultar ou mostrar widgets se o usuário pedir.
+4. Se estiver com uma nota aberta no contexto ("notaAberta"), você pode sugerir melhorias ou grifar partes.
+
+FORMATO JSON:
 {
-  "message": "Texto de resposta aqui...",
-  "commands": [ ...lista de comandos... ]
+  "message": "Texto...",
+  "commands": [ ... ]
 }
 
-COMANDOS DISPONÍVEIS:
-- "navigate": { "page": "home|aulas|onibus|todo|pomo|calc|email|config|notas" }
+COMANDOS:
+- "navigate": { "page": "home|aulas|onibus|todo|pomo|calc|email|config|notas|ocultos" }
 - "create_task": { "text": "...", "priority": "normal", "category": "geral" }
 - "create_class": { "name": "...", "day": "seg", "start": "00:00", "end": "00:00", "room": "..." }
 - "create_reminder": { "desc": "...", "date": "YYYY-MM-DD", "prio": "medium" }
 - "add_grade": { "value": 8.5, "weight": 1 }
 - "toggle_theme": {}
-- "create_note": { "title": "...", "content": "..." } -> Cria uma nova nota.
-- "update_note": { "id": "...", "content": "..." } -> Atualiza uma nota existente (concatena se não for especificado, ou substitui).
+- "create_note": { "title": "...", "content": "..." } 
+- "update_note": { "id": "...", "content": "..." }
+- "hide_widget": { "id": "widget-id" } (IDs: widget-bus, widget-tasks, widget-quick, widget-class, widget-reminders, widget-ai, widget-notes)
+- "show_widget": { "id": "widget-id" }
 - "update_dashboard_widget": { "content": "..." }
 
-Exemplo (Criar Nota): "Anote que a prova é dia 20 sobre mitose"
-{ "message": "Anotei!", "commands": [{ "action": "create_note", "params": { "title": "Prova Biologia", "content": "Prova dia 20 sobre mitose." } }] }
+Exemplo: "Esconda o widget de ônibus"
+{ "message": "Ocultei o circular.", "commands": [{ "action": "hide_widget", "params": { "id": "widget-bus" } }] }
         `;
 
         let messagesPayload = [];
@@ -634,7 +645,6 @@ async function executeAICommand(cmd) {
                  updatedAt: Date.now()
              });
              saveData();
-             // Se a IA criar uma nota, vamos abrir para o usuário ver se estiver na aba
              if(currentViewContext === 'notas') {
                  renderNotes();
                  openNote(newNoteId);
@@ -642,16 +652,30 @@ async function executeAICommand(cmd) {
              break;
 
         case 'update_note':
-             // Atualiza uma nota existente. Se id não for passado, tenta a ativa
              const targetId = p.id || activeNoteId;
              const noteToUpdate = notesData.find(n => n.id === targetId);
              if(noteToUpdate) {
-                 noteToUpdate.content = p.content; // Substitui conteúdo
+                 noteToUpdate.content = p.content; 
                  noteToUpdate.updatedAt = Date.now();
                  saveData();
                  if(activeNoteId === targetId && currentViewContext === 'notas') {
-                     document.getElementById('editor-content').innerHTML = p.content;
+                     // Atualiza sem recarregar tudo para não perder o foco se o usuário estiver vendo
+                     const editor = document.getElementById('editor-content');
+                     if(editor) editor.innerHTML = p.content;
                  }
+             }
+             break;
+
+        // --- COMANDOS DE WIDGETS ---
+        case 'hide_widget':
+             if(p.id && !hiddenWidgets.includes(p.id)) {
+                toggleWidget(p.id);
+             }
+             break;
+
+        case 'show_widget':
+             if(p.id && hiddenWidgets.includes(p.id)) {
+                toggleWidget(p.id);
              }
              break;
 
@@ -675,8 +699,10 @@ function updateAIWidgetUI() {
     if(widgetEl) {
         widgetEl.innerHTML = `
             <div class="flex items-start gap-3">
-                <i class="fas fa-quote-left text-indigo-300 dark:text-indigo-700 text-xl"></i>
-                <p class="text-sm text-gray-600 dark:text-gray-300 italic line-clamp-3">${aiWidgetContent}</p>
+                <i class="fas fa-lightbulb text-yellow-500 text-xl"></i>
+                <div class="text-sm text-gray-600 dark:text-gray-300">
+                    ${aiWidgetContent}
+                </div>
             </div>
         `;
     }
@@ -684,14 +710,100 @@ function updateAIWidgetUI() {
 
 if (aiWidgetContent === "Olá! Sou sua IA. Vou postar dicas úteis aqui.") {
     const tips = [
-        "Não esqueça de beber água enquanto estuda!",
-        "Revise suas anotações logo após a aula para fixar melhor.",
-        "Use o Pomodoro para evitar fadiga mental.",
-        "Confira o horário do circular antes de sair de casa."
+        "Beba água enquanto estuda!",
+        "Use o Pomodoro para focar.",
+        "O circular sai a cada hora cheia.",
+        "Revise suas anotações hoje."
     ];
     updateAIWidget(tips[Math.floor(Math.random() * tips.length)]);
 }
 
+
+// ============================================================
+// --- FUNCIONALIDADE: GESTÃO DE WIDGETS ---
+// ============================================================
+
+window.toggleWidget = function(widgetId) {
+    const widget = document.getElementById(widgetId);
+    if(!widget) return;
+
+    if(hiddenWidgets.includes(widgetId)) {
+        // Mostrar
+        hiddenWidgets = hiddenWidgets.filter(id => id !== widgetId);
+        widget.classList.remove('hidden');
+    } else {
+        // Ocultar
+        hiddenWidgets.push(widgetId);
+        widget.classList.add('hidden');
+    }
+    saveData();
+    // Se estiver na página de ocultos, atualiza ela
+    if(currentViewContext === 'ocultos') renderHiddenWidgetsPage();
+}
+
+function applyWidgetVisibility() {
+    // Aplica o estado salvo ao carregar
+    const allWidgets = ['widget-bus', 'widget-tasks', 'widget-quick', 'widget-class', 'widget-reminders', 'widget-ai', 'widget-notes'];
+    allWidgets.forEach(id => {
+        const el = document.getElementById(id);
+        if(el) {
+            if(hiddenWidgets.includes(id)) el.classList.add('hidden');
+            else el.classList.remove('hidden');
+        }
+    });
+}
+
+window.renderHiddenWidgetsPage = function() {
+    const container = document.getElementById('view-ocultos');
+    if(!container) return;
+
+    container.innerHTML = '';
+    
+    const wrapper = document.createElement('div');
+    wrapper.className = "max-w-4xl mx-auto";
+    
+    const header = document.createElement('h2');
+    header.className = "text-2xl font-bold text-gray-800 dark:text-white mb-6";
+    header.innerText = "Widgets Ocultos";
+    wrapper.appendChild(header);
+
+    if(hiddenWidgets.length === 0) {
+        wrapper.innerHTML += `
+            <div class="flex flex-col items-center justify-center py-20 text-gray-400">
+                <i class="fas fa-eye-slash text-5xl mb-4 opacity-30"></i>
+                <p>Nenhum widget oculto.</p>
+            </div>
+        `;
+    } else {
+        const grid = document.createElement('div');
+        grid.className = "grid grid-cols-1 md:grid-cols-2 gap-4";
+        
+        const labels = {
+            'widget-bus': 'Circular / Ônibus',
+            'widget-tasks': 'Tarefas',
+            'widget-quick': 'Acesso Rápido',
+            'widget-class': 'Próxima Aula',
+            'widget-reminders': 'Lembretes',
+            'widget-ai': 'Dica da IA',
+            'widget-notes': 'Anotações'
+        };
+
+        hiddenWidgets.forEach(id => {
+            const card = document.createElement('div');
+            card.className = "bg-white dark:bg-darkcard p-6 rounded-xl border border-gray-200 dark:border-darkborder flex justify-between items-center";
+            card.innerHTML = `
+                <span class="font-bold text-gray-700 dark:text-gray-200">${labels[id] || id}</span>
+                <button onclick="toggleWidget('${id}')" class="text-sm bg-indigo-100 text-indigo-600 px-3 py-1.5 rounded-lg font-bold hover:bg-indigo-200 transition">
+                    <i class="fas fa-eye mr-1"></i> Mostrar
+                </button>
+            `;
+            grid.appendChild(card);
+        });
+        wrapper.appendChild(grid);
+    }
+    
+    container.appendChild(wrapper);
+}
 
 // ============================================================
 // --- FUNÇÕES DE USUÁRIO & DADOS ---
@@ -757,10 +869,11 @@ window.saveUserProfile = async () => {
         await setDoc(doc(db, "users", currentUser.uid), profileData);
 
         const initialData = {
-            schedule: JSON.parse(localStorage.getItem('salvese_schedule')) || [],
-            tasks: JSON.parse(localStorage.getItem('salvese_tasks')) || [],
-            reminders: JSON.parse(localStorage.getItem('salvese_reminders')) || [],
-            notes: JSON.parse(localStorage.getItem('salvese_notes')) || [], // Inclui notas
+            schedule: [],
+            tasks: [],
+            reminders: [],
+            notes: [],
+            hiddenWidgets: [], // Salva estado inicial vazio
             lastUpdated: new Date().toISOString()
         };
         
@@ -787,14 +900,17 @@ function initRealtimeSync(uid) {
             localStorage.setItem('salvese_schedule', JSON.stringify(cloudData.schedule || []));
             localStorage.setItem('salvese_tasks', JSON.stringify(cloudData.tasks || []));
             localStorage.setItem('salvese_reminders', JSON.stringify(cloudData.reminders || []));
-            localStorage.setItem('salvese_notes', JSON.stringify(cloudData.notes || [])); // Sync Notas
+            localStorage.setItem('salvese_notes', JSON.stringify(cloudData.notes || []));
+            localStorage.setItem('salvese_hidden_widgets', JSON.stringify(cloudData.hiddenWidgets || []));
 
             scheduleData = cloudData.schedule || [];
             tasksData = cloudData.tasks || [];
             remindersData = cloudData.reminders || [];
             notesData = cloudData.notes || [];
+            hiddenWidgets = cloudData.hiddenWidgets || [];
 
             refreshAllUI();
+            applyWidgetVisibility();
         }
     }, (error) => console.log("Modo offline ou erro de sync:", error.code));
 
@@ -830,7 +946,11 @@ function refreshAllUI() {
     if (window.updateNextClassWidget) window.updateNextClassWidget();
     if (window.renderSettings) window.renderSettings();
     if (window.updateAIWidgetUI) window.updateAIWidgetUI();
-    if (window.renderNotes) window.renderNotes(); // Refresh notas se necessário
+    if (window.updateNotesWidget) window.updateNotesWidget(); // Atualiza widget de notas
+    
+    // Se estiver com uma nota aberta, não renderize a lista, apenas atualize o conteúdo se mudou na nuvem
+    // (Lógica simplificada: renderNotes() cuida disso)
+    if (window.renderNotes && currentViewContext === 'notas') window.renderNotes(false); 
 }
 
 async function saveData() {
@@ -838,8 +958,10 @@ async function saveData() {
     localStorage.setItem('salvese_tasks', JSON.stringify(tasksData));
     localStorage.setItem('salvese_reminders', JSON.stringify(remindersData));
     localStorage.setItem('salvese_notes', JSON.stringify(notesData));
+    localStorage.setItem('salvese_hidden_widgets', JSON.stringify(hiddenWidgets));
 
     refreshAllUI();
+    applyWidgetVisibility();
 
     if (currentUser) {
         try {
@@ -848,6 +970,7 @@ async function saveData() {
                 tasks: tasksData,
                 reminders: remindersData,
                 notes: notesData,
+                hiddenWidgets: hiddenWidgets,
                 lastUpdated: new Date().toISOString()
             };
             await setDoc(doc(db, "users", currentUser.uid, "data", "appData"), dataToSave, { merge: true });
@@ -877,25 +1000,30 @@ window.manualBackup = async function() {
 }
 
 // ============================================================
-// --- FUNCIONALIDADE: NOTAS E EDITOR RICO ---
+// --- FUNCIONALIDADE: NOTAS E EDITOR RICO (CORRIGIDO) ---
 // ============================================================
 
-window.renderNotes = function() {
+window.renderNotes = function(forceRender = true) {
     const container = document.getElementById('view-notas');
     if(!container) return;
 
-    // Se não houver nota ativa, mostra a lista
+    // Se o container estiver vazio, renderize
+    if(container.innerHTML.trim() === '') forceRender = true;
+
     if (!activeNoteId) {
         renderNotesList(container);
     } else {
-        renderNoteEditor(container, activeNoteId);
+        // Se já estivermos no modo editor, só atualiza se for forced
+        if(forceRender || !document.getElementById('editor-content')) {
+            renderNoteEditor(container, activeNoteId);
+        }
     }
 }
 
 function renderNotesList(container) {
     container.innerHTML = '';
     const wrapper = document.createElement('div');
-    wrapper.className = "max-w-4xl mx-auto h-full flex flex-col";
+    wrapper.className = "max-w-4xl mx-auto h-full flex flex-col p-6";
 
     // Header
     const header = document.createElement('div');
@@ -920,33 +1048,31 @@ function renderNotesList(container) {
             </div>
         `;
     } else {
-        // Ordenar por data de atualização
         const sortedNotes = [...notesData].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
         
         sortedNotes.forEach(note => {
-            // Criar um snippet do conteúdo removendo tags HTML
-            const div = document.createElement('div');
-            div.innerHTML = note.content || "";
-            const textContent = div.innerText || div.textContent || "";
+            // Snippet limpo sem HTML
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = note.content || "";
+            const textContent = tempDiv.innerText || tempDiv.textContent || "";
             const snippet = textContent.substring(0, 100) + (textContent.length > 100 ? "..." : "");
             const dateStr = new Date(note.updatedAt || Date.now()).toLocaleDateString('pt-BR');
 
             const card = document.createElement('div');
-            card.className = "bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder rounded-xl p-5 hover:shadow-lg hover:border-indigo-300 dark:hover:border-indigo-700 transition cursor-pointer group flex flex-col h-48";
+            card.className = "bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder rounded-xl p-5 hover:shadow-lg hover:border-indigo-300 dark:hover:border-indigo-700 transition cursor-pointer group flex flex-col h-48 relative";
             card.onclick = (e) => {
-                // Evita abrir se clicar no botão de deletar
                 if(!e.target.closest('.delete-note-btn')) openNote(note.id);
             };
 
             card.innerHTML = `
                 <div class="flex justify-between items-start mb-2">
-                    <h3 class="font-bold text-gray-800 dark:text-white truncate text-lg">${note.title || "Sem título"}</h3>
-                    <button class="delete-note-btn text-gray-400 hover:text-red-500 p-1 opacity-0 group-hover:opacity-100 transition" onclick="deleteNote('${note.id}')">
+                    <h3 class="font-bold text-gray-800 dark:text-white truncate text-lg flex-1">${note.title || "Sem título"}</h3>
+                    <button class="delete-note-btn text-gray-400 hover:text-red-500 p-1 opacity-0 group-hover:opacity-100 transition z-10" onclick="deleteNote('${note.id}')">
                         <i class="fas fa-trash-alt"></i>
                     </button>
                 </div>
                 <div class="flex-1 overflow-hidden mb-3">
-                    <p class="text-sm text-gray-500 dark:text-gray-400 line-clamp-4">${snippet || "Conteúdo vazio..."}</p>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 line-clamp-4 break-words font-normal">${snippet || "Nota vazia..."}</p>
                 </div>
                 <p class="text-xs text-gray-400 text-right">${dateStr}</p>
             `;
@@ -964,16 +1090,14 @@ function renderNoteEditor(container, noteId) {
 
     container.innerHTML = '';
     const editorWrapper = document.createElement('div');
-    editorWrapper.className = "max-w-4xl mx-auto h-full flex flex-col bg-white dark:bg-darkcard rounded-xl border border-gray-200 dark:border-darkborder shadow-sm overflow-hidden relative";
-    // Ajuste de altura para caber na tela
-    editorWrapper.style.height = "calc(100vh - 7rem)"; 
-
+    editorWrapper.className = "max-w-4xl mx-auto h-full flex flex-col bg-white dark:bg-darkcard rounded-xl border border-gray-200 dark:border-darkborder shadow-sm overflow-hidden relative m-0 md:m-4 md:h-[calc(100vh-8rem)]";
+    
     // Toolbar
     const toolbar = document.createElement('div');
-    toolbar.className = "flex items-center gap-1 p-2 border-b border-gray-200 dark:border-darkborder bg-gray-50 dark:bg-neutral-900 overflow-x-auto no-scrollbar";
+    toolbar.className = "flex items-center gap-1 p-2 border-b border-gray-200 dark:border-darkborder bg-gray-50 dark:bg-neutral-900 overflow-x-auto no-scrollbar flex-shrink-0";
     
-    const createToolBtn = (icon, cmd, val = null) => `
-        <button onclick="formatText('${cmd}', '${val || ''}')" class="p-2 rounded hover:bg-gray-200 dark:hover:bg-neutral-700 text-gray-600 dark:text-gray-300 transition flex-shrink-0" title="${cmd}">
+    const createToolBtn = (icon, cmd, val = null, color = null) => `
+        <button onclick="formatText('${cmd}', '${val || ''}')" class="p-2 rounded hover:bg-gray-200 dark:hover:bg-neutral-700 text-gray-600 dark:text-gray-300 transition flex-shrink-0 ${color ? 'text-'+color+'-500' : ''}" title="${cmd}">
             <i class="fas fa-${icon}"></i>
         </button>
     `;
@@ -990,30 +1114,56 @@ function renderNoteEditor(container, noteId) {
         ${createToolBtn('list-ul', 'insertUnorderedList')}
         ${createToolBtn('list-ol', 'insertOrderedList')}
         <div class="w-px h-6 bg-gray-300 dark:bg-neutral-700 mx-1"></div>
-        ${createToolBtn('highlighter', 'hiliteColor', 'yellow')}
+        <!-- CORES DE MARCA TEXTO -->
+        <div class="flex gap-1">
+             <button onclick="formatText('hiliteColor', '#fef08a')" class="w-6 h-6 rounded-full bg-yellow-200 border border-gray-300 hover:scale-110 transition" title="Amarelo"></button>
+             <button onclick="formatText('hiliteColor', '#bbf7d0')" class="w-6 h-6 rounded-full bg-green-200 border border-gray-300 hover:scale-110 transition" title="Verde"></button>
+             <button onclick="formatText('hiliteColor', '#fbcfe8')" class="w-6 h-6 rounded-full bg-pink-200 border border-gray-300 hover:scale-110 transition" title="Rosa"></button>
+             <button onclick="formatText('hiliteColor', '#bfdbfe')" class="w-6 h-6 rounded-full bg-blue-200 border border-gray-300 hover:scale-110 transition" title="Azul"></button>
+        </div>
         <button onclick="deleteNote('${note.id}')" class="ml-auto p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"><i class="fas fa-trash-alt"></i></button>
     `;
 
     // Title Input
     const titleInput = document.createElement('input');
     titleInput.type = 'text';
-    titleInput.className = "w-full p-4 text-xl font-bold bg-transparent border-b border-gray-100 dark:border-darkborder outline-none text-gray-900 dark:text-white";
+    titleInput.className = "w-full p-4 text-xl font-bold bg-transparent border-b border-gray-100 dark:border-darkborder outline-none text-gray-900 dark:text-white flex-shrink-0";
     titleInput.placeholder = "Título da Nota";
     titleInput.value = note.title;
-    titleInput.oninput = (e) => { note.title = e.target.value; note.updatedAt = Date.now(); saveData(); };
+    // Salva título imediatamente ao sair do foco ou com debounce
+    titleInput.oninput = (e) => { 
+        note.title = e.target.value; 
+        debounceSaveNote();
+    };
 
     // Content Editable
     const contentDiv = document.createElement('div');
     contentDiv.id = 'editor-content';
     contentDiv.contentEditable = true;
     contentDiv.className = "flex-1 p-4 outline-none overflow-y-auto text-gray-800 dark:text-gray-200 text-base leading-relaxed";
-    contentDiv.innerHTML = note.content;
-    contentDiv.oninput = () => { note.content = contentDiv.innerHTML; note.updatedAt = Date.now(); saveData(); };
+    contentDiv.innerHTML = note.content; // Seta o HTML apenas uma vez na criação
+    
+    // Evento de Input com Debounce para não recriar o DOM
+    contentDiv.oninput = () => {
+        note.content = contentDiv.innerHTML;
+        note.updatedAt = Date.now();
+        debounceSaveNote();
+    };
 
     editorWrapper.appendChild(toolbar);
     editorWrapper.appendChild(titleInput);
     editorWrapper.appendChild(contentDiv);
     container.appendChild(editorWrapper);
+}
+
+// Função Debounce para salvar sem lag
+function debounceSaveNote() {
+    const status = document.getElementById('save-status'); // Se quisermos adicionar indicador visual
+    
+    clearTimeout(saveTimeout);
+    saveTimeout = setTimeout(() => {
+        saveData();
+    }, 1000); // Salva 1 segundo após parar de digitar
 }
 
 window.createNewNote = function() {
@@ -1030,12 +1180,13 @@ window.createNewNote = function() {
 
 window.openNote = function(id) {
     activeNoteId = id;
-    renderNotes();
+    renderNotes(true); // Force render para abrir o editor
 }
 
 window.closeNote = function() {
+    saveData(); // Garante salvamento ao fechar
     activeNoteId = null;
-    renderNotes();
+    renderNotes(true); // Force render para voltar a lista
 }
 
 window.deleteNote = function(id) {
@@ -1043,24 +1194,47 @@ window.deleteNote = function(id) {
         notesData = notesData.filter(n => n.id !== id);
         if(activeNoteId === id) activeNoteId = null;
         saveData();
-        renderNotes();
+        renderNotes(true);
     });
 }
 
 window.formatText = function(cmd, val) {
     document.execCommand(cmd, false, val);
-    // Focar de volta no editor
     const editor = document.getElementById('editor-content');
     if(editor) {
         editor.focus();
-        // Trigger save
-        const note = notesData.find(n => n.id === activeNoteId);
-        if(note) {
-            note.content = editor.innerHTML;
-            note.updatedAt = Date.now();
-            saveData();
-        }
+        // Trigger manual input event to save formatting changes
+        editor.dispatchEvent(new Event('input'));
     }
+}
+
+// ============================================================
+// --- WIDGET DE NOTAS NA HOME ---
+// ============================================================
+
+window.updateNotesWidget = function() {
+    const container = document.getElementById('notes-widget-content');
+    if(!container) return;
+
+    if(notesData.length === 0) {
+        container.innerHTML = `
+            <p class="text-gray-400 text-sm italic text-center py-4">Nenhuma anotação.</p>
+        `;
+        return;
+    }
+
+    // Pega a última nota editada
+    const lastNote = [...notesData].sort((a,b) => b.updatedAt - a.updatedAt)[0];
+    // Remove HTML tags para o preview
+    const textPreview = lastNote.content.replace(/<[^>]*>?/gm, '').substring(0, 60) + "...";
+
+    container.innerHTML = `
+        <div onclick="switchPage('notas'); openNote('${lastNote.id}')" class="cursor-pointer hover:bg-gray-50 dark:hover:bg-neutral-800 rounded p-2 -mx-2 transition">
+            <h4 class="font-bold text-gray-800 dark:text-white truncate">${lastNote.title || "Sem Título"}</h4>
+            <p class="text-xs text-gray-500 dark:text-gray-400 line-clamp-2 mt-1">${textPreview}</p>
+            <p class="text-[10px] text-gray-400 mt-2 text-right">Última edição: ${new Date(lastNote.updatedAt).toLocaleDateString()}</p>
+        </div>
+    `;
 }
 
 // ============================================================
@@ -1402,6 +1576,12 @@ window.renderSettings = function() {
                 ${createActionCard('editHandle()', svgs.at, 'Nome de Usuário', 'Seu identificador único @handle')}
                 ${createActionCard('editSemester()', svgs.school, 'Semestre Atual', 'Para organizar suas matérias')}
             </div>
+            
+            <!-- Widgets -->
+            <div>
+                 <h3 class="px-4 text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Interface</h3>
+                 ${createActionCard("switchPage('ocultos')", `<i class="fas fa-eye-slash"></i>`, 'Widgets Ocultos', 'Gerenciar itens escondidos da tela inicial')}
+            </div>
 
             <!-- Segurança e Dados -->
             <div>
@@ -1428,7 +1608,7 @@ window.renderSettings = function() {
 
             <div class="text-center pt-4 pb-8">
                  <p class="text-xs text-gray-300 dark:text-gray-600 font-mono">ID: ${currentUser.uid.substring(0,8)}...</p>
-                 <p class="text-xs text-gray-300 dark:text-gray-600 mt-1">Salve-se UFRB v3.0 (Multi-AI)</p>
+                 <p class="text-xs text-gray-300 dark:text-gray-600 mt-1">Salve-se UFRB v3.1 (Notes Upgrade)</p>
             </div>
         </div>
     `;
@@ -2619,7 +2799,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderBusTable(); 
     updateNextBus(); 
     updateAIWidgetUI();
-    fixChatLayout(); // Garante correção de layout ao carregar
+    fixChatLayout();
     setInterval(updateNextBus, 1000);
     
     // Auto-select Home on sidebar

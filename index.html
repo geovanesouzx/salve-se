@@ -13,9 +13,9 @@
     <link rel="apple-touch-icon" href="https://files.catbox.moe/pmdtq6.png">
 
     <!-- CSS Externo -->
-    <link rel="stylesheet" href="style.css?v=20">
+    <link rel="stylesheet" href="style.css?v=21">
 
-    <!-- Tailwind CSS (Configurado para Variáveis Dinâmicas) -->
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -186,7 +186,7 @@
                     <span class="ml-auto bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-300 py-0.5 px-2 rounded-full text-[10px] font-bold uppercase tracking-wide">Novo</span>
                 </a>
 
-                <!-- NOVO: BOTÃO NOTAS -->
+                <!-- BOTÃO NOTAS -->
                 <a onclick="switchPage('notas')" id="nav-notas" class="nav-item flex items-center px-3 py-2.5 text-sm font-medium rounded-md cursor-pointer text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-darkhover transition-colors">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
                     Anotações
@@ -382,7 +382,7 @@
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                         
                         <!-- CARD ONIBUS -->
-                        <div class="bg-white dark:bg-darkcard rounded-xl border border-gray-200 dark:border-darkborder shadow-sm relative overflow-hidden flex flex-col">
+                        <div id="widget-bus" class="bg-white dark:bg-darkcard rounded-xl border border-gray-200 dark:border-darkborder shadow-sm relative overflow-hidden flex flex-col transition-all duration-300">
                             <div class="p-5 pb-2 flex justify-between items-start">
                                 <div>
                                     <div class="flex items-center gap-2 mb-1">
@@ -392,15 +392,18 @@
                                     <h3 class="text-2xl font-bold text-gray-800 dark:text-white" id="dash-bus-title">--:--</h3>
                                     <p class="text-sm text-gray-500 dark:text-gray-400" id="dash-bus-subtitle">...</p>
                                 </div>
-                                <div class="w-24 h-16 flex items-center justify-center rounded-lg bg-indigo-50 dark:bg-neutral-900 border border-indigo-100 dark:border-neutral-800 overflow-hidden">
-                                    <img src="https://www.imagensanimadas.com/data/media/425/onibus-imagem-animada-0001.gif" onerror="this.style.display='none'; this.parentElement.innerHTML='<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'40\' height=\'40\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'currentColor\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\' class=\'text-indigo-300\'><path d=\'M4 6 2 7\'/><path d=\'M10 6h4\'/><path d=\'m22 7-2-1\'/><rect width=\'16\' height=\'16\' x=\'4\' y=\'3\' rx=\'2\'/><path d=\'M4 11h16\'/><path d=\'M8 15h.01\'/><path d=\'M16 15h.01\'/><path d=\'M6 19v2\'/><path d=\'M18 21v-2\'/></svg>'" class="w-full h-full object-contain p-1">
+                                <div class="flex gap-2">
+                                    <button onclick="toggleWidget('widget-bus')" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200" title="Ocultar"><i class="fas fa-eye-slash"></i></button>
+                                    <div class="w-12 h-12 flex items-center justify-center rounded-lg bg-indigo-50 dark:bg-neutral-900 border border-indigo-100 dark:border-neutral-800 overflow-hidden">
+                                        <img src="https://www.imagensanimadas.com/data/media/425/onibus-imagem-animada-0001.gif" onerror="this.style.display='none'; this.parentElement.innerHTML='<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'30\' height=\'30\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'currentColor\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\' class=\'text-indigo-300\'><path d=\'M4 6 2 7\'/><path d=\'M10 6h4\'/><path d=\'m22 7-2-1\'/><rect width=\'16\' height=\'16\' x=\'4\' y=\'3\' rx=\'2\'/><path d=\'M4 11h16\'/><path d=\'M8 15h.01\'/><path d=\'M16 15h.01\'/><path d=\'M6 19v2\'/><path d=\'M18 21v-2\'/></svg>'" class="w-full h-full object-contain p-1">
+                                    </div>
                                 </div>
                             </div>
                             <div id="bus-dynamic-area" class="p-5 pt-2 flex-1 flex flex-col justify-end min-h-[120px]"></div>
                         </div>
 
                         <!-- CARD TAREFAS INTELIGENTE -->
-                        <div class="bg-white dark:bg-darkcard rounded-xl border border-gray-200 dark:border-darkborder shadow-sm p-6 flex flex-col h-full">
+                        <div id="widget-tasks" class="bg-white dark:bg-darkcard rounded-xl border border-gray-200 dark:border-darkborder shadow-sm p-6 flex flex-col h-full">
                             <div class="flex justify-between items-center mb-4">
                                 <div class="flex items-center gap-2">
                                     <div class="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
@@ -408,7 +411,10 @@
                                     </div>
                                     <h3 class="font-bold text-lg text-gray-800 dark:text-white">Tarefas</h3>
                                 </div>
-                                <span id="task-count-badge" class="hidden"></span>
+                                <div class="flex gap-2 items-center">
+                                    <span id="task-count-badge" class="hidden"></span>
+                                    <button onclick="toggleWidget('widget-tasks')" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xs" title="Ocultar"><i class="fas fa-eye-slash"></i></button>
+                                </div>
                             </div>
                             <div id="dashboard-tasks-list" class="flex-1 flex flex-col gap-2">
                                 <!-- JS injects here -->
@@ -419,7 +425,8 @@
                         </div>
 
                         <!-- Quick Actions -->
-                        <div class="bg-gradient-to-br from-indigo-600 to-violet-700 rounded-xl p-6 text-white shadow-lg relative overflow-hidden flex flex-col justify-between">
+                        <div id="widget-quick" class="bg-gradient-to-br from-indigo-600 to-violet-700 rounded-xl p-6 text-white shadow-lg relative overflow-hidden flex flex-col justify-between">
+                             <button onclick="toggleWidget('widget-quick')" class="absolute top-4 right-4 text-white/50 hover:text-white z-20" title="Ocultar"><i class="fas fa-eye-slash"></i></button>
                              <div class="absolute bottom-0 right-0 opacity-10 text-8xl transform translate-x-4 translate-y-4">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
                             </div>
@@ -427,7 +434,7 @@
                                 <p class="text-indigo-100 text-xs font-bold uppercase tracking-wider mb-2">Acesso Rápido</p>
                                 <h3 class="text-xl font-bold">Hora de focar?</h3>
                             </div>
-                            <div class="space-y-2 mt-4">
+                            <div class="space-y-2 mt-4 relative z-10">
                                 <button onclick="switchPage('pomo')" class="bg-white text-indigo-700 px-4 py-3 rounded-lg text-sm font-bold hover:bg-indigo-50 transition shadow-sm w-full text-center">
                                     Abrir Modo Foco
                                 </button>
@@ -439,14 +446,17 @@
                         </div>
                     </div>
 
-                    <!-- SEGUNDA LINHA DE WIDGETS (Total 6 agora) -->
+                    <!-- SEGUNDA LINHA DE WIDGETS -->
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                         
                         <!-- CARD PRÓXIMA AULA -->
-                        <div class="bg-white dark:bg-darkcard rounded-xl border border-gray-200 dark:border-darkborder shadow-sm p-6 flex flex-col min-h-[200px]">
-                            <div class="flex items-center gap-2 mb-3">
-                                <i class="fas fa-graduation-cap text-gray-800 dark:text-white text-lg"></i>
-                                <h3 class="font-bold text-lg text-gray-800 dark:text-white">Próxima Aula</h3>
+                        <div id="widget-class" class="bg-white dark:bg-darkcard rounded-xl border border-gray-200 dark:border-darkborder shadow-sm p-6 flex flex-col min-h-[200px]">
+                            <div class="flex justify-between items-start mb-3">
+                                <div class="flex items-center gap-2">
+                                    <i class="fas fa-graduation-cap text-gray-800 dark:text-white text-lg"></i>
+                                    <h3 class="font-bold text-lg text-gray-800 dark:text-white">Próxima Aula</h3>
+                                </div>
+                                <button onclick="toggleWidget('widget-class')" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xs" title="Ocultar"><i class="fas fa-eye-slash"></i></button>
                             </div>
                             <div id="next-class-content" class="flex-1 flex flex-col justify-center">
                                 <p class="text-gray-500 dark:text-gray-400 text-sm">Carregando...</p>
@@ -454,15 +464,18 @@
                         </div>
 
                         <!-- CARD LEMBRETES -->
-                        <div class="bg-white dark:bg-darkcard rounded-xl border border-gray-200 dark:border-darkborder shadow-sm p-6 flex flex-col min-h-[200px]">
+                        <div id="widget-reminders" class="bg-white dark:bg-darkcard rounded-xl border border-gray-200 dark:border-darkborder shadow-sm p-6 flex flex-col min-h-[200px]">
                             <div class="flex justify-between items-center mb-4">
                                 <div class="flex items-center gap-2">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-800 dark:text-white"><path d="M10.268 21a2 2 0 0 0 3.464 0"></path><path d="M22 8c0-2.3-.8-4.3-2-6"></path><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"></path><path d="M4 2C2.8 3.7 2 5.7 2 8"></path></svg>
-                                    <h3 class="font-bold text-lg text-gray-800 dark:text-white">Lembretes Importantes</h3>
+                                    <h3 class="font-bold text-lg text-gray-800 dark:text-white">Lembretes</h3>
                                 </div>
-                                 <button onclick="toggleRemindersModal()" class="text-xs bg-gray-100 dark:bg-neutral-800 hover:bg-gray-200 dark:hover:bg-neutral-700 text-gray-600 dark:text-gray-300 px-3 py-1.5 rounded-lg transition font-medium">
-                                    Gerenciar
-                                </button>
+                                <div class="flex gap-2 items-center">
+                                    <button onclick="toggleRemindersModal()" class="text-xs bg-gray-100 dark:bg-neutral-800 hover:bg-gray-200 dark:hover:bg-neutral-700 text-gray-600 dark:text-gray-300 px-3 py-1.5 rounded-lg transition font-medium">
+                                        Gerenciar
+                                    </button>
+                                    <button onclick="toggleWidget('widget-reminders')" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xs" title="Ocultar"><i class="fas fa-eye-slash"></i></button>
+                                </div>
                             </div>
                             <div id="home-reminders-list" class="flex-1 flex flex-col justify-center space-y-2">
                                 <div class="flex flex-col items-center justify-center text-center p-4 border-2 border-dashed border-gray-100 dark:border-neutral-800 rounded-lg h-full">
@@ -471,8 +484,9 @@
                             </div>
                         </div>
 
-                        <!-- CARD IA FEED (Novo Widget - 6º Widget) -->
-                        <div class="bg-white dark:bg-darkcard rounded-xl border border-gray-200 dark:border-darkborder shadow-sm p-6 flex flex-col justify-center min-h-[200px] relative overflow-hidden group">
+                        <!-- CARD IA FEED -->
+                        <div id="widget-ai" class="bg-white dark:bg-darkcard rounded-xl border border-gray-200 dark:border-darkborder shadow-sm p-6 flex flex-col justify-center min-h-[200px] relative overflow-hidden group">
+                            <button onclick="toggleWidget('widget-ai')" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xs z-20" title="Ocultar"><i class="fas fa-eye-slash"></i></button>
                             <div class="absolute top-0 right-0 p-4 opacity-10 text-6xl transform translate-x-2 -translate-y-2 rotate-12">
                                 <i class="fas fa-robot"></i>
                             </div>
@@ -485,6 +499,22 @@
                                     <p class="text-gray-400 text-sm italic">Aguardando primeira dica...</p>
                                 </div>
                             </div>
+                        </div>
+
+                        <!-- NOVO: CARD ANOTAÇÕES RECENTES (7º Widget) -->
+                        <div id="widget-notes" class="bg-white dark:bg-darkcard rounded-xl border border-gray-200 dark:border-darkborder shadow-sm p-6 flex flex-col min-h-[200px]">
+                            <div class="flex justify-between items-center mb-3">
+                                <div class="flex items-center gap-2">
+                                    <i class="fas fa-sticky-note text-yellow-500 text-lg"></i>
+                                    <h3 class="font-bold text-lg text-gray-800 dark:text-white">Nota Recente</h3>
+                                </div>
+                                <button onclick="toggleWidget('widget-notes')" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xs" title="Ocultar"><i class="fas fa-eye-slash"></i></button>
+                            </div>
+                            <div id="notes-widget-content" class="flex-1 text-sm text-gray-600 dark:text-gray-300">
+                                <!-- Conteúdo inserido via JS -->
+                                <p class="text-gray-400 italic">Carregando...</p>
+                            </div>
+                            <button onclick="switchPage('notas')" class="text-xs text-indigo-600 dark:text-indigo-400 font-bold mt-2 hover:underline self-end">Ver todas</button>
                         </div>
 
                     </div>
@@ -691,7 +721,7 @@
                     </div>
                 </div>
 
-                <!-- NOVO: VIEW DE NOTAS -->
+                <!-- VIEW DE NOTAS -->
                 <div id="view-notas" class="hidden fade-in h-full"></div>
 
                 <div id="view-email" class="hidden fade-in max-w-5xl mx-auto">
@@ -715,6 +745,9 @@
                         <!-- Conteúdo injetado via JS -->
                     </div>
                 </div>
+
+                <!-- NOVA VIEW DE WIDGETS OCULTOS -->
+                <div id="view-ocultos" class="hidden fade-in w-full"></div>
 
                 <div id="view-aulas" class="hidden fade-in"></div>
             </main>
@@ -863,7 +896,7 @@
         </div>
     </div>
 
-    <!-- Script PRINCIPAL (IMPORTADO COMO MODULE PARA FIREBASE FUNCIONAR) -->
+    <!-- Script PRINCIPAL -->
     <script type="module" src="script.js"></script>
 
 </body>

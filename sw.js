@@ -1,4 +1,4 @@
-const CACHE_NAME = 'salvese-v15.0-notes-update'; // Versão incrementada para forçar atualização imediata
+const CACHE_NAME = 'salvese-v21.0-widgets-update'; 
 const URLS_TO_CACHE = [
     './',
     './index.html',
@@ -53,7 +53,7 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
     const url = event.request.url;
     
-    // IMPORTANTE: Ignorar APIs dinâmicas para evitar cache de respostas JSON da IA ou Firebase
+    // IMPORTANTE: Ignorar APIs dinâmicas
     if (url.includes('firestore.googleapis.com') || 
         url.includes('googleapis.com/auth') || 
         url.includes('generativelanguage.googleapis.com') || // Gemini
@@ -66,9 +66,8 @@ self.addEventListener('fetch', event => {
     event.respondWith(
         caches.match(event.request).then(cachedResponse => {
             // Estratégia: Stale-While-Revalidate
-            // Retorna o cache se existir, mas busca atualização em background para a próxima vez
+            // Retorna o cache se existir, mas busca atualização em background
             const fetchPromise = fetch(event.request).then(networkResponse => {
-                // Atualiza cache em background se tiver internet e for uma requisição válida
                 if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
                      const responseToCache = networkResponse.clone();
                      caches.open(CACHE_NAME).then(cache => {
@@ -77,7 +76,7 @@ self.addEventListener('fetch', event => {
                 }
                 return networkResponse;
             }).catch(() => {
-                // Falha silenciosa se offline (o usuário receberá o cachedResponse se existir)
+                // Falha silenciosa se offline
             });
 
             return cachedResponse || fetchPromise;

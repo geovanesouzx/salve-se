@@ -1,4 +1,4 @@
-const CACHE_NAME = 'salvese-v14.0-multi-ai'; // Versão incrementada para forçar atualização
+const CACHE_NAME = 'salvese-v13.0-new-chat-ui'; // Versão incrementada
 const URLS_TO_CACHE = [
     './',
     './index.html',
@@ -10,8 +10,7 @@ const URLS_TO_CACHE = [
     'https://files.catbox.moe/pmdtq6.png',
     'https://media.tenor.com/q9CixI3CcrkAAAAj/dance.gif',
     'https://media.tenor.com/qL2ySe3uUgQAAAAj/gatto.gif',
-    'https://www.svgrepo.com/show/475656/google-color.svg',
-    'https://www.imagensanimadas.com/data/media/425/onibus-imagem-animada-0001.gif' // Adicionado explicitamente pois é usado no HTML
+    'https://www.svgrepo.com/show/475656/google-color.svg'
 ];
 
 // 1. Instalação
@@ -32,7 +31,7 @@ self.addEventListener('install', event => {
     );
 });
 
-// 2. Ativação e Limpeza de Caches Antigos
+// 2. Ativação e Limpeza
 self.addEventListener('activate', event => {
     const cacheWhitelist = [CACHE_NAME];
     event.waitUntil(
@@ -40,7 +39,6 @@ self.addEventListener('activate', event => {
             return Promise.all(
                 cacheNames.map(cacheName => {
                     if (cacheWhitelist.indexOf(cacheName) === -1) {
-                        // Apaga caches de versões anteriores (ex: v13.0)
                         return caches.delete(cacheName);
                     }
                 })
@@ -49,15 +47,14 @@ self.addEventListener('activate', event => {
     );
 });
 
-// 3. Interceptação de Requisições
+// 3. Interceptação
 self.addEventListener('fetch', event => {
     const url = event.request.url;
     
     // IMPORTANTE: Ignorar APIs dinâmicas para evitar cache de respostas JSON
     if (url.includes('firestore.googleapis.com') || 
         url.includes('googleapis.com/auth') || 
-        url.includes('generativelanguage.googleapis.com') || // Gemini
-        url.includes('api.groq.com') || // Groq (Llama)
+        url.includes('generativelanguage.googleapis.com') || // Permitir IA Gemini
         (url.includes('firebase') && !url.endsWith('.js')) ||
         url.includes('api.imgur.com')) { 
         return; 
@@ -65,8 +62,6 @@ self.addEventListener('fetch', event => {
 
     event.respondWith(
         caches.match(event.request).then(cachedResponse => {
-            // Estratégia: Stale-While-Revalidate
-            // Retorna o cache se existir, mas busca atualização em background
             const fetchPromise = fetch(event.request).then(networkResponse => {
                 // Atualiza cache em background se tiver internet e for uma requisição válida
                 if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
@@ -77,7 +72,7 @@ self.addEventListener('fetch', event => {
                 }
                 return networkResponse;
             }).catch(() => {
-                // Falha silenciosa se offline
+                // Falha silenciosa se offline e não houver cache
             });
 
             return cachedResponse || fetchPromise;

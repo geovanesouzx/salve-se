@@ -1,6 +1,7 @@
 // ============================================================
 // --- CONFIGURAÇÃO FIREBASE & IMPORTAÇÕES ---
 // ============================================================
+// CORREÇÃO: URLs limpas sem formatação Markdown que causava o travamento
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { 
     getAuth, 
@@ -9,7 +10,9 @@ import {
     onAuthStateChanged, 
     signOut, 
     updateProfile, 
-    sendPasswordResetEmail
+    sendPasswordResetEmail,
+    signInWithCustomToken,
+    signInAnonymously
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 import { 
     getFirestore, 
@@ -18,10 +21,12 @@ import {
     getDoc, 
     deleteDoc, 
     onSnapshot, 
-    enableIndexedDbPersistence 
+    enableIndexedDbPersistence,
+    collection
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-const firebaseConfig = {
+// Use as variáveis globais do ambiente se disponíveis
+const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
   apiKey: "AIzaSyD5Ggqw9FpMS98CHcfXKnghMQNMV5WIVTw",
   authDomain: "salvee-se.firebaseapp.com",
   projectId: "salvee-se",
@@ -31,15 +36,15 @@ const firebaseConfig = {
 };
 
 // --- CONFIGURAÇÃO DAS IAs ---
-const GEMINI_API_KEY = "AIzaSyCVGN5yxdscAjDgOcXTZgsb4qy3Ucy0Ve8"; 
+const GEMINI_API_KEY = ""; 
 const GEMINI_MODEL = "gemini-2.5-flash-preview-09-2025";
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
 
-const GROQ_API_KEY = "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";
+const GROQ_API_KEY = "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"; 
 const GROQ_MODEL = "llama-3.3-70b-versatile"; 
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 
-// Controle de qual IA está ativa (Padrão: Gemini)
+// Controle de qual IA está ativa
 let currentAIProvider = 'gemini'; 
 
 // Inicializa Firebase
@@ -47,6 +52,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
+// Tentativa de persistência offline
 try {
     enableIndexedDbPersistence(db).catch((err) => {
         if (err.code === 'failed-precondition') {
@@ -65,6 +71,8 @@ try {
 let currentUser = null;
 let userProfile = null;
 let unsubscribeData = null;
+
+// Dados Locais
 let scheduleData = JSON.parse(localStorage.getItem('salvese_schedule')) || [];
 let tasksData = JSON.parse(localStorage.getItem('salvese_tasks')) || [];
 let remindersData = JSON.parse(localStorage.getItem('salvese_reminders')) || [];
@@ -72,6 +80,10 @@ let notesData = JSON.parse(localStorage.getItem('salvese_notes')) || [];
 let hiddenWidgets = JSON.parse(localStorage.getItem('salvese_hidden_widgets')) || []; 
 let widgetStyles = JSON.parse(localStorage.getItem('salvese_widget_styles')) || {};
 
+// Configurações de Visualização
+let scheduleViewMode = localStorage.getItem('salvese_schedule_mode') || 'table';
+
+// Estados Temporários
 let selectedClassIdToDelete = null;
 let currentTaskFilter = 'all'; 
 let chatHistory = []; 
@@ -79,11 +91,11 @@ let currentViewContext = 'home';
 let activeNoteId = null; 
 let saveTimeout = null; 
 
-// Conteúdo do Widget da IA (Persistente)
+// Conteúdo do Widget da IA
 let aiWidgetContent = localStorage.getItem('salvese_ai_widget') || "Olá! Sou sua IA. Vou postar dicas úteis aqui.";
 
 // ============================================================
-// --- ÍCONES SVG (Reutilizáveis) ---
+// --- ÍCONES SVG ---
 // ============================================================
 const svgs = {
     photo: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>`,
@@ -102,6 +114,7 @@ const svgs = {
 
 const sessionActive = localStorage.getItem('salvese_session_active');
 
+// Timeout de segurança para remover o loading se o Firebase demorar ou falhar
 const forceLoadTimeout = setTimeout(() => {
     const loadingScreen = document.getElementById('loading-screen');
     if (loadingScreen && !loadingScreen.classList.contains('hidden')) {
@@ -111,10 +124,18 @@ const forceLoadTimeout = setTimeout(() => {
             showLoginScreen();
         }
     }
-}, 3000); 
+}, 4000);
+
+// Autenticação Inicial
+const initAuth = async () => {
+    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+        await signInWithCustomToken(auth, __initial_auth_token);
+    } 
+};
+initAuth();
 
 onAuthStateChanged(auth, async (user) => {
-    clearTimeout(forceLoadTimeout);
+    clearTimeout(forceLoadTimeout); // Cancela o timeout se a auth responder rápido
 
     if (user) {
         currentUser = user;
@@ -131,7 +152,12 @@ onAuthStateChanged(auth, async (user) => {
                 showAppInterface(); 
                 initRealtimeSync(user.uid); 
             } else {
-                showProfileSetupScreen();
+                if (user.isAnonymous) {
+                     userProfile = { displayName: 'Visitante', handle: 'visitante', semester: 'N/A' };
+                     showAppInterface();
+                } else {
+                    showProfileSetupScreen();
+                }
             }
         } catch (e) {
             console.error("Erro ao buscar perfil:", e);
@@ -181,8 +207,6 @@ function showAppInterface() {
     refreshAllUI();
     
     fixChatLayout();
-    
-    // Injeta controles de widget na inicialização
     injectWidgetControls();
 
     if(loadingScreen && !loadingScreen.classList.contains('hidden')) {
@@ -228,7 +252,7 @@ window.fixChatLayout = function() {
     const messageContainer = document.getElementById('chat-messages-container');
     const inputContainer = viewIA ? viewIA.querySelector('.absolute.bottom-0') : null;
     
-    if (viewIA && inputContainer) {
+    if (viewIA) {
         viewIA.className = "hidden fade-in flex flex-col h-full relative bg-gray-50 dark:bg-darkbg overflow-hidden";
         viewIA.style.height = "calc(100vh - 4rem)"; 
 
@@ -236,10 +260,12 @@ window.fixChatLayout = function() {
             messageContainer.className = "flex-1 overflow-y-auto p-4 space-y-4 scroll-smooth";
             messageContainer.style.paddingBottom = "20px"; 
         }
-
-        inputContainer.className = "flex-none w-full p-4 bg-white dark:bg-darkcard border-t border-gray-200 dark:border-darkborder z-20";
-        inputContainer.style.position = "relative"; 
-        inputContainer.style.bottom = "auto";
+        
+        if (inputContainer) {
+             inputContainer.className = "flex-none w-full p-4 bg-white dark:bg-darkcard border-t border-gray-200 dark:border-darkborder z-20";
+             inputContainer.style.position = "relative"; 
+             inputContainer.style.bottom = "auto";
+        }
     }
 }
 
@@ -285,6 +311,10 @@ window.switchPage = function(pageId, addToHistory = true) {
     if(pageId === 'config' && window.renderSettings) window.renderSettings();
     if(pageId === 'notas' && window.renderNotes) window.renderNotes();
     if(pageId === 'ocultos' && window.renderHiddenWidgetsPage) window.renderHiddenWidgetsPage();
+    if(pageId === 'home') {
+        applyWidgetVisibility(); 
+        refreshAllUI();
+    }
     
     if(pageId === 'ia') {
         fixChatLayout();
@@ -298,10 +328,9 @@ window.switchPage = function(pageId, addToHistory = true) {
 }
 
 // ============================================================
-// --- GESTÃO DE WIDGETS (Personalização & Ocultar) ---
+// --- GESTÃO DE WIDGETS ---
 // ============================================================
 
-// Mapeamento de Estilos Disponíveis
 const WIDGET_PRESETS = {
     'default': { label: 'Padrão (Claro/Escuro)', class: 'bg-white dark:bg-darkcard border-gray-200 dark:border-darkborder' },
     'gradient-indigo': { label: 'Hora de Focar (Roxo)', class: 'bg-gradient-to-br from-indigo-600 to-violet-700 text-white border-transparent shadow-lg' },
@@ -310,7 +339,6 @@ const WIDGET_PRESETS = {
     'dark-mode': { label: 'Meia-Noite (Preto)', class: 'bg-gray-900 text-white border-gray-800 shadow-lg' }
 };
 
-// Injeta os botões de controle em cada widget
 function injectWidgetControls() {
     const widgets = ['widget-bus', 'widget-tasks', 'widget-quick', 'widget-class', 'widget-reminders', 'widget-ai', 'widget-notes'];
     
@@ -318,11 +346,9 @@ function injectWidgetControls() {
         const widget = document.getElementById(id);
         if(!widget) return;
 
-        // Remove controles antigos se existirem
         const existingControls = widget.querySelector('.widget-controls');
         if(existingControls) existingControls.remove();
 
-        // Cria container de controles
         const controlsDiv = document.createElement('div');
         controlsDiv.className = "widget-controls absolute top-3 right-3 flex gap-2 z-20 opacity-0 group-hover:opacity-100 transition-opacity bg-white/80 dark:bg-black/50 backdrop-blur-sm rounded-lg p-1 shadow-sm";
         
@@ -340,7 +366,6 @@ function injectWidgetControls() {
         
         widget.appendChild(controlsDiv);
         
-        // Esconde botões antigos hardcoded
         const oldButtons = widget.querySelectorAll('button[onclick^="toggleWidget"]');
         oldButtons.forEach(btn => {
             if(!btn.closest('.widget-controls')) btn.style.display = 'none';
@@ -391,7 +416,6 @@ window.setWidgetStyle = function(widgetId, styleKey) {
     showModal("Estilo Aplicado", "O visual do widget foi atualizado.");
 }
 
-// CORREÇÃO: Esta função foi simplificada para não quebrar elementos internos (bug da cor branca)
 function applyAllWidgetStyles() {
     Object.entries(widgetStyles).forEach(([id, styleKey]) => {
         const widget = document.getElementById(id);
@@ -400,34 +424,27 @@ function applyAllWidgetStyles() {
         const preset = WIDGET_PRESETS[styleKey];
         if(!preset) return;
 
-        // Limpa classes antigas
         widget.className = widget.className.replace(/bg-[\w-\/]+|border-[\w-\/]+|text-[\w-\/]+|widget-mode-\w+/g, '').trim();
         widget.classList.remove('bg-white', 'dark:bg-darkcard', 'border-gray-200', 'dark:border-darkborder', 'shadow-sm');
         
-        // Aplica nova base + preset
-        widget.className = `rounded-xl border p-6 flex flex-col h-full relative overflow-hidden group transition-all duration-300 ${preset.class}`;
+        if(!widget.className.includes('rounded-xl')) widget.classList.add('rounded-xl');
+        if(!widget.className.includes('flex')) widget.classList.add('flex', 'flex-col');
+        
+        const isHidden = widget.classList.contains('hidden');
+        widget.className = `rounded-xl border p-6 flex flex-col h-full min-h-[200px] relative overflow-hidden group transition-all duration-300 ${preset.class} ${isHidden ? 'hidden' : ''}`;
         
         if(styleKey !== 'default') {
-             // Adiciona classe para controle CSS (que deve lidar com a cor branca globalmente)
             widget.classList.add('widget-custom-dark');
             
-            // Removido loop que forçava !text-white em tudo.
-            // Agora confiamos no CSS .widget-custom-dark { color: white } e nas exceções do CSS.
-            
-             // Ajusta controles para garantir visibilidade
             const controls = widget.querySelector('.widget-controls');
             if(controls) {
                 controls.className = "widget-controls absolute top-3 right-3 flex gap-2 z-20 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 dark:bg-black/60 backdrop-blur-sm rounded-lg p-1 shadow-sm";
             }
         } else {
-            // Remove a classe de controle customizada
             widget.classList.remove('widget-custom-dark');
-            
-            // Adiciona estilos padrão
             widget.classList.add('bg-white', 'dark:bg-darkcard', 'border-gray-200', 'dark:border-darkborder', 'shadow-sm');
         }
         
-        // Re-injeta controles se necessário (segurança)
         if (!widget.querySelector('.widget-controls')) {
             injectWidgetControls();
         }
@@ -439,12 +456,10 @@ window.toggleWidget = function(widgetId) {
     if(!widget) return;
 
     if(hiddenWidgets.includes(widgetId)) {
-        // Remove da lista de ocultos
         hiddenWidgets = hiddenWidgets.filter(id => id !== widgetId);
         widget.classList.remove('hidden');
         showModal("Widget Restaurado", "O widget voltou para a tela principal.");
     } else {
-        // Adiciona à lista de ocultos
         hiddenWidgets.push(widgetId);
         widget.classList.add('hidden');
         
@@ -455,7 +470,6 @@ window.toggleWidget = function(widgetId) {
         setTimeout(() => toast.remove(), 3000);
     }
     
-    // Salva e força a reaplicação imediata da visibilidade para evitar bugs de layout
     saveData();
     applyWidgetVisibility(); 
     if(currentViewContext === 'ocultos') renderHiddenWidgetsPage();
@@ -466,8 +480,11 @@ function applyWidgetVisibility() {
     allWidgets.forEach(id => {
         const el = document.getElementById(id);
         if(el) {
-            if(hiddenWidgets.includes(id)) el.classList.add('hidden');
-            else el.classList.remove('hidden');
+            if(hiddenWidgets.includes(id)) {
+                el.classList.add('hidden');
+            } else {
+                el.classList.remove('hidden');
+            }
         }
     });
 }
@@ -540,7 +557,7 @@ window.renderHiddenWidgetsPage = function() {
 }
 
 // ============================================================
-// --- INTEGRAÇÃO SALVE-SE IA (MELHORADA) ---
+// --- INTEGRAÇÃO IA ---
 // ============================================================
 
 window.setAIProvider = function(provider) {
@@ -565,12 +582,9 @@ function updateAISelectorUI() {
     }
 }
 
-// Função para formatar conteúdo da IA (Quebras de linha para HTML)
 function formatAIContent(text) {
     if (!text) return "";
-    // Se o texto já parece ter HTML, não mexe muito
     if (text.includes("<br>") || text.includes("<p>")) return text;
-    // Converte quebras de linha em <br> e envolve em parágrafos se necessário
     return text.split('\n').filter(line => line.trim() !== '').map(line => `<p>${line}</p>`).join('');
 }
 
@@ -598,9 +612,7 @@ window.sendIAMessage = async function() {
             tarefas: tasksData.map(t => ({ id: t.id, text: t.text, done: t.done, priority: t.priority })),
             aulas: scheduleData.map(c => ({ id: c.id, name: c.name, day: c.day, start: c.start, room: c.room })),
             lembretes: remindersData,
-            // Resumo das notas
             notas: notesData.map(n => ({ id: n.id, title: n.title, preview: n.content.substring(0, 100).replace(/<[^>]*>?/gm, '') })),
-            // Nota aberta: conteúdo completo
             notaAberta: activeNoteId ? notesData.find(n => n.id === activeNoteId) : null,
             widgetsOcultos: hiddenWidgets,
             tema: document.documentElement.classList.contains('dark') ? 'Escuro' : 'Claro',
@@ -608,7 +620,6 @@ window.sendIAMessage = async function() {
             aiProvider: currentAIProvider
         };
 
-        // CORREÇÃO: Adicionado suporte para deleção de itens no prompt do sistema
         let systemInstructionText = `
 Você é a "Salve-se IA", assistente da UFRB. 
 CONTEXTO ATUAL: ${JSON.stringify(contextData)}
@@ -618,7 +629,6 @@ REGRAS CRÍTICAS:
 2. Para ANOTAÇÕES ("create_note" ou "update_note"):
    - USE FORMATAÇÃO HTML: <p>, <br>, <b>, <ul>, <li>.
    - Ao usar "update_note", envie o CONTEÚDO COMPLETO da nota (antigo + novo), a menos que o usuário peça para apagar.
-   - Não use Markdown (ex: **negrito**, \n). Use tags HTML.
 3. Você pode ocultar, mostrar ou personalizar widgets.
 4. Você pode criar e APAGAR tarefas, lembretes e notas.
 
@@ -704,7 +714,8 @@ COMANDOS:
         }
 
         try {
-            const responseJson = JSON.parse(aiResponseText);
+            let cleanText = aiResponseText.replace(/```json/g, '').replace(/```/g, '').trim();
+            const responseJson = JSON.parse(cleanText);
             
             if (responseJson.message) {
                 appendMessage('ai', responseJson.message);
@@ -722,9 +733,9 @@ COMANDOS:
             }
 
         } catch (e) {
-            console.error("Erro JSON IA:", e);
-            const cleanText = aiResponseText.replace(/[\{\}\[\]"]/g, '').substring(0, 100);
-            appendMessage('ai', "Tive um erro ao processar o comando, mas entendi: " + cleanText);
+            console.error("Erro Parse JSON IA:", e);
+            const cleanText = aiResponseText.replace(/[\{\}\[\]"]/g, '').substring(0, 150);
+            appendMessage('ai', "Tive um erro ao processar o comando, mas aqui está a resposta bruta: " + cleanText + "...");
         }
 
     } catch (error) {
@@ -749,10 +760,6 @@ function scrollToBottom() {
         });
     }
 }
-
-// ============================================================
-// --- AUXILIARES DE CHAT ---
-// ============================================================
 
 function showTypingIndicator() {
     const container = document.getElementById('chat-messages-container');
@@ -830,9 +837,6 @@ function appendMessage(sender, text) {
     scrollToBottom();
 }
 
-// ============================================================
-// --- EXECUÇÃO DE COMANDOS IA ---
-// ============================================================
 async function executeAICommand(cmd) {
     console.log("Executando comando IA:", cmd);
     const p = cmd.params || {};
@@ -847,7 +851,6 @@ async function executeAICommand(cmd) {
             saveData();
             break;
 
-        // CORREÇÃO: Comando de deletar tarefas
         case 'delete_task':
             if(p.text) {
                 const initialLen = tasksData.length;
@@ -872,7 +875,6 @@ async function executeAICommand(cmd) {
              saveData();
              break;
 
-        // CORREÇÃO: Comando de deletar lembretes
         case 'delete_reminder':
              if(p.desc) {
                  const initLen = remindersData.length;
@@ -909,11 +911,6 @@ async function executeAICommand(cmd) {
              toggleTheme();
              break;
 
-        case 'change_ai_provider':
-             setAIProvider(p.provider);
-             break;
-
-        // --- COMANDOS DE NOTAS ---
         case 'create_note':
              const newNoteId = Date.now().toString();
              const formattedNewContent = formatAIContent(p.content);
@@ -944,7 +941,6 @@ async function executeAICommand(cmd) {
              }
              break;
 
-        // --- COMANDOS DE WIDGETS ---
         case 'hide_widget':
              if(p.id && !hiddenWidgets.includes(p.id)) {
                 toggleWidget(p.id);
@@ -967,10 +963,6 @@ async function executeAICommand(cmd) {
             console.log("Comando desconhecido:", cmd.action);
     }
 }
-
-// ============================================================
-// --- WIDGET INTELIGENTE ---
-// ============================================================
 
 function updateAIWidget(content) {
     aiWidgetContent = content;
@@ -1001,11 +993,6 @@ if (aiWidgetContent === "Olá! Sou sua IA. Vou postar dicas úteis aqui.") {
     ];
     updateAIWidget(tips[Math.floor(Math.random() * tips.length)]);
 }
-
-
-// ============================================================
-// --- FUNÇÕES DE USUÁRIO & DADOS ---
-// ============================================================
 
 window.loginWithGoogle = async () => {
     const provider = new GoogleAuthProvider();
@@ -1072,7 +1059,7 @@ window.saveUserProfile = async () => {
             reminders: [],
             notes: [],
             hiddenWidgets: [], 
-            widgetStyles: {}, // Novo campo
+            widgetStyles: {}, 
             lastUpdated: new Date().toISOString()
         };
         
@@ -1112,7 +1099,7 @@ function initRealtimeSync(uid) {
 
             refreshAllUI();
             applyWidgetVisibility();
-            applyAllWidgetStyles(); // Sincroniza estilos
+            applyAllWidgetStyles();
         }
     }, (error) => console.log("Modo offline ou erro de sync:", error.code));
 
@@ -1204,21 +1191,15 @@ window.manualBackup = async function() {
     }, 800);
 }
 
-// ============================================================
-// --- FUNCIONALIDADE: NOTAS E EDITOR RICO ---
-// ============================================================
-
 window.renderNotes = function(forceRender = true) {
     const container = document.getElementById('view-notas');
     if(!container) return;
 
-    // Se o container estiver vazio, renderize
     if(container.innerHTML.trim() === '') forceRender = true;
 
     if (!activeNoteId) {
         renderNotesList(container);
     } else {
-        // Se já estivermos no modo editor, só atualiza se for forced
         if(forceRender || !document.getElementById('editor-content')) {
             renderNoteEditor(container, activeNoteId);
         }
@@ -1230,7 +1211,6 @@ function renderNotesList(container) {
     const wrapper = document.createElement('div');
     wrapper.className = "max-w-4xl mx-auto h-full flex flex-col p-6";
 
-    // Header
     const header = document.createElement('div');
     header.className = "flex justify-between items-center mb-6";
     header.innerHTML = `
@@ -1241,7 +1221,6 @@ function renderNotesList(container) {
     `;
     wrapper.appendChild(header);
 
-    // Grid de notas
     const grid = document.createElement('div');
     grid.className = "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-20";
 
@@ -1256,7 +1235,6 @@ function renderNotesList(container) {
         const sortedNotes = [...notesData].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
         
         sortedNotes.forEach(note => {
-            // Snippet limpo sem HTML
             const tempDiv = document.createElement('div');
             tempDiv.innerHTML = note.content || "";
             const textContent = tempDiv.innerText || tempDiv.textContent || "";
@@ -1295,9 +1273,9 @@ function renderNoteEditor(container, noteId) {
 
     container.innerHTML = '';
     const editorWrapper = document.createElement('div');
-    editorWrapper.className = "max-w-4xl mx-auto h-full flex flex-col bg-white dark:bg-darkcard rounded-xl border border-gray-200 dark:border-darkborder shadow-sm overflow-hidden relative m-0 md:m-4 md:h-[calc(100vh-8rem)]";
     
-    // Toolbar
+    editorWrapper.className = "fixed inset-0 z-50 bg-white dark:bg-darkcard md:static md:z-auto md:max-w-4xl md:mx-auto md:h-[calc(100vh-8rem)] flex flex-col md:rounded-xl md:border md:border-gray-200 md:dark:border-darkborder md:shadow-sm overflow-hidden md:m-4";
+    
     const toolbar = document.createElement('div');
     toolbar.className = "flex items-center gap-1 p-2 border-b border-gray-200 dark:border-darkborder bg-gray-50 dark:bg-neutral-900 overflow-x-auto no-scrollbar flex-shrink-0";
     
@@ -1319,7 +1297,6 @@ function renderNoteEditor(container, noteId) {
         ${createToolBtn('list-ul', 'insertUnorderedList')}
         ${createToolBtn('list-ol', 'insertOrderedList')}
         <div class="w-px h-6 bg-gray-300 dark:bg-neutral-700 mx-1"></div>
-        <!-- CORES DE MARCA TEXTO -->
         <div class="flex gap-1">
              <button onclick="formatText('hiliteColor', '#fef08a')" class="w-6 h-6 rounded-full bg-yellow-200 border border-gray-300 hover:scale-110 transition" title="Amarelo"></button>
              <button onclick="formatText('hiliteColor', '#bbf7d0')" class="w-6 h-6 rounded-full bg-green-200 border border-gray-300 hover:scale-110 transition" title="Verde"></button>
@@ -1329,26 +1306,22 @@ function renderNoteEditor(container, noteId) {
         <button onclick="deleteNote('${note.id}')" class="ml-auto p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"><i class="fas fa-trash-alt"></i></button>
     `;
 
-    // Title Input
     const titleInput = document.createElement('input');
     titleInput.type = 'text';
     titleInput.className = "w-full p-4 text-xl font-bold bg-transparent border-b border-gray-100 dark:border-darkborder outline-none text-gray-900 dark:text-white flex-shrink-0";
     titleInput.placeholder = "Título da Nota";
     titleInput.value = note.title;
-    // Salva título imediatamente ao sair do foco ou com debounce
     titleInput.oninput = (e) => { 
         note.title = e.target.value; 
         debounceSaveNote();
     };
 
-    // Content Editable
     const contentDiv = document.createElement('div');
     contentDiv.id = 'editor-content';
     contentDiv.contentEditable = true;
     contentDiv.className = "flex-1 p-4 outline-none overflow-y-auto text-gray-800 dark:text-gray-200 text-base leading-relaxed";
-    contentDiv.innerHTML = note.content; // Seta o HTML apenas uma vez na criação
+    contentDiv.innerHTML = note.content; 
     
-    // Evento de Input com Debounce para não recriar o DOM
     contentDiv.oninput = () => {
         note.content = contentDiv.innerHTML;
         note.updatedAt = Date.now();
@@ -1361,14 +1334,13 @@ function renderNoteEditor(container, noteId) {
     container.appendChild(editorWrapper);
 }
 
-// Função Debounce para salvar sem lag
 function debounceSaveNote() {
-    const status = document.getElementById('save-status'); // Se quisermos adicionar indicador visual
+    const status = document.getElementById('save-status'); 
     
     clearTimeout(saveTimeout);
     saveTimeout = setTimeout(() => {
         saveData();
-    }, 1000); // Salva 1 segundo após parar de digitar
+    }, 1000); 
 }
 
 window.createNewNote = function() {
@@ -1385,13 +1357,13 @@ window.createNewNote = function() {
 
 window.openNote = function(id) {
     activeNoteId = id;
-    renderNotes(true); // Force render para abrir o editor
+    renderNotes(true); 
 }
 
 window.closeNote = function() {
-    saveData(); // Garante salvamento ao fechar
+    saveData(); 
     activeNoteId = null;
-    renderNotes(true); // Force render para voltar a lista
+    renderNotes(true); 
 }
 
 window.deleteNote = function(id) {
@@ -1408,14 +1380,9 @@ window.formatText = function(cmd, val) {
     const editor = document.getElementById('editor-content');
     if(editor) {
         editor.focus();
-        // Trigger manual input event to save formatting changes
         editor.dispatchEvent(new Event('input'));
     }
 }
-
-// ============================================================
-// --- WIDGET DE NOTAS NA HOME ---
-// ============================================================
 
 window.updateNotesWidget = function() {
     const container = document.getElementById('notes-widget-content');
@@ -1428,9 +1395,7 @@ window.updateNotesWidget = function() {
         return;
     }
 
-    // Pega a última nota editada
     const lastNote = [...notesData].sort((a,b) => b.updatedAt - a.updatedAt)[0];
-    // Remove HTML tags para o preview
     const textPreview = lastNote.content.replace(/<[^>]*>?/gm, '').substring(0, 60) + "...";
 
     container.innerHTML = `
@@ -1441,10 +1406,6 @@ window.updateNotesWidget = function() {
         </div>
     `;
 }
-
-// ============================================================
-// --- UI COMPONENTS: MODAIS E INPUTS (MANTIDOS) ---
-// ============================================================
 
 function openCustomInputModal(title, placeholder, initialValue, onConfirm) {
     const modal = document.getElementById('custom-input-modal');
@@ -1531,10 +1492,6 @@ window.closeGenericModal = function() {
         setTimeout(() => m.classList.add('hidden'), 300);
     }
 }
-
-// ============================================================
-// --- PERFIL E CONFIGURAÇÕES ---
-// ============================================================
 
 window.editName = function() {
     openCustomInputModal(
@@ -1749,7 +1706,7 @@ window.renderSettings = function() {
                  
                  <div class="relative group mb-4 mt-4">
                     <div class="w-28 h-28 rounded-full overflow-hidden p-1 border-4 border-white dark:border-darkcard shadow-lg relative z-10">
-                        <img src="${photo}" class="w-full h-full object-cover rounded-full" onerror="this.src='https://files.catbox.moe/pmdtq6.png'">
+                        <img src="${photo}" class="w-full h-full object-cover rounded-full bg-gray-100" onerror="this.src='https://files.catbox.moe/pmdtq6.png'">
                     </div>
                     <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition rounded-full flex items-center justify-center cursor-pointer m-1 z-20" onclick="changePhoto()">
                         <i class="fas fa-camera text-white text-2xl"></i>
@@ -1813,7 +1770,7 @@ window.renderSettings = function() {
 
             <div class="text-center pt-4 pb-8">
                  <p class="text-xs text-gray-300 dark:text-gray-600 font-mono">ID: ${currentUser.uid.substring(0,8)}...</p>
-                 <p class="text-xs text-gray-300 dark:text-gray-600 mt-1">Salve-se UFRB v3.2 (Widget Master)</p>
+                 <p class="text-xs text-gray-300 dark:text-gray-600 mt-1">Salve-se UFRB v3.3 (Mobile + PC Fixes)</p>
             </div>
         </div>
     `;
@@ -2010,7 +1967,7 @@ window.updateDashboardTasksWidget = function() {
 };
 
 // ============================================================
-// --- FUNCIONALIDADE: GRADE HORÁRIA ---
+// --- FUNCIONALIDADE: GRADE HORÁRIA (Com Alternador de View) ---
 // ============================================================
 
 const timeSlots = [
@@ -2024,6 +1981,12 @@ const timeSlots = [
 const daysList = ['seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
 const daysDisplay = {'seg': 'Seg', 'ter': 'Ter', 'qua': 'Qua', 'qui': 'Qui', 'sex': 'Sex', 'sab': 'Sab'};
 
+window.toggleScheduleMode = function() {
+    scheduleViewMode = scheduleViewMode === 'table' ? 'cards' : 'table';
+    localStorage.setItem('salvese_schedule_mode', scheduleViewMode);
+    window.renderSchedule();
+}
+
 window.renderSchedule = function () {
     const viewContainer = document.getElementById('view-aulas');
     if (!viewContainer) return;
@@ -2033,12 +1996,19 @@ window.renderSchedule = function () {
     const wrapper = document.createElement('div');
     wrapper.className = "max-w-6xl mx-auto pb-20 md:pb-10";
 
+    // Header Desktop com Toggle
     const header = document.createElement('div');
     header.className = "hidden md:flex justify-between items-center mb-6 px-2";
     header.innerHTML = `
-        <div>
-            <h2 class="text-2xl font-bold text-gray-800 dark:text-white">Grade Horária</h2>
-            <p class="text-sm text-gray-500 dark:text-gray-400">Gerencie suas aulas da semana.</p>
+        <div class="flex items-center gap-4">
+            <div>
+                <h2 class="text-2xl font-bold text-gray-800 dark:text-white">Grade Horária</h2>
+                <p class="text-sm text-gray-500 dark:text-gray-400">Gerencie suas aulas da semana.</p>
+            </div>
+            <button onclick="toggleScheduleMode()" class="ml-4 text-xs font-bold px-3 py-1.5 rounded-full border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-neutral-800 transition flex items-center gap-2 text-gray-600 dark:text-gray-300">
+                <i class="fas ${scheduleViewMode === 'table' ? 'fa-th-list' : 'fa-table'}"></i>
+                ${scheduleViewMode === 'table' ? 'Ver como Lista' : 'Ver como Tabela'}
+            </button>
         </div>
         <button onclick="openAddClassModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg shadow-md transition flex items-center gap-2 text-sm font-bold">
             <i class="fas fa-plus"></i> <span>Nova Aula</span>
@@ -2046,13 +2016,20 @@ window.renderSchedule = function () {
     `;
     wrapper.appendChild(header);
 
-    const mobileHeader = document.createElement('h2');
-    mobileHeader.className = "md:hidden text-xl font-bold text-gray-900 dark:text-white mb-6 px-1";
-    mobileHeader.innerText = "Minha Grade de Horários";
+    // Header Mobile
+    const mobileHeader = document.createElement('div');
+    mobileHeader.className = "md:hidden flex justify-between items-center mb-6 px-1";
+    mobileHeader.innerHTML = `
+        <h2 class="text-xl font-bold text-gray-900 dark:text-white">Minha Grade</h2>
+        <button onclick="openAddClassModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white w-8 h-8 rounded-full flex items-center justify-center shadow-md">
+            <i class="fas fa-plus text-sm"></i>
+        </button>
+    `;
     wrapper.appendChild(mobileHeader);
 
-    const mobileContainer = document.createElement('div');
-    mobileContainer.className = "md:hidden space-y-6";
+    // CONTAINER TIPO "CARDS" (Usado no mobile e opcional no PC)
+    const cardsContainerWrapper = document.createElement('div');
+    cardsContainerWrapper.className = scheduleViewMode === 'cards' ? "space-y-6" : "md:hidden space-y-6";
 
     daysList.forEach(dayKey => {
         const daySection = document.createElement('div');
@@ -2074,12 +2051,25 @@ window.renderSchedule = function () {
 
         const cardsContainer = document.createElement('div');
         cardsContainer.className = "space-y-3";
+        // Layout em grid se estiver no PC modo cards
+        if (scheduleViewMode === 'cards') {
+             cardsContainer.className = "space-y-3 md:grid md:grid-cols-2 lg:grid-cols-3 md:gap-4 md:space-y-0";
+        }
 
         if (classesToday.length === 0) {
-            cardsContainer.innerHTML = `
-                <p class="text-sm text-gray-400 italic pl-1">Nenhuma aula neste dia.</p>
-                <div class="border-b border-gray-100 dark:border-neutral-800 border-dashed my-1"></div>
-            `;
+            if (scheduleViewMode === 'cards') { // Apenas exibe msg vazia se for cards mode explicitamente ou mobile
+                 cardsContainer.innerHTML = `
+                    <div class="col-span-full">
+                        <p class="text-sm text-gray-400 italic pl-1">Nenhuma aula neste dia.</p>
+                        <div class="border-b border-gray-100 dark:border-neutral-800 border-dashed my-1 md:hidden"></div>
+                    </div>
+                `;
+            } else {
+                 cardsContainer.innerHTML = `
+                    <p class="text-sm text-gray-400 italic pl-1">Nenhuma aula neste dia.</p>
+                    <div class="border-b border-gray-100 dark:border-neutral-800 border-dashed my-1"></div>
+                `;
+            }
         } else {
             classesToday.forEach(aula => {
                 const colorKey = aula.color || 'indigo';
@@ -2111,78 +2101,88 @@ window.renderSchedule = function () {
             });
         }
         daySection.appendChild(cardsContainer);
-        mobileContainer.appendChild(daySection);
+        cardsContainerWrapper.appendChild(daySection);
     });
 
-    wrapper.appendChild(mobileContainer);
+    // Se estiver no modo tabela no PC, esconde o wrapper de cards (que já tem md:hidden por padrão se for mobile-only logic)
+    // Mas se user escolheu 'cards', ele aparece.
+    if (scheduleViewMode === 'cards') {
+        wrapper.appendChild(cardsContainerWrapper);
+    } else {
+        // Renderiza cards apenas mobile
+        wrapper.appendChild(cardsContainerWrapper);
+    }
 
-    const desktopContainer = document.createElement('div');
-    desktopContainer.className = "hidden md:block bg-white dark:bg-darkcard rounded-xl border border-gray-200 dark:border-darkborder shadow-sm overflow-hidden";
-    
-    let tableHTML = `
-        <div class="overflow-x-auto">
-            <table class="w-full text-sm border-collapse">
-                <thead class="bg-gray-50 dark:bg-neutral-900 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider">
-                    <tr>
-                        <th class="p-4 text-left w-40 border-b dark:border-darkborder sticky left-0 bg-gray-50 dark:bg-neutral-900 z-10">Horário</th>
-                        ${daysList.map(d => `<th class="p-4 text-center border-b dark:border-darkborder border-l dark:border-neutral-800 min-w-[120px]">${daysDisplay[d]}</th>`).join('')}
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-100 dark:divide-darkborder">
-    `;
+    // CONTAINER TIPO "TABELA" (Apenas Desktop e se selecionado)
+    if (scheduleViewMode === 'table') {
+        const desktopContainer = document.createElement('div');
+        desktopContainer.className = "hidden md:block bg-white dark:bg-darkcard rounded-xl border border-gray-200 dark:border-darkborder shadow-sm overflow-hidden";
+        
+        let tableHTML = `
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm border-collapse">
+                    <thead class="bg-gray-50 dark:bg-neutral-900 text-gray-500 dark:text-gray-400 font-bold text-xs uppercase tracking-wider">
+                        <tr>
+                            <th class="p-4 text-left w-40 border-b dark:border-darkborder sticky left-0 bg-gray-50 dark:bg-neutral-900 z-10">Horário</th>
+                            ${daysList.map(d => `<th class="p-4 text-center border-b dark:border-darkborder border-l dark:border-neutral-800 min-w-[120px]">${daysDisplay[d]}</th>`).join('')}
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100 dark:divide-darkborder">
+        `;
 
-    const occupied = {};
+        const occupied = {};
 
-    timeSlots.forEach((slot, index) => {
-        tableHTML += `<tr>`;
-        tableHTML += `<td class="p-3 font-mono text-xs font-bold text-gray-500 dark:text-gray-400 bg-gray-50/50 dark:bg-neutral-900/50 sticky left-0 z-10 border-r dark:border-darkborder whitespace-nowrap">${slot.start} - ${slot.end}</td>`;
+        timeSlots.forEach((slot, index) => {
+            tableHTML += `<tr>`;
+            tableHTML += `<td class="p-3 font-mono text-xs font-bold text-gray-500 dark:text-gray-400 bg-gray-50/50 dark:bg-neutral-900/50 sticky left-0 z-10 border-r dark:border-darkborder whitespace-nowrap">${slot.start} - ${slot.end}</td>`;
 
-        daysList.forEach(day => {
-            const cellKey = `${day}-${index}`;
-            if (occupied[cellKey]) return;
+            daysList.forEach(day => {
+                const cellKey = `${day}-${index}`;
+                if (occupied[cellKey]) return;
 
-            const foundClass = scheduleData.find(c => c.day === day && c.start === slot.start);
-            
-            if (foundClass) {
-                let endIndex = timeSlots.findIndex(s => s.end === foundClass.end);
-                if(endIndex === -1) endIndex = timeSlots.findIndex(s => s.start === foundClass.end) - 1;
-                if (endIndex === -1) endIndex = index; 
+                const foundClass = scheduleData.find(c => c.day === day && c.start === slot.start);
                 
-                const span = Math.max(1, (endIndex - index) + 1);
-                
-                for (let k = 1; k < span; k++) occupied[`${day}-${index + k}`] = true;
+                if (foundClass) {
+                    let endIndex = timeSlots.findIndex(s => s.end === foundClass.end);
+                    if(endIndex === -1) endIndex = timeSlots.findIndex(s => s.start === foundClass.end) - 1;
+                    if (endIndex === -1) endIndex = index; 
+                    
+                    const span = Math.max(1, (endIndex - index) + 1);
+                    
+                    for (let k = 1; k < span; k++) occupied[`${day}-${index + k}`] = true;
 
-                const colorKey = foundClass.color || 'indigo';
-                const palette = colorPalettes[colorKey] || colorPalettes['indigo'];
-                const bgStyle = `background-color: rgba(${palette[500]}, 0.15)`;
-                const borderStyle = `border-left: 4px solid rgb(${palette[500]})`;
-                const textStyle = `color: rgb(${palette[700]})`;
+                    const colorKey = foundClass.color || 'indigo';
+                    const palette = colorPalettes[colorKey] || colorPalettes['indigo'];
+                    const bgStyle = `background-color: rgba(${palette[500]}, 0.15)`;
+                    const borderStyle = `border-left: 4px solid rgb(${palette[500]})`;
+                    const textStyle = `color: rgb(${palette[700]})`;
 
-                tableHTML += `
-                    <td rowspan="${span}" class="p-1 align-top h-full border-l border-gray-100 dark:border-neutral-800 relative group cursor-pointer hover:brightness-95 dark:hover:brightness-110 transition" onclick="openEditClassModal('${foundClass.id}')">
-                        <div class="h-full w-full rounded p-2 flex flex-col justify-center text-left shadow-sm" style="${bgStyle}; ${borderStyle}">
-                            <p class="text-sm font-bold truncate" style="${textStyle}">${foundClass.name}</p>
-                            <p class="text-xs text-gray-600 dark:text-gray-300 truncate opacity-80">${foundClass.prof}</p>
-                            <p class="text--[10px] text-gray-500 dark:text-gray-400 truncate mt-1 bg-white/50 dark:bg-black/20 rounded w-fit px-1">${foundClass.room}</p>
-                        </div>
-                    </td>
-                `;
-            } else {
-                tableHTML += `
-                    <td class="p-1 border-l border-gray-100 dark:border-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-800 transition cursor-pointer group" onclick="openAddClassModal('${day}', '${slot.start}')">
-                        <div class="w-full h-full flex items-center justify-center opacity-0 group-hover:opacity-100 text-gray-300 dark:text-neutral-600">
-                            <i class="fas fa-plus text-xs"></i>
-                        </div>
-                    </td>
-                `;
-            }
+                    tableHTML += `
+                        <td rowspan="${span}" class="p-1 align-top h-full border-l border-gray-100 dark:border-neutral-800 relative group cursor-pointer hover:brightness-95 dark:hover:brightness-110 transition" onclick="openEditClassModal('${foundClass.id}')">
+                            <div class="h-full w-full rounded p-2 flex flex-col justify-center text-left shadow-sm" style="${bgStyle}; ${borderStyle}">
+                                <p class="text-sm font-bold truncate" style="${textStyle}">${foundClass.name}</p>
+                                <p class="text-xs text-gray-600 dark:text-gray-300 truncate opacity-80">${foundClass.prof}</p>
+                                <p class="text--[10px] text-gray-500 dark:text-gray-400 truncate mt-1 bg-white/50 dark:bg-black/20 rounded w-fit px-1">${foundClass.room}</p>
+                            </div>
+                        </td>
+                    `;
+                } else {
+                    tableHTML += `
+                        <td class="p-1 border-l border-gray-100 dark:border-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-800 transition cursor-pointer group" onclick="openAddClassModal('${day}', '${slot.start}')">
+                            <div class="w-full h-full flex items-center justify-center opacity-0 group-hover:opacity-100 text-gray-300 dark:text-neutral-600">
+                                <i class="fas fa-plus text-xs"></i>
+                            </div>
+                        </td>
+                    `;
+                }
+            });
+            tableHTML += `</tr>`;
         });
-        tableHTML += `</tr>`;
-    });
 
-    tableHTML += `</tbody></table></div>`;
-    desktopContainer.innerHTML = tableHTML;
-    wrapper.appendChild(desktopContainer);
+        tableHTML += `</tbody></table></div>`;
+        desktopContainer.innerHTML = tableHTML;
+        wrapper.appendChild(desktopContainer);
+    }
 
     viewContainer.appendChild(wrapper);
 };

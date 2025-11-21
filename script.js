@@ -22,7 +22,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 const firebaseConfig = {
-  apiKey: "", // API Key injetada pelo ambiente ou vazia
+  apiKey: "AIzaSyD5Ggqw9FpMS98CHcfXKnghMQNMV5WIVTw",
   authDomain: "salvee-se.firebaseapp.com",
   projectId: "salvee-se",
   storageBucket: "salvee-se.firebasestorage.app",
@@ -31,11 +31,11 @@ const firebaseConfig = {
 };
 
 // --- CONFIGURAÇÃO DAS IAs ---
-const GEMINI_API_KEY = ""; // Chave removida para segurança, injete ao usar
+const GEMINI_API_KEY = "AIzaSyCVGN5yxdscAjDgOcXTZgsb4qy3Ucy0Ve8"; 
 const GEMINI_MODEL = "gemini-2.5-flash-preview-09-2025";
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
 
-const GROQ_API_KEY = ""; // Chave removida para segurança
+const GROQ_API_KEY = "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";
 const GROQ_MODEL = "llama-3.3-70b-versatile"; 
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 
@@ -71,8 +71,6 @@ let remindersData = JSON.parse(localStorage.getItem('salvese_reminders')) || [];
 let notesData = JSON.parse(localStorage.getItem('salvese_notes')) || [];
 let hiddenWidgets = JSON.parse(localStorage.getItem('salvese_hidden_widgets')) || []; 
 let widgetStyles = JSON.parse(localStorage.getItem('salvese_widget_styles')) || {};
-// Nova variável para preferência de visualização da grade (pc)
-let scheduleViewMode = localStorage.getItem('salvese_schedule_view') || 'table'; // 'table' ou 'list'
 
 let selectedClassIdToDelete = null;
 let currentTaskFilter = 'all'; 
@@ -183,7 +181,6 @@ function showAppInterface() {
     refreshAllUI();
     
     fixChatLayout();
-    fixVisualStyles(); // CORREÇÃO: Ajusta os visuais bugados
     
     // Injeta controles de widget na inicialização
     injectWidgetControls();
@@ -224,30 +221,6 @@ function showProfileSetupScreen() {
     if(profileScreen) profileScreen.classList.remove('hidden');
     if(appContent) appContent.classList.add('hidden');
     if(loadingScreen) loadingScreen.classList.add('hidden');
-}
-
-// CORREÇÃO: Função para ajustar elementos visuais bugados via JS
-function fixVisualStyles() {
-    // 1. Aumentar GIF do Onibus e Remover fundo da Logo
-    const busImg = document.querySelector('#widget-bus img');
-    if (busImg) {
-        busImg.parentElement.classList.remove('w-12', 'h-12');
-        busImg.parentElement.classList.add('w-20', 'h-20'); // Aumenta container
-        busImg.classList.remove('p-1'); // Remove padding extra
-    }
-
-    // 2. Corrigir Logo na Sidebar
-    const logoContainer = document.querySelector('aside .bg-indigo-50');
-    if(logoContainer) {
-        logoContainer.classList.remove('bg-indigo-50'); // Remove fundo branco
-        logoContainer.classList.add('bg-transparent');
-        const img = logoContainer.querySelector('img');
-        if(img) {
-            logoContainer.classList.remove('w-10', 'h-10');
-            logoContainer.classList.add('w-14', 'h-14'); // Aumenta logo
-            img.classList.remove('p-1');
-        }
-    }
 }
 
 window.fixChatLayout = function() {
@@ -418,7 +391,7 @@ window.setWidgetStyle = function(widgetId, styleKey) {
     showModal("Estilo Aplicado", "O visual do widget foi atualizado.");
 }
 
-// CORREÇÃO: Função melhorada para lidar com bugs de cores em Dark Mode
+// CORREÇÃO: Esta função foi simplificada para não quebrar elementos internos (bug da cor branca)
 function applyAllWidgetStyles() {
     Object.entries(widgetStyles).forEach(([id, styleKey]) => {
         const widget = document.getElementById(id);
@@ -435,16 +408,11 @@ function applyAllWidgetStyles() {
         widget.className = `rounded-xl border p-6 flex flex-col h-full relative overflow-hidden group transition-all duration-300 ${preset.class}`;
         
         if(styleKey !== 'default') {
-             // Adiciona classe para controle CSS
+             // Adiciona classe para controle CSS (que deve lidar com a cor branca globalmente)
             widget.classList.add('widget-custom-dark');
             
-            // FORÇAR TEXTOS INTERNOS A SEREM VISÍVEIS
-            // Isso corrige o bug onde o texto fica ilegível em fundos escuros personalizados
-            const textElements = widget.querySelectorAll('h3, p:not(.text-xs), span:not(.badge)');
-            textElements.forEach(el => {
-                if(!el.classList.contains('text-gray-500')) el.classList.add('text-white');
-                el.classList.remove('text-gray-800', 'text-gray-900', 'dark:text-white', 'dark:text-gray-200');
-            });
+            // Removido loop que forçava !text-white em tudo.
+            // Agora confiamos no CSS .widget-custom-dark { color: white } e nas exceções do CSS.
             
              // Ajusta controles para garantir visibilidade
             const controls = widget.querySelector('.widget-controls');
@@ -487,7 +455,7 @@ window.toggleWidget = function(widgetId) {
         setTimeout(() => toast.remove(), 3000);
     }
     
-    // CORREÇÃO: Salva e reaplica. O CSS Grid deve se reorganizar automaticamente ao adicionar a classe 'hidden'
+    // Salva e força a reaplicação imediata da visibilidade para evitar bugs de layout
     saveData();
     applyWidgetVisibility(); 
     if(currentViewContext === 'ocultos') renderHiddenWidgetsPage();
@@ -498,13 +466,8 @@ function applyWidgetVisibility() {
     allWidgets.forEach(id => {
         const el = document.getElementById(id);
         if(el) {
-            if(hiddenWidgets.includes(id)) {
-                el.classList.add('hidden');
-                el.style.display = 'none'; // Forçar display none para garantir reflow do Grid
-            } else {
-                el.classList.remove('hidden');
-                el.style.display = ''; // Remove inline style
-            }
+            if(hiddenWidgets.includes(id)) el.classList.add('hidden');
+            else el.classList.remove('hidden');
         }
     });
 }
@@ -1331,10 +1294,8 @@ function renderNoteEditor(container, noteId) {
     if(!note) { activeNoteId = null; renderNotesList(container); return; }
 
     container.innerHTML = '';
-    
-    // CORREÇÃO: Ajuste de altura e layout para mobile
     const editorWrapper = document.createElement('div');
-    editorWrapper.className = "w-full h-[calc(100vh-5rem)] md:h-[calc(100vh-8rem)] md:max-w-4xl md:mx-auto flex flex-col bg-white dark:bg-darkcard md:rounded-xl border-0 md:border border-gray-200 dark:border-darkborder shadow-sm overflow-hidden relative";
+    editorWrapper.className = "max-w-4xl mx-auto h-full flex flex-col bg-white dark:bg-darkcard rounded-xl border border-gray-200 dark:border-darkborder shadow-sm overflow-hidden relative m-0 md:m-4 md:h-[calc(100vh-8rem)]";
     
     // Toolbar
     const toolbar = document.createElement('div');
@@ -1348,7 +1309,7 @@ function renderNoteEditor(container, noteId) {
 
     toolbar.innerHTML = `
         <button onclick="closeNote()" class="mr-2 p-2 rounded hover:bg-gray-200 dark:hover:bg-neutral-700 text-indigo-600 font-bold flex items-center gap-1">
-            <i class="fas fa-arrow-left"></i> 
+            <i class="fas fa-arrow-left"></i> Voltar
         </button>
         <div class="w-px h-6 bg-gray-300 dark:bg-neutral-700 mx-1"></div>
         ${createToolBtn('bold', 'bold')}
@@ -1852,7 +1813,7 @@ window.renderSettings = function() {
 
             <div class="text-center pt-4 pb-8">
                  <p class="text-xs text-gray-300 dark:text-gray-600 font-mono">ID: ${currentUser.uid.substring(0,8)}...</p>
-                 <p class="text-xs text-gray-300 dark:text-gray-600 mt-1">Salve-se UFRB v3.3 (Fix Visuals)</p>
+                 <p class="text-xs text-gray-300 dark:text-gray-600 mt-1">Salve-se UFRB v3.2 (Widget Master)</p>
             </div>
         </div>
     `;
@@ -2063,12 +2024,6 @@ const timeSlots = [
 const daysList = ['seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
 const daysDisplay = {'seg': 'Seg', 'ter': 'Ter', 'qua': 'Qua', 'qui': 'Qui', 'sex': 'Sex', 'sab': 'Sab'};
 
-window.toggleScheduleView = function() {
-    scheduleViewMode = scheduleViewMode === 'table' ? 'list' : 'table';
-    localStorage.setItem('salvese_schedule_view', scheduleViewMode);
-    renderSchedule();
-}
-
 window.renderSchedule = function () {
     const viewContainer = document.getElementById('view-aulas');
     if (!viewContainer) return;
@@ -2085,45 +2040,20 @@ window.renderSchedule = function () {
             <h2 class="text-2xl font-bold text-gray-800 dark:text-white">Grade Horária</h2>
             <p class="text-sm text-gray-500 dark:text-gray-400">Gerencie suas aulas da semana.</p>
         </div>
-        <div class="flex gap-3">
-            <button onclick="toggleScheduleView()" class="bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 text-gray-600 dark:text-gray-300 px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-neutral-700 transition">
-                <i class="fas ${scheduleViewMode === 'table' ? 'fa-list' : 'fa-table'}"></i>
-                ${scheduleViewMode === 'table' ? 'Ver em Lista' : 'Ver em Tabela'}
-            </button>
-            <button onclick="openAddClassModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg shadow-md transition flex items-center gap-2 text-sm font-bold">
-                <i class="fas fa-plus"></i> <span>Nova Aula</span>
-            </button>
-        </div>
+        <button onclick="openAddClassModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg shadow-md transition flex items-center gap-2 text-sm font-bold">
+            <i class="fas fa-plus"></i> <span>Nova Aula</span>
+        </button>
     `;
     wrapper.appendChild(header);
 
-    // Mobile Header
     const mobileHeader = document.createElement('h2');
     mobileHeader.className = "md:hidden text-xl font-bold text-gray-900 dark:text-white mb-6 px-1";
     mobileHeader.innerText = "Minha Grade de Horários";
     wrapper.appendChild(mobileHeader);
 
-    // Decide o que renderizar
-    const isDesktop = window.innerWidth >= 768;
-    
-    // Renderiza Mobile/Lista sempre se for mobile, ou se for desktop e a preferência for 'list'
     const mobileContainer = document.createElement('div');
-    mobileContainer.className = (!isDesktop || scheduleViewMode === 'list') ? "block space-y-6" : "hidden";
-    renderMobileSchedule(mobileContainer);
-    wrapper.appendChild(mobileContainer);
+    mobileContainer.className = "md:hidden space-y-6";
 
-    // Renderiza Tabela apenas se for Desktop E a preferência for 'table'
-    if (isDesktop && scheduleViewMode === 'table') {
-        const desktopContainer = document.createElement('div');
-        desktopContainer.className = "bg-white dark:bg-darkcard rounded-xl border border-gray-200 dark:border-darkborder shadow-sm overflow-hidden";
-        renderDesktopTable(desktopContainer);
-        wrapper.appendChild(desktopContainer);
-    }
-
-    viewContainer.appendChild(wrapper);
-};
-
-function renderMobileSchedule(container) {
     daysList.forEach(dayKey => {
         const daySection = document.createElement('div');
         daySection.className = "flex flex-col gap-3";
@@ -2143,14 +2073,12 @@ function renderMobileSchedule(container) {
             .sort((a, b) => parseInt(a.start.replace(':','')) - parseInt(b.start.replace(':','')));
 
         const cardsContainer = document.createElement('div');
-        cardsContainer.className = "grid grid-cols-1 sm:grid-cols-2 gap-3";
+        cardsContainer.className = "space-y-3";
 
         if (classesToday.length === 0) {
             cardsContainer.innerHTML = `
-                <div class="col-span-full">
-                    <p class="text-sm text-gray-400 italic pl-1">Nenhuma aula neste dia.</p>
-                    <div class="border-b border-gray-100 dark:border-neutral-800 border-dashed my-1"></div>
-                </div>
+                <p class="text-sm text-gray-400 italic pl-1">Nenhuma aula neste dia.</p>
+                <div class="border-b border-gray-100 dark:border-neutral-800 border-dashed my-1"></div>
             `;
         } else {
             classesToday.forEach(aula => {
@@ -2183,11 +2111,14 @@ function renderMobileSchedule(container) {
             });
         }
         daySection.appendChild(cardsContainer);
-        container.appendChild(daySection);
+        mobileContainer.appendChild(daySection);
     });
-}
 
-function renderDesktopTable(container) {
+    wrapper.appendChild(mobileContainer);
+
+    const desktopContainer = document.createElement('div');
+    desktopContainer.className = "hidden md:block bg-white dark:bg-darkcard rounded-xl border border-gray-200 dark:border-darkborder shadow-sm overflow-hidden";
+    
     let tableHTML = `
         <div class="overflow-x-auto">
             <table class="w-full text-sm border-collapse">
@@ -2250,8 +2181,11 @@ function renderDesktopTable(container) {
     });
 
     tableHTML += `</tbody></table></div>`;
-    container.innerHTML = tableHTML;
-}
+    desktopContainer.innerHTML = tableHTML;
+    wrapper.appendChild(desktopContainer);
+
+    viewContainer.appendChild(wrapper);
+};
 
 window.openAddClassModal = function (day, startHourStr) {
     resetModalFields();
@@ -2914,8 +2848,6 @@ window.toggleTheme = function() {
         document.documentElement.classList.add('dark');
         localStorage.setItem('theme', 'dark');
     }
-    // Reaplicar estilos para garantir contraste em widgets customizados
-    applyAllWidgetStyles();
 }
 
 window.toggleColorMenu = function(device) {

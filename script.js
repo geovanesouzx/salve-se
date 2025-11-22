@@ -1693,19 +1693,18 @@ window.editSemester = function () {
     );
 }
 
-window.changePhoto = function () {
+wwindow.changePhoto = function () {
     const input = document.createElement('input');
     input.type = 'file';
-    // AGORA ACEITA VÍDEOS E GIFS
     input.accept = 'image/*, video/mp4, video/webm';
 
     input.onchange = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
 
-        // Validação de tamanho (Imgur grátis limita vídeos pesados)
-        if (file.size > 10 * 1024 * 1024) { // 10MB
-            return showModal("Arquivo muito grande", "Por favor, escolha um GIF ou vídeo menor que 10MB.");
+        // ⚠️ LIMITE VERCEL: 4MB (Segurança para não travar a função serverless)
+        if (file.size > 4 * 1024 * 1024) {
+            return showModal("Arquivo muito grande", "Devido a limites de segurança, envie arquivos menores que 4MB.");
         }
 
         const loadingBtn = document.getElementById('btn-change-photo-settings');
@@ -1715,17 +1714,27 @@ window.changePhoto = function () {
             loadingBtn.innerHTML = '<i class="fas fa-circle-notch fa-spin mr-2"></i> Enviando...';
             loadingBtn.disabled = true;
         } else {
-            showModal("Aguarde", "Enviando mídia para o servidor...");
+            showModal("Aguarde", "Enviando mídia...");
         }
 
-        const formData = new FormData();
-        formData.append('image', file); // O endpoint do Imgur aceita video no campo 'image' ou 'video'
+        // Converter Arquivo para Base64
+        const toBase64 = (file) => new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = error => reject(error);
+        });
 
         try {
-            const response = await fetch('https://api.imgur.com/3/upload', {
+            const base64File = await toBase64(file);
+
+            // --- AQUI MUDOU: Envia para /api/upload ---
+            const response = await fetch('/api/upload', {
                 method: 'POST',
-                headers: { 'Authorization': 'Client-ID 513bb727cecf9ac' },
-                body: formData
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    image: base64File
+                })
             });
 
             const data = await response.json();
@@ -1744,9 +1753,9 @@ window.changePhoto = function () {
                 const genericModal = document.getElementById('generic-modal');
                 if (genericModal && !genericModal.classList.contains('hidden')) closeGenericModal();
 
-                showModal("Sucesso", "Perfil atualizado com movimento! 🎬");
+                showModal("Sucesso", "Perfil atualizado com sucesso! 📸");
             } else {
-                throw new Error('Falha no upload. Tente um arquivo menor.');
+                throw new Error(data.error || 'Falha no upload.');
             }
 
         } catch (error) {

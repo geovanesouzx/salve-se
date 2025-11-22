@@ -647,27 +647,26 @@ CONTEXTO ATUAL:
 - Ônibus: ${statusCircular}
 
 SUAS SUPER HABILIDADES:
-1. ✍️ Redator Acadêmico (CRÍTICO): Você pode criar Notas completas.
-   - Ao criar notas, USE HTML para formatar o conteúdo:
-     - <b>negrito</b>, <i>itálico</i>, <u>sublinhado</u>
-     - <br> para pular linhas (não use \\n)
-     - <h2>Subtítulos</h2>
-     - <ul><li>Listas com marcadores</li></ul>
-     - <ol><li>Listas numeradas</li></ol>
-   - Se pedirem ABNT, formate rigorosamente (margens e fontes você simula com estrutura visual).
+1. 📧 Redator de Emails (NOVO):
+   - Crie emails formais e acadêmicos para professores, colegiado ou reitoria.
+   - Use linguagem culta e polida.
+   - Use [Colchetes] para indicar onde o aluno deve preencher (ex: [Seu Nome], [Matrícula]).
+   - AÇÃO: Use o comando "generate_template".
 
-2. 🎨 Designer: Mudar cores (azul, verde, rosa, preto, etc).
-3. 📅 Organizador: Criar tarefas e lembretes.
+2. ✍️ Redator de Notas: Use HTML (<b>, <ul>, <h2>) para formatar.
+3. 🎨 Designer: Mudar cores.
+4. 📅 Organizador: Criar tarefas e lembretes.
 
 AÇÕES (Retorne APENAS JSON):
 { "message": "texto curto pro chat", "commands": [ { "action": "...", "params": {...} } ] }
 
 Comandos Disponíveis:
-- "create_note": { "title": "Título da Nota", "content": "Conteúdo em HTML..." }
+- "generate_template": { "content": "Assunto: ...\n\nPrezado..." }  <-- NOVO
+- "create_note": { "title": "...", "content": "HTML..." }
 - "create_task": { "text": "...", "priority": "normal|high" }
 - "create_reminder": { "desc": "...", "date": "YYYY-MM-DD" }
-- "set_global_color": { "color": "nome_da_cor" }
-- "navigate": { "page": "nome_da_tela" }
+- "set_global_color": { "color": "..." }
+- "navigate": { "page": "..." }
 `;
 
         // 4. Histórico (Correção do bug de duplicidade incluída)
@@ -920,6 +919,33 @@ async function executeAICommand(cmd) {
         case 'show_widget':
             if (p.id && hiddenWidgets.includes(p.id)) toggleWidget(p.id);
             break;
+
+        case 'generate_template':
+            const emailContent = p.content || "";
+
+            // 1. Muda para a tela de templates se não estiver nela
+            if (currentViewContext !== 'email') {
+                switchPage('email');
+            }
+
+            // 2. Aguarda a tela carregar (caso tenha trocado) e preenche
+            setTimeout(() => {
+                const emailArea = document.getElementById('email-content');
+                const statusLabel = document.getElementById('template-status');
+
+                if (emailArea) {
+                    // Efeito de "digitação" instantânea
+                    emailArea.value = emailContent;
+                    emailArea.classList.add('bg-indigo-50', 'dark:bg-indigo-900/20');
+                    setTimeout(() => emailArea.classList.remove('bg-indigo-50', 'dark:bg-indigo-900/20'), 500);
+
+                    // Mostra etiqueta "Gerado por IA"
+                    if (statusLabel) {
+                        statusLabel.innerText = "✨ Criado pela IA";
+                        statusLabel.classList.remove('hidden');
+                    }
+                }
+            }, 100);
 
         default:
             console.warn("⚠️ Comando IA não reconhecido:", cmd.action);

@@ -640,28 +640,27 @@ window.sendIAMessage = async function () {
         let systemInstructionText = `
 VOCÊ É A "SALVE-SE IA", ASSISTENTE ACADÊMICA DA UFRB.
 Sua missão é organizar a vida do estudante, reduzir o estresse e ajudar nos estudos.
+Fale sempre em Português do Brasil de forma natural.
 
 CONTEXTO ATUAL:
 - Tela: ${currentViewContext}
 - Hora: ${new Date().toLocaleTimeString('pt-BR')}
-- Data: ${new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric' })}
+- Dia: ${new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric' })}
 - Ônibus: ${statusCircular}
-- Clima: ${tempElement ? tempElement.innerText : "Indisponível"}
-- Tarefas Pendentes: ${tasksData.filter(t => !t.done).map(t => t.text).join(', ')}
-- Widgets Ocultos: ${hiddenWidgets.join(', ')}
+- Tarefas Pendentes: ${tasksData.filter(t => !t.done).length}
 
-SUAS HABILIDADES ESPECIAIS:
-1. 🧐 Especialista ABNT (formate referências na norma NBR 6023).
-2. 📅 Estrategista de Tempo (sugira tarefas baseadas no tempo livre).
-3. 🎓 Tutor de Revisão (crie quizzes se o usuário pedir ajuda para estudar).
-4. 🌦️ Consultor de Clima/Ônibus (cruze dados de clima com horários do circular).
+SUAS HABILIDADES:
+1. 🎨 Designer: Você pode mudar as cores do app.
+   CORES DISPONÍVEIS: Azul (use 'indigo'), Verde, Vermelho, Roxo, Rosa, Laranja, Amarelo, Preto, Ciano, Violeta, Lima.
+2. 📅 Organizador: Crie tarefas e lembretes.
+3. 🎓 Tutor: Ajude com dúvidas da UFRB.
 
 AÇÕES PERMITIDAS (Responda APENAS com JSON):
-ESTRUTURA: { "message": "texto", "commands": [ { "action": "...", "params": {...} } ] }
+ESTRUTURA: { "message": "texto amigável", "commands": [ { "action": "...", "params": {...} } ] }
 
-Comandos disponíveis:
+Comandos:
 - "toggle_theme": { "mode": "dark|light" }
-- "set_global_color": { "color": "indigo|red|green..." }
+- "set_global_color": { "color": "nome_da_cor_em_portugues" }  <-- Ex: "preta", "azul", "verde"
 - "create_task": { "text": "...", "priority": "normal|high" }
 - "create_reminder": { "desc": "...", "date": "YYYY-MM-DD" }
 - "navigate": { "page": "home|todo|aulas|notas|onibus|calc|pomo" }
@@ -791,7 +790,7 @@ async function executeAICommand(cmd) {
     const p = cmd.params || {};
 
     switch (cmd.action) {
-        // --- TEMA E CORES (AGORA TRADUZIDO) ---
+        // --- TEMA E CORES (CORRIGIDO) ---
         case 'toggle_theme':
             if (p.mode === 'dark' || p.mode === 'escuro') {
                 document.documentElement.classList.add('dark');
@@ -805,26 +804,40 @@ async function executeAICommand(cmd) {
             break;
 
         case 'set_global_color':
-            let color = p.color ? p.color.toLowerCase() : 'indigo';
+            // 1. Limpa a entrada da IA
+            let rawColor = p.color ? p.color.toLowerCase().trim() : 'indigo';
 
-            // TRADUTOR DE CORES (PT-BR -> EN)
+            // 2. TRADUTOR COMPLETO (Aceita masculino, feminino e inglês)
             const colorMap = {
-                'verde': 'green',
-                'vermelho': 'red',
-                'azul': 'indigo', // Mapeando azul para indigo (cor padrão do tema)
-                'roxo': 'purple',
-                'rosa': 'pink',
-                'laranja': 'orange',
-                'amarelo': 'yellow',
-                'preto': 'black',
-                'ciano': 'cyan',
-                'violeta': 'violet',
-                'lima': 'lime'
+                // Masculino
+                'verde': 'green', 'vermelho': 'red', 'azul': 'indigo',
+                'roxo': 'purple', 'rosa': 'pink', 'laranja': 'orange',
+                'amarelo': 'yellow', 'preto': 'black', 'ciano': 'cyan',
+                'violeta': 'violet', 'lima': 'lime', 'petroleo': 'teal',
+
+                // Feminino (Correção para "cor preta", "cor vermelha")
+                'preta': 'black', 'vermelha': 'red', 'amarela': 'yellow',
+                'roxa': 'purple', 'branca': 'black',
+
+                // Inglês direto
+                'indigo': 'indigo', 'green': 'green', 'red': 'red',
+                'purple': 'purple', 'pink': 'pink', 'orange': 'orange',
+                'yellow': 'yellow', 'black': 'black', 'cyan': 'cyan',
+                'violet': 'violet', 'lime': 'lime', 'teal': 'teal',
+                'rose': 'rose', 'blue': 'indigo'
             };
 
-            // Se a cor estiver em português, traduz. Se não, usa a original.
-            const finalColor = colorMap[color] || color;
-            setThemeColor(finalColor);
+            // 3. Traduz a cor
+            const finalColor = colorMap[rawColor] || rawColor;
+
+            // 4. SEGURANÇA: Verifica se a cor existe no sistema antes de aplicar
+            if (window.colorPalettes && window.colorPalettes[finalColor]) {
+                setThemeColor(finalColor);
+            } else {
+                // Se a IA inventar uma cor maluca, usa o padrão para não travar
+                console.warn(`Cor não encontrada: ${finalColor}. Usando Indigo.`);
+                setThemeColor('indigo');
+            }
             break;
 
         // --- TAREFAS ---

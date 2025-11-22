@@ -642,51 +642,48 @@ window.sendIAMessage = async function () {
     showTypingIndicator();
 
     try {
-        // PEGA O STATUS ATUALIZADO DO ÔNIBUS
         const statusCircular = getBusStatusForAI();
+        const tempElement = document.getElementById('weather-temp');
 
         const contextData = {
             tela_atual: currentViewContext,
             hora_atual: new Date().toLocaleTimeString('pt-BR'),
             data_hoje: new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric' }),
-
-            // DADOS IMPORTANTES INJETADOS AQUI:
             info_circular: statusCircular,
-
+            clima_atual_ufrb: tempElement ? tempElement.innerText : "Indisponível",
             tarefas_pendentes: tasksData.filter(t => !t.done).map(t => t.text),
-            proximas_aulas: scheduleData.filter(c => c.day === ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'][new Date().getDay()]),
-            lembretes: remindersData.map(r => `${r.desc} (${r.date})`),
+            widgets_ocultos: hiddenWidgets,
             aiProvider: currentAIProvider
         };
 
-        // PROMPT ATUALIZADO
         let systemInstructionText = `
 VOCÊ É O CÉREBRO DO APP "SALVE-SE UFRB".
 Sua função é gerenciar o app e responder dúvidas.
 
-CONTEXTO EM TEMPO REAL: ${JSON.stringify(contextData)}
+CONTEXTO: ${JSON.stringify(contextData)}
 
-INSTRUÇÕES ESPECÍFICAS:
-1. **Circular/Ônibus:** Use o campo "info_circular" do contexto para responder. SE O USUÁRIO PERGUNTAR "TEM ÔNIBUS?", LEIA ESSE CAMPO. Não mande ele olhar o site, VOCÊ JÁ SABE.
-2. **Aulas:** Se perguntarem "qual minha próxima aula", olhe em "proximas_aulas" e compare com a "hora_atual".
-3. **Personalidade:** Seja direto, útil e simpático.
+AÇÕES PERMITIDAS (Use JSON):
+- "toggle_theme": {} (Alternar modo escuro/claro)
+- "set_global_color": { "color": "indigo|red|green|blue|purple|pink|orange|teal" } (Mudar cor do tema)
 
-ESTRUTURA DE RESPOSTA (JSON):
-{
-  "message": "Sua resposta em texto (pode usar <b>, <br>)",
-  "commands": [] 
-}
+- "create_task": { "text": "...", "priority": "normal|medium|high" }
+- "delete_task": { "text": "..." }
+- "delete_all_tasks": {}
 
-AÇÕES DISPONÍVEIS (JSON commands):
-- "create_task", "delete_task", "delete_all_tasks"
-- "create_reminder", "delete_reminder", "delete_all_reminders"
-- "create_note", "navigate" (ex: navigate to 'onibus' se o usuário pedir detalhes da rota)
+- "create_reminder": { "desc": "...", "date": "YYYY-MM-DD" }
+- "delete_reminder": { "desc": "..." }
+- "delete_all_reminders": {}
+
+- "create_note": { "title": "...", "content": "HTML" }
+- "navigate": { "page": "home|todo|aulas|notas|onibus|calc|pomo" }
+
+REGRAS:
+1. Responda APENAS JSON.
 `;
 
         let messagesPayload = [];
         messagesPayload.push({ role: "system", content: systemInstructionText });
 
-        // Histórico curto para economizar tokens
         const recentHistory = chatHistory.slice(-4);
         recentHistory.forEach(msg => {
             messagesPayload.push({ role: msg.role === 'user' ? 'user' : 'assistant', content: msg.text });
@@ -695,7 +692,6 @@ AÇÕES DISPONÍVEIS (JSON commands):
 
         let aiResponseText = "";
 
-        // --- BLOCO DE ENVIO (GEMINI OU GROQ) ---
         if (currentAIProvider === 'groq') {
             const response = await fetch(GROQ_API_URL, {
                 method: "POST",
@@ -708,7 +704,6 @@ AÇÕES DISPONÍVEIS (JSON commands):
                 })
             });
             const data = await response.json();
-            if (data.error) throw new Error(data.error.message);
             aiResponseText = data.choices[0].message.content;
         } else {
             const geminiContents = [{ role: "user", parts: [{ text: systemInstructionText + "\n\nUsuário: " + message }] }];
@@ -718,11 +713,9 @@ AÇÕES DISPONÍVEIS (JSON commands):
                 body: JSON.stringify({ contents: geminiContents, generationConfig: { temperature: 0.1, responseMimeType: "application/json" } })
             });
             const data = await response.json();
-            if (data.error) throw new Error(data.error.message);
             aiResponseText = data.candidates[0].content.parts[0].text;
         }
 
-        // --- PROCESSAMENTO DA RESPOSTA ---
         try {
             let cleanText = aiResponseText.replace(/```json/g, '').replace(/```/g, '').trim();
             const first = cleanText.indexOf('{');
@@ -742,17 +735,17 @@ AÇÕES DISPONÍVEIS (JSON commands):
             }
         } catch (e) {
             console.error("Erro JSON:", e);
-            appendMessage('ai', "Erro ao processar resposta. Texto bruto: " + aiResponseText.substring(0, 50));
+            appendMessage('ai', "Erro técnico ao processar comando.");
         }
 
     } catch (error) {
         console.error("Erro Geral:", error);
-        appendMessage('ai', `⚠️ Erro: ${error.message || "Falha na conexão"}`);
+        appendMessage('ai', `⚠️ Erro: ${error.message}`);
     } finally {
         hideTypingIndicator();
-        input.disabled = false;
-        sendBtn.disabled = false;
-        input.focus();
+        document.getElementById('chat-input').disabled = false;
+        document.getElementById('chat-send-btn').disabled = false;
+        document.getElementById('chat-input').focus();
         scrollToBottom();
     }
 };
@@ -847,6 +840,15 @@ async function executeAICommand(cmd) {
     const p = cmd.params || {};
 
     switch (cmd.action) {
+        case 'toggle_theme':
+            toggleTheme(); // Alterna Claro/Escuro
+            break;
+
+        case 'set_global_color':
+            // Muda a cor principal do site (ex: "red", "green", "indigo")
+            if (p.color) setThemeColor(p.color);
+            break;
+
         case 'create_task':
             tasksData.push({ id: Date.now().toString() + Math.random(), text: p.text, done: false, priority: p.priority || 'normal', category: p.category || 'geral', createdAt: Date.now() });
             saveData();
@@ -892,13 +894,9 @@ async function executeAICommand(cmd) {
 
         case 'create_note':
             const newNoteId = Date.now().toString();
-            notesData.push({ id: newNoteId, title: p.title || "Nova Nota IA", content: formatAIContent(p.content) || "", updatedAt: Date.now() });
+            notesData.push({ id: newNoteId, title: p.title || "Nova Nota IA", content: (p.content || "").replace(/\n/g, "<br>"), updatedAt: Date.now() });
             saveData();
             if (currentViewContext === 'notas') { renderNotes(); openNote(newNoteId); }
-            break;
-
-        case 'toggle_theme':
-            toggleTheme();
             break;
 
         case 'hide_widget':

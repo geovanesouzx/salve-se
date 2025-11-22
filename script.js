@@ -3033,3 +3033,70 @@ window.addEventListener('popstate', (event) => {
         switchPage('home', false);
     }
 });
+
+// ============================================================
+// --- RECONHECIMENTO DE VOZ (Web Speech API) ---
+// ============================================================
+
+window.startVoiceRecognition = function () {
+    const btn = document.getElementById('btn-mic');
+    const icon = btn.querySelector('i');
+    const input = document.getElementById('chat-input');
+
+    // Verifica compatibilidade (Chrome, Edge e Android suportam nativamente)
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+        showModal("Não suportado", "Seu navegador não suporta comandos de voz. Tente usar o Google Chrome.");
+        return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'pt-BR'; // Configura para Português do Brasil
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    // EFEITO VISUAL: Botão fica vermelho e pulsando
+    btn.classList.remove('bg-gray-200', 'dark:bg-neutral-800', 'text-gray-600', 'dark:text-gray-300');
+    btn.classList.add('bg-red-500', 'text-white', 'animate-pulse');
+    icon.classList.remove('fa-microphone');
+    icon.classList.add('fa-wave-square'); // Ícone de onda sonora
+
+    const originalPlaceholder = input.placeholder;
+    input.placeholder = "Ouvindo... Pode falar!";
+
+    recognition.start();
+
+    recognition.onresult = (event) => {
+        const text = event.results[0][0].transcript;
+        input.value = text;
+
+        // Envia automaticamente após 1 segundo (para dar tempo de ler)
+        setTimeout(() => {
+            window.sendIAMessage();
+        }, 1000);
+    };
+
+    recognition.onspeechend = () => {
+        recognition.stop();
+        resetMicButton();
+    };
+
+    recognition.onerror = (event) => {
+        console.error('Erro no reconhecimento:', event.error);
+        resetMicButton();
+        if (event.error === 'not-allowed') {
+            showModal("Permissão Negada", "Você precisa permitir o uso do microfone para usar esta função.");
+        } else {
+            input.placeholder = "Não entendi. Tente novamente.";
+        }
+    };
+
+    function resetMicButton() {
+        btn.classList.add('bg-gray-200', 'dark:bg-neutral-800', 'text-gray-600', 'dark:text-gray-300');
+        btn.classList.remove('bg-red-500', 'text-white', 'animate-pulse');
+        icon.classList.add('fa-microphone');
+        icon.classList.remove('fa-wave-square');
+        input.placeholder = originalPlaceholder;
+    }
+};

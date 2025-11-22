@@ -621,7 +621,7 @@ window.sendIAMessage = async function () {
 
     if (!message) return;
 
-    // 1. Exibe a mensagem do usuário na tela imediatamente
+    // 1. Exibe a mensagem do usuário na tela e salva no histórico local
     appendMessage('user', message);
     input.value = '';
     input.disabled = true;
@@ -635,8 +635,7 @@ window.sendIAMessage = async function () {
         const statusCircular = getBusStatusForAI();
         const tempElement = document.getElementById('weather-temp');
 
-        // 3. Monta o Prompt do Sistema (Instruções para a IA)
-        // Isso ensina a IA quem ela é e o que pode fazer
+        // 3. Monta o Prompt do Sistema
         let systemInstructionText = `
 VOCÊ É A "SALVE-SE IA", ASSISTENTE ACADÊMICA DA UFRB.
 Sua missão é organizar a vida do estudante, reduzir o estresse e ajudar nos estudos.
@@ -660,31 +659,33 @@ ESTRUTURA: { "message": "texto amigável", "commands": [ { "action": "...", "par
 
 Comandos:
 - "toggle_theme": { "mode": "dark|light" }
-- "set_global_color": { "color": "nome_da_cor_em_portugues" }  <-- Ex: "preta", "azul", "verde"
+- "set_global_color": { "color": "nome_da_cor_em_portugues" }
 - "create_task": { "text": "...", "priority": "normal|high" }
 - "create_reminder": { "desc": "...", "date": "YYYY-MM-DD" }
 - "navigate": { "page": "home|todo|aulas|notas|onibus|calc|pomo" }
 `;
 
-        // 4. Prepara o histórico da conversa para enviar
-        // A primeira mensagem é sempre o sistema (prompt)
+        // 4. Prepara o histórico para enviar
         let historyPayload = [{ role: 'system', text: systemInstructionText }];
 
-        // Adiciona as últimas 4 mensagens da conversa real para manter o contexto
-        const recentHistory = chatHistory.slice(-4);
+        // CORREÇÃO DO BUG "ROSAROSA":
+        // Pegamos o histórico, mas removemos a última mensagem (a atual),
+        // pois a API já adiciona a mensagem atual separadamente.
+        // O .slice(0, -1) remove a última. O .slice(-4) pega as 4 anteriores a ela.
+        const recentHistory = chatHistory.slice(0, -1).slice(-4);
+
         recentHistory.forEach(msg => {
             historyPayload.push({ role: msg.role, text: msg.text });
         });
 
-        // 5. SEGURANÇA: Chama a SUA API (/api/chat) na Vercel
-        // Nenhuma chave secreta é enviada aqui, apenas o provedor escolhido
+        // 5. Envia para a API
         const response = await fetch('/api/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                provider: currentAIProvider, // 'gemini' ou 'groq'
-                message: message,            // O que o usuário digitou
-                history: historyPayload      // O contexto montado acima
+                provider: currentAIProvider,
+                message: message,
+                history: historyPayload
             })
         });
 
@@ -692,10 +693,8 @@ Comandos:
 
         if (data.error) throw new Error(data.error);
 
-        // 6. Processa a resposta da IA
+        // 6. Processa a resposta
         let aiResponseText = data.text;
-
-        // Limpeza do JSON (caso a IA mande blocos de código markdown)
         let cleanText = aiResponseText.replace(/```json/g, '').replace(/```/g, '').trim();
         const first = cleanText.indexOf('{');
         const last = cleanText.lastIndexOf('}');
@@ -703,15 +702,13 @@ Comandos:
 
         const responseJson = JSON.parse(cleanText);
 
-        // Exibe a resposta da IA na tela
         if (responseJson.message) appendMessage('ai', responseJson.message);
         else appendMessage('ai', "Feito.");
 
-        // Executa comandos (criar tarefa, mudar tema, etc.)
         if (responseJson.commands && Array.isArray(responseJson.commands)) {
             for (const cmd of responseJson.commands) {
                 await executeAICommand(cmd);
-                await new Promise(r => setTimeout(r, 300)); // Pequeno delay entre ações
+                await new Promise(r => setTimeout(r, 300));
             }
         }
 
@@ -719,7 +716,6 @@ Comandos:
         console.error("Erro Geral:", error);
         appendMessage('ai', `⚠️ Erro: ${error.message}`);
     } finally {
-        // Limpeza final: reabilita o input
         hideTypingIndicator();
         document.getElementById('chat-input').disabled = false;
         document.getElementById('chat-send-btn').disabled = false;

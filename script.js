@@ -3035,46 +3035,44 @@ window.addEventListener('popstate', (event) => {
 });
 
 // ============================================================
-// --- RECONHECIMENTO DE VOZ (Web Speech API) ---
+// --- RECONHECIMENTO DE VOZ (MODO MANUAL) ---
 // ============================================================
 
-window.startVoiceRecognition = function () {
+window.startVoiceRecognition = function() {
     const btn = document.getElementById('btn-mic');
     const icon = btn.querySelector('i');
     const input = document.getElementById('chat-input');
 
-    // Verifica compatibilidade (Chrome, Edge e Android suportam nativamente)
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-
+    
     if (!SpeechRecognition) {
-        showModal("Não suportado", "Seu navegador não suporta comandos de voz. Tente usar o Google Chrome.");
+        showModal("Não suportado", "Seu navegador não suporta comandos de voz.");
         return;
     }
 
     const recognition = new SpeechRecognition();
-    recognition.lang = 'pt-BR'; // Configura para Português do Brasil
-    recognition.interimResults = false;
+    recognition.lang = 'pt-BR';
+    recognition.interimResults = false; // Só pega o resultado final
     recognition.maxAlternatives = 1;
 
-    // EFEITO VISUAL: Botão fica vermelho e pulsando
+    // Visual: Botão vermelho indicando gravação
     btn.classList.remove('bg-gray-200', 'dark:bg-neutral-800', 'text-gray-600', 'dark:text-gray-300');
     btn.classList.add('bg-red-500', 'text-white', 'animate-pulse');
     icon.classList.remove('fa-microphone');
-    icon.classList.add('fa-wave-square'); // Ícone de onda sonora
-
+    icon.classList.add('fa-stop'); // Ícone de "Parar"
+    
     const originalPlaceholder = input.placeholder;
-    input.placeholder = "Ouvindo... Pode falar!";
+    input.placeholder = "Estou ouvindo...";
 
     recognition.start();
 
     recognition.onresult = (event) => {
         const text = event.results[0][0].transcript;
+        
+        // AQUI ESTÁ A MUDANÇA:
+        // Apenas coloca o texto no input, NÃO envia automático.
         input.value = text;
-
-        // Envia automaticamente após 1 segundo (para dar tempo de ler)
-        setTimeout(() => {
-            window.sendIAMessage();
-        }, 1000);
+        input.focus(); // Foca na caixa para você poder editar se quiser
     };
 
     recognition.onspeechend = () => {
@@ -3083,12 +3081,10 @@ window.startVoiceRecognition = function () {
     };
 
     recognition.onerror = (event) => {
-        console.error('Erro no reconhecimento:', event.error);
+        console.error('Erro voz:', event.error);
         resetMicButton();
-        if (event.error === 'not-allowed') {
-            showModal("Permissão Negada", "Você precisa permitir o uso do microfone para usar esta função.");
-        } else {
-            input.placeholder = "Não entendi. Tente novamente.";
+        if(event.error === 'not-allowed') {
+            showModal("Permissão", "Ative o microfone para usar essa função.");
         }
     };
 
@@ -3096,7 +3092,7 @@ window.startVoiceRecognition = function () {
         btn.classList.add('bg-gray-200', 'dark:bg-neutral-800', 'text-gray-600', 'dark:text-gray-300');
         btn.classList.remove('bg-red-500', 'text-white', 'animate-pulse');
         icon.classList.add('fa-microphone');
-        icon.classList.remove('fa-wave-square');
+        icon.classList.remove('fa-stop');
         input.placeholder = originalPlaceholder;
     }
 };

@@ -1150,42 +1150,89 @@
                 <!-- VIEW DE NOTAS -->
                 <div id="view-notas" class="hidden fade-in h-full"></div>
 
-                <div id="view-email" class="hidden fade-in max-w-5xl mx-auto">
-                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[500px]">
-                        <div class="space-y-2 overflow-y-auto pr-2">
-                            <button onclick="loadTemplate('deadline')"
-                                class="w-full text-left p-4 rounded-lg bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder hover:border-indigo-500 transition group"><span
-                                    class="font-bold text-gray-700 dark:text-gray-200 block group-hover:text-indigo-500">Extensão
-                                    de Prazo</span><span class="text-xs text-gray-500">Pedir mais tempo.</span></button>
-                            <button onclick="loadTemplate('review')"
-                                class="w-full text-left p-4 rounded-lg bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder hover:border-indigo-500 transition group"><span
-                                    class="font-bold text-gray-700 dark:text-gray-200 block group-hover:text-indigo-500">Revisão
-                                    de Nota</span><span class="text-xs text-gray-500">Dúvidas na
-                                    correção.</span></button>
-                            <button onclick="loadTemplate('absence')"
-                                class="w-full text-left p-4 rounded-lg bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder hover:border-indigo-500 transition group"><span
-                                    class="font-bold text-gray-700 dark:text-gray-200 block group-hover:text-indigo-500">Justificar
-                                    Falta</span><span class="text-xs text-gray-500">Motivo de saúde.</span></button>
-                            <button onclick="loadTemplate('tcc')"
-                                class="w-full text-left p-4 rounded-lg bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder hover:border-indigo-500 transition group"><span
-                                    class="font-bold text-gray-700 dark:text-gray-200 block group-hover:text-indigo-500">Orientador
-                                    TCC</span><span class="text-xs text-gray-500">Convite formal.</span></button>
-                        </div>
+                <div id="view-email" class="hidden fade-in h-full flex flex-col max-w-6xl mx-auto">
+
+                    <div class="mb-4 md:hidden">
+                        <h2 class="text-xl font-bold text-gray-800 dark:text-white">Templates</h2>
+                        <p class="text-xs text-gray-500">Deslize para escolher um modelo</p>
+                    </div>
+
+                    <div class="flex flex-col lg:grid lg:grid-cols-3 gap-4 lg:gap-6 h-full lg:h-[600px]">
+
                         <div
-                            class="lg:col-span-2 flex flex-col bg-white dark:bg-darkcard rounded-xl border border-gray-200 dark:border-darkborder overflow-hidden">
+                            class="flex lg:flex-col gap-3 overflow-x-auto lg:overflow-y-auto no-scrollbar pb-2 lg:pb-0 shrink-0 lg:pr-2 snap-x snap-mandatory">
+
+                            <button onclick="loadTemplate('deadline')"
+                                class="snap-center min-w-[260px] lg:min-w-0 text-left p-4 rounded-xl bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder hover:border-indigo-500 dark:hover:border-indigo-500 transition group shadow-sm active:scale-95">
+                                <div class="flex items-center justify-between mb-1">
+                                    <span
+                                        class="font-bold text-gray-700 dark:text-gray-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400">Extensão
+                                        de Prazo</span>
+                                    <i class="fas fa-hourglass-half text-gray-300 group-hover:text-indigo-500"></i>
+                                </div>
+                                <span class="text-xs text-gray-500 dark:text-gray-400 line-clamp-2">Pedir mais tempo
+                                    para entregar um trabalho ou atividade.</span>
+                            </button>
+
+                            <button onclick="loadTemplate('review')"
+                                class="snap-center min-w-[260px] lg:min-w-0 text-left p-4 rounded-xl bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder hover:border-indigo-500 dark:hover:border-indigo-500 transition group shadow-sm active:scale-95">
+                                <div class="flex items-center justify-between mb-1">
+                                    <span
+                                        class="font-bold text-gray-700 dark:text-gray-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400">Revisão
+                                        de Nota</span>
+                                    <i class="fas fa-search text-gray-300 group-hover:text-indigo-500"></i>
+                                </div>
+                                <span class="text-xs text-gray-500 dark:text-gray-400 line-clamp-2">Solicitar vista de
+                                    prova ou revisão de correção.</span>
+                            </button>
+
+                            <button onclick="loadTemplate('absence')"
+                                class="snap-center min-w-[260px] lg:min-w-0 text-left p-4 rounded-xl bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder hover:border-indigo-500 dark:hover:border-indigo-500 transition group shadow-sm active:scale-95">
+                                <div class="flex items-center justify-between mb-1">
+                                    <span
+                                        class="font-bold text-gray-700 dark:text-gray-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400">Justificar
+                                        Falta</span>
+                                    <i class="fas fa-user-injured text-gray-300 group-hover:text-indigo-500"></i>
+                                </div>
+                                <span class="text-xs text-gray-500 dark:text-gray-400 line-clamp-2">Enviar atestado ou
+                                    explicar ausência por motivos de saúde.</span>
+                            </button>
+
+                            <button onclick="loadTemplate('tcc')"
+                                class="snap-center min-w-[260px] lg:min-w-0 text-left p-4 rounded-xl bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder hover:border-indigo-500 dark:hover:border-indigo-500 transition group shadow-sm active:scale-95">
+                                <div class="flex items-center justify-between mb-1">
+                                    <span
+                                        class="font-bold text-gray-700 dark:text-gray-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400">Orientador
+                                        TCC</span>
+                                    <i class="fas fa-graduation-cap text-gray-300 group-hover:text-indigo-500"></i>
+                                </div>
+                                <span class="text-xs text-gray-500 dark:text-gray-400 line-clamp-2">Convite formal para
+                                    orientação de trabalho de conclusão.</span>
+                            </button>
+                        </div>
+
+                        <div
+                            class="flex-1 lg:col-span-2 flex flex-col bg-white dark:bg-darkcard rounded-xl border border-gray-200 dark:border-darkborder overflow-hidden shadow-sm min-h-[300px]">
                             <div
-                                class="p-3 bg-gray-50 dark:bg-neutral-900 border-b border-gray-200 dark:border-darkborder flex justify-between items-center">
-                                <span class="text-xs font-bold uppercase text-gray-500">Editor</span><button
-                                    onclick="copyEmail()"
-                                    class="text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded transition">Copiar</button>
+                                class="px-4 py-3 bg-gray-50 dark:bg-neutral-900 border-b border-gray-200 dark:border-darkborder flex justify-between items-center">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-xs font-bold uppercase text-gray-500 tracking-wider">Editor de
+                                        Texto</span>
+                                    <span id="template-status"
+                                        class="hidden text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full animate-fade-in-up">Carregado</span>
+                                </div>
+                                <button onclick="copyEmail()"
+                                    class="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-4 py-2 rounded-lg transition shadow-md active:scale-95">
+                                    <i class="fas fa-copy"></i> Copiar
+                                </button>
                             </div>
+
                             <textarea id="email-content"
-                                class="flex-1 w-full p-6 bg-transparent outline-none resize-none font-mono text-sm leading-relaxed text-gray-700 dark:text-gray-300"
-                                spellcheck="false">Selecione um modelo...</textarea>
+                                class="flex-1 w-full p-5 bg-transparent outline-none resize-none font-mono text-sm leading-relaxed text-gray-700 dark:text-gray-300 placeholder-gray-300 dark:placeholder-neutral-700 focus:bg-indigo-50/10 transition-colors"
+                                placeholder="Toque em um modelo acima para começar..." spellcheck="false"></textarea>
                         </div>
                     </div>
                 </div>
-
                 <!-- NOVA VIEW DE CONFIGURAÇÕES -->
                 <div id="view-config" class="hidden fade-in w-full">
                     <div id="settings-content" class="w-full">

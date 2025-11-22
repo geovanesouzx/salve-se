@@ -656,29 +656,39 @@ window.sendIAMessage = async function () {
             aiProvider: currentAIProvider
         };
 
+        // AQUI ESTÁ A CORREÇÃO NO PROMPT (systemInstructionText)
         let systemInstructionText = `
 VOCÊ É O CÉREBRO DO APP "SALVE-SE UFRB".
 Sua função é gerenciar o app e responder dúvidas.
 
 CONTEXTO: ${JSON.stringify(contextData)}
 
-AÇÕES PERMITIDAS (Use JSON):
-- "toggle_theme": {} (Alternar modo escuro/claro)
-- "set_global_color": { "color": "indigo|red|green|blue|purple|pink|orange|teal" } (Mudar cor do tema)
+AÇÕES PERMITIDAS (Responda APENAS com JSON):
 
+1. TEMA E CORES:
+- "toggle_theme": { "mode": "dark" }  <-- Para forçar modo escuro
+- "toggle_theme": { "mode": "light" } <-- Para forçar modo claro
+- "toggle_theme": {}                  <-- Apenas alternar
+- "set_global_color": { "color": "indigo|red|green|blue|purple|pink|orange|teal|black" }
+
+2. ORGANIZAÇÃO:
 - "create_task": { "text": "...", "priority": "normal|medium|high" }
 - "delete_task": { "text": "..." }
 - "delete_all_tasks": {}
-
 - "create_reminder": { "desc": "...", "date": "YYYY-MM-DD" }
 - "delete_reminder": { "desc": "..." }
 - "delete_all_reminders": {}
-
 - "create_note": { "title": "...", "content": "HTML" }
+
+3. NAVEGAÇÃO:
 - "navigate": { "page": "home|todo|aulas|notas|onibus|calc|pomo" }
+- "hide_widget": { "id": "widget-bus|widget-tasks|widget-ai" }
+- "show_widget": { "id": "..." }
 
 REGRAS:
-1. Responda APENAS JSON.
+1. Responda estritamente com a estrutura JSON abaixo.
+2. Não use Markdown (\`\`\`json).
+ESTRUTURA: { "message": "texto", "commands": [ { "action": "...", "params": {...} } ] }
 `;
 
         let messagesPayload = [];
@@ -713,6 +723,8 @@ REGRAS:
                 body: JSON.stringify({ contents: geminiContents, generationConfig: { temperature: 0.1, responseMimeType: "application/json" } })
             });
             const data = await response.json();
+
+            if (data.error) throw new Error(data.error.message);
             aiResponseText = data.candidates[0].content.parts[0].text;
         }
 

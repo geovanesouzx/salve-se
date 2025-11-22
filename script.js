@@ -807,7 +807,7 @@ async function executeAICommand(cmd) {
             // 1. Limpa a entrada da IA
             let rawColor = p.color ? p.color.toLowerCase().trim() : 'indigo';
 
-            // 2. TRADUTOR COMPLETO (Aceita masculino, feminino e inglês)
+            // 2. TRADUTOR COMPLETO
             const colorMap = {
                 // Masculino
                 'verde': 'green', 'vermelho': 'red', 'azul': 'indigo',
@@ -815,11 +815,11 @@ async function executeAICommand(cmd) {
                 'amarelo': 'yellow', 'preto': 'black', 'ciano': 'cyan',
                 'violeta': 'violet', 'lima': 'lime', 'petroleo': 'teal',
 
-                // Feminino (Correção para "cor preta", "cor vermelha")
+                // Feminino e variações
                 'preta': 'black', 'vermelha': 'red', 'amarela': 'yellow',
                 'roxa': 'purple', 'branca': 'black',
 
-                // Inglês direto
+                // Inglês
                 'indigo': 'indigo', 'green': 'green', 'red': 'red',
                 'purple': 'purple', 'pink': 'pink', 'orange': 'orange',
                 'yellow': 'yellow', 'black': 'black', 'cyan': 'cyan',
@@ -830,11 +830,11 @@ async function executeAICommand(cmd) {
             // 3. Traduz a cor
             const finalColor = colorMap[rawColor] || rawColor;
 
-            // 4. SEGURANÇA: Verifica se a cor existe no sistema antes de aplicar
-            if (window.colorPalettes && window.colorPalettes[finalColor]) {
+            // 4. SEGURANÇA CORRIGIDA: Removemos o 'window.' para acessar a variável localmente
+            // Verifica se a paleta de cores existe antes de aplicar
+            if (typeof colorPalettes !== 'undefined' && colorPalettes[finalColor]) {
                 setThemeColor(finalColor);
             } else {
-                // Se a IA inventar uma cor maluca, usa o padrão para não travar
                 console.warn(`Cor não encontrada: ${finalColor}. Usando Indigo.`);
                 setThemeColor('indigo');
             }

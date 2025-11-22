@@ -3261,27 +3261,47 @@ document.addEventListener('DOMContentLoaded', () => {
     setTimeout(updateSmartSummary, 500); // Roda ao iniciar
 });
 
-// --- FUNÇÃO PARA RENDERIZAR AVATAR (IMG OU VIDEO) ---
+// --- FUNÇÃO RENDERIZAR AVATAR (VÍDEO/GIF/IMG) ---
 function renderMediaInContainer(containerId, url, className = "w-full h-full object-cover") {
     const container = document.getElementById(containerId);
     if (!container) return;
 
-    // Verifica se é vídeo (mp4, webm)
-    const isVideo = url.match(/\.(mp4|webm)$/i);
+    // Limpa o container antes de adicionar
+    container.innerHTML = '';
+
+    // Normaliza URL do Imgur (Garante HTTPS e remove parâmetros extras se houver)
+    let cleanUrl = url.split('?')[0];
+
+    // Verifica extensões de vídeo comuns
+    const isVideo = cleanUrl.match(/\.(mp4|webm|mov)$/i);
 
     if (isVideo) {
-        // Cria tag de vídeo mudo em loop
-        container.innerHTML = `
-            <video src="${url}" 
-                   class="${className}" 
-                   autoplay loop muted playsinline 
-                   style="width: 100%; height: 100%; object-fit: cover;">
-            </video>`;
+        const video = document.createElement('video');
+        video.src = cleanUrl;
+        video.className = className;
+        video.autoplay = true;
+        video.loop = true;
+        video.muted = true; // Essencial para autoplay funcionar
+        video.playsInline = true; // Essencial para iOS
+        video.style.width = "100%";
+        video.style.height = "100%";
+        video.style.objectFit = "cover";
+
+        // Promessa de play para garantir
+        video.onloadeddata = () => {
+            video.play().catch(e => console.log("Autoplay bloqueado:", e));
+        };
+
+        container.appendChild(video);
     } else {
-        // Cria tag de imagem padrão (suporta GIF)
-        container.innerHTML = `
-            <img src="${url}" 
-                 class="${className}" 
-                 onerror="this.src='https://files.catbox.moe/pmdtq6.png'">`;
+        const img = document.createElement('img');
+        img.src = cleanUrl;
+        img.className = className;
+        img.style.width = "100%";
+        img.style.height = "100%";
+        img.style.objectFit = "cover";
+        img.onerror = function () { this.src = 'https://files.catbox.moe/pmdtq6.png'; };
+
+        container.appendChild(img);
     }
 }

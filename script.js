@@ -27,7 +27,7 @@ import {
 
 // Use as variáveis globais do ambiente se disponíveis
 const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
-    apiKey: "AIzaSyCyPVRZA8FySx2tCwwJfwBEl1mNZt0G6OE",
+    apiKey: "AIzaSyD5Ggqw9FpMS98CHcfXKnghMQNMV5WIVTw",
     authDomain: "salvee-se.firebaseapp.com",
     projectId: "salvee-se",
     storageBucket: "salvee-se.firebasestorage.app",
@@ -40,7 +40,7 @@ const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__f
 // ============================================================
 
 // NOVA CHAVE ADICIONADA:
-const apiKey = "AIzaSyB_BGWbLCfENqwsYEIRUQT5_DROrWtw_MQ";
+const apiKey = "AIzaSyCyPVRZA8FySx2tCwwJfwBEl1mNZt0G6OE";
 
 // AGORA SIM: Usando o nome exato que aparece no seu painel do Google AI Studio
 const GEMINI_MODEL = "gemini-2.5-flash";

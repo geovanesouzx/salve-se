@@ -39,7 +39,7 @@ const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__f
 // ============================================================
 
 // NOVA CHAVE ADICIONADA:
-const apiKey = "AIzaSyCVGN5yxdscAjDgOcXTZgsb4qy3Ucy0Ve8";
+const apiKey = "AIzaSyB_BGWbLCfENqwsYEIRUQT5_DROrWtw_MQ";
 
 // AGORA SIM: Usando o nome exato que aparece no seu painel do Google AI Studio
 const GEMINI_MODEL = "gemini-2.5-flash";

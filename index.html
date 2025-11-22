@@ -1453,6 +1453,44 @@
         </div>
     </div>
 
+    <div id="pix-modal"
+        class="fixed inset-0 z-[90] flex items-center justify-center bg-black/80 backdrop-blur-sm hidden opacity-0 transition-opacity duration-300">
+        <div
+            class="bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl w-full max-w-sm p-6 m-4 transform scale-95 transition-transform duration-300 border border-gray-200 dark:border-neutral-800 text-center relative">
+
+            <button onclick="closePixModal()"
+                class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+
+            <div
+                class="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-4 text-green-600 dark:text-green-400 text-2xl">
+                <i class="fas fa-qrcode"></i>
+            </div>
+
+            <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-2">Pague com PIX</h3>
+            <p class="text-sm text-gray-500 mb-6">Escaneie o QR Code ou copie o código abaixo.</p>
+
+            <div class="bg-white p-2 rounded-lg border border-gray-200 inline-block mb-6">
+                <img id="pix-qr-image" src="" class="w-48 h-48 object-contain opacity-50 animate-pulse">
+            </div>
+
+            <div class="flex gap-2 mb-6">
+                <input type="text" id="pix-copy-code" readonly
+                    class="flex-1 bg-gray-50 dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-lg px-3 text-xs text-gray-600 dark:text-gray-400 outline-none truncate"
+                    value="...">
+                <button onclick="copyPixCode()"
+                    class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-xs font-bold transition shadow-md">
+                    Copiar
+                </button>
+            </div>
+
+            <button onclick="finishPixPayment()"
+                class="w-full py-3 rounded-xl bg-green-600 hover:bg-green-700 text-white font-bold shadow-lg shadow-green-500/30 transition transform active:scale-95">
+                <i class="fas fa-check mr-2"></i> Já realizei o pagamento
+            </button>
+        </div>
+    </div>
     <!-- Script PRINCIPAL -->
     <script type="module" src="script.js"></script>
 

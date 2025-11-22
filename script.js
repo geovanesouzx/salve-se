@@ -622,7 +622,6 @@ function formatAIContent(text) {
 window.sendIAMessage = async function () {
     const input = document.getElementById('chat-input');
     const message = input.value.trim();
-    const container = document.getElementById('chat-messages-container');
     const sendBtn = document.getElementById('chat-send-btn');
 
     if (!message) return;
@@ -636,119 +635,92 @@ window.sendIAMessage = async function () {
     showTypingIndicator();
 
     try {
+        // PEGA O STATUS ATUALIZADO DO ÔNIBUS
+        const statusCircular = getBusStatusForAI();
+
         const contextData = {
-            tela: currentViewContext,
-            data: new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
-            user: userProfile ? userProfile.displayName : 'Usuário',
-            tarefas: tasksData.map(t => t.text),
-            lembretes: remindersData.map(r => r.desc),
-            aulas_hoje: scheduleData.filter(c => c.day === ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'][new Date().getDay()]).map(c => c.name),
-            widgets_ocultos: hiddenWidgets,
+            tela_atual: currentViewContext,
+            hora_atual: new Date().toLocaleTimeString('pt-BR'),
+            data_hoje: new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric' }),
+
+            // DADOS IMPORTANTES INJETADOS AQUI:
+            info_circular: statusCircular,
+
+            tarefas_pendentes: tasksData.filter(t => !t.done).map(t => t.text),
+            proximas_aulas: scheduleData.filter(c => c.day === ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'][new Date().getDay()]),
+            lembretes: remindersData.map(r => `${r.desc} (${r.date})`),
             aiProvider: currentAIProvider
         };
 
-        // PROMPT DO SISTEMA
+        // PROMPT ATUALIZADO
         let systemInstructionText = `
 VOCÊ É O CÉREBRO DO APP "SALVE-SE UFRB".
-Sua função é executar ações no app baseadas no pedido do usuário.
+Sua função é gerenciar o app e responder dúvidas.
 
-CONTEXTO: ${JSON.stringify(contextData)}
+CONTEXTO EM TEMPO REAL: ${JSON.stringify(contextData)}
 
-ESTRUTURA OBRIGATÓRIA (JSON):
+INSTRUÇÕES ESPECÍFICAS:
+1. **Circular/Ônibus:** Use o campo "info_circular" do contexto para responder. SE O USUÁRIO PERGUNTAR "TEM ÔNIBUS?", LEIA ESSE CAMPO. Não mande ele olhar o site, VOCÊ JÁ SABE.
+2. **Aulas:** Se perguntarem "qual minha próxima aula", olhe em "proximas_aulas" e compare com a "hora_atual".
+3. **Personalidade:** Seja direto, útil e simpático.
+
+ESTRUTURA DE RESPOSTA (JSON):
 {
-  "message": "Texto curto para o usuário",
-  "commands": [
-    { "action": "NOME_DA_ACAO", "params": { ... } }
-  ]
+  "message": "Sua resposta em texto (pode usar <b>, <br>)",
+  "commands": [] 
 }
 
-AÇÕES:
-- "create_task": { "text": "...", "priority": "normal|medium|high", "category": "geral|estudo|trabalho" }
-- "delete_task": { "text": "texto para buscar" }
-- "delete_all_tasks": {} 
-
-- "create_reminder": { "desc": "...", "date": "YYYY-MM-DD", "prio": "medium" }
-- "delete_reminder": { "desc": "texto para buscar" }
-- "delete_all_reminders": {} 
-
-- "create_note": { "title": "...", "content": "HTML" }
-- "navigate": { "page": "home|todo|aulas|notas|onibus|calc|pomo" }
-
-REGRAS:
-1. Responda APENAS JSON válido.
+AÇÕES DISPONÍVEIS (JSON commands):
+- "create_task", "delete_task", "delete_all_tasks"
+- "create_reminder", "delete_reminder", "delete_all_reminders"
+- "create_note", "navigate" (ex: navigate to 'onibus' se o usuário pedir detalhes da rota)
 `;
 
         let messagesPayload = [];
         messagesPayload.push({ role: "system", content: systemInstructionText });
 
+        // Histórico curto para economizar tokens
         const recentHistory = chatHistory.slice(-4);
         recentHistory.forEach(msg => {
             messagesPayload.push({ role: msg.role === 'user' ? 'user' : 'assistant', content: msg.text });
         });
-
         messagesPayload.push({ role: "user", content: message });
 
         let aiResponseText = "";
 
+        // --- BLOCO DE ENVIO (GEMINI OU GROQ) ---
         if (currentAIProvider === 'groq') {
             const response = await fetch(GROQ_API_URL, {
                 method: "POST",
-                headers: {
-                    "Authorization": `Bearer ${GROQ_API_KEY}`,
-                    "Content-Type": "application/json"
-                },
+                headers: { "Authorization": `Bearer ${GROQ_API_KEY}`, "Content-Type": "application/json" },
                 body: JSON.stringify({
                     model: GROQ_MODEL,
                     messages: messagesPayload,
                     temperature: 0.1,
-                    max_tokens: 1024,
                     response_format: { type: "json_object" }
                 })
             });
             const data = await response.json();
             if (data.error) throw new Error(data.error.message);
             aiResponseText = data.choices[0].message.content;
-
         } else {
-            // Lógica do Gemini
-            if (!apiKey) throw new Error("API Key do Gemini está vazia.");
-
             const geminiContents = [{ role: "user", parts: [{ text: systemInstructionText + "\n\nUsuário: " + message }] }];
-
             const response = await fetch(GEMINI_API_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: geminiContents,
-                    generationConfig: {
-                        temperature: 0.1,
-                        responseMimeType: "application/json"
-                    }
-                })
+                body: JSON.stringify({ contents: geminiContents, generationConfig: { temperature: 0.1, responseMimeType: "application/json" } })
             });
-
             const data = await response.json();
-
-            // TRATAMENTO DE ERRO ESPECÍFICO DO GEMINI
-            if (data.error) {
-                console.error("Erro detalhado Gemini:", data.error);
-                throw new Error(`Gemini API Error: ${data.error.message} (Code: ${data.error.code})`);
-            }
-
-            if (!data.candidates || !data.candidates[0].content) {
-                throw new Error("Gemini não retornou conteúdo. Verifique se o modelo está correto.");
-            }
-
+            if (data.error) throw new Error(data.error.message);
             aiResponseText = data.candidates[0].content.parts[0].text;
         }
 
+        // --- PROCESSAMENTO DA RESPOSTA ---
         try {
             let cleanText = aiResponseText.replace(/```json/g, '').replace(/```/g, '').trim();
-            const firstBracket = cleanText.indexOf('{');
-            const lastBracket = cleanText.lastIndexOf('}');
-            if (firstBracket !== -1 && lastBracket !== -1) {
-                cleanText = cleanText.substring(firstBracket, lastBracket + 1);
-            }
+            const first = cleanText.indexOf('{');
+            const last = cleanText.lastIndexOf('}');
+            if (first !== -1 && last !== -1) cleanText = cleanText.substring(first, last + 1);
 
             const responseJson = JSON.parse(cleanText);
 
@@ -760,31 +732,15 @@ REGRAS:
                     await executeAICommand(cmd);
                     await new Promise(r => setTimeout(r, 300));
                 }
-            } else if (responseJson.action) {
-                await executeAICommand(responseJson);
             }
-
         } catch (e) {
-            console.error("Erro Parse:", e);
-            appendMessage('ai', "Erro ao ler o comando da IA. Texto bruto: " + aiResponseText.substring(0, 50) + "...");
+            console.error("Erro JSON:", e);
+            appendMessage('ai', "Erro ao processar resposta. Texto bruto: " + aiResponseText.substring(0, 50));
         }
 
     } catch (error) {
-        console.error("Erro REAL da IA:", error);
-
-        // MENSAGENS DE ERRO CLARAS NA TELA
-        let errorMsg = error.message || JSON.stringify(error);
-        let msg = `⚠️ Erro Técnico: ${errorMsg}`;
-
-        if (errorMsg.includes("403") || errorMsg.includes("PERMISSION_DENIED")) {
-            msg = "⚠️ Erro 403 (Permissão): A chave API existe, mas a 'Generative Language API' não foi ativada no Google Cloud.";
-        } else if (errorMsg.includes("404") || errorMsg.includes("not found")) {
-            msg = "⚠️ Erro 404 (Modelo): O modelo 'gemini-1.5-flash' não está disponível para esta chave/conta.";
-        } else if (errorMsg.includes("400") || errorMsg.includes("INVALID_ARGUMENT")) {
-            msg = "⚠️ Erro 400: A chave API é inválida.";
-        }
-
-        appendMessage('ai', msg);
+        console.error("Erro Geral:", error);
+        appendMessage('ai', `⚠️ Erro: ${error.message || "Falha na conexão"}`);
     } finally {
         hideTypingIndicator();
         input.disabled = false;
@@ -3006,6 +2962,47 @@ document.addEventListener('DOMContentLoaded', () => {
     addGradeRow(); addGradeRow();
     if (document.getElementById('passing-grade')) document.getElementById('passing-grade').addEventListener('input', calculateAverage);
 });
+
+// --- NOVA FUNÇÃO AUXILIAR PARA A IA ---
+function getBusStatusForAI() {
+    const now = new Date();
+    const currentTotalSeconds = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+
+    let activeBus = null;
+    let nextBus = null;
+    let timeDiff = Infinity;
+
+    // Procura ônibus ativo ou o próximo
+    for (let bus of busSchedule) {
+        const [h1, m1] = bus.start.split(':').map(Number);
+        const [h2, m2] = bus.end.split(':').map(Number);
+        const startSeconds = h1 * 3600 + m1 * 60;
+        const endSeconds = h2 * 3600 + m2 * 60;
+
+        if (currentTotalSeconds >= startSeconds && currentTotalSeconds < endSeconds) {
+            activeBus = bus;
+            break;
+        }
+        if (startSeconds > currentTotalSeconds) {
+            const diff = startSeconds - currentTotalSeconds;
+            if (diff < timeDiff) {
+                timeDiff = diff;
+                nextBus = bus;
+            }
+        }
+    }
+
+    // Formata a resposta para a IA entender
+    if (activeBus) {
+        return `STATUS: EM TRÂNSITO AGORA. O ônibus saiu às ${activeBus.start} e chega no destino (${activeBus.dest}) às ${activeBus.end}. Rota: ${activeBus.origin} -> ${activeBus.dest}.`;
+    } else if (nextBus) {
+        const hours = Math.floor(timeDiff / 3600);
+        const minutes = Math.floor((timeDiff % 3600) / 60);
+        return `STATUS: AGUARDANDO. Não há ônibus rodando agora. O próximo sai às ${nextBus.start} (daqui a ${hours}h ${minutes}m). Rota: ${nextBus.origin} -> ${nextBus.dest}.`;
+    } else {
+        return `STATUS: ENCERRADO. Não há mais viagens programadas para hoje. O serviço retorna amanhã às 06:25.`;
+    }
+}
 
 // History Handling
 window.addEventListener('popstate', (event) => {

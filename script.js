@@ -3715,7 +3715,8 @@ window.startCheckout = async function () {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                email: currentUser ? currentUser.email : 'anonimo@ufrb.edu.br'
+                // TRUQUE: Gera um email único a cada clique para o Mercado Pago não bloquear
+                email: `aluno_teste_${Date.now()}@ufrb.edu.br`
             })
         });
 

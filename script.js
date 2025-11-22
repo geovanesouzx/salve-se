@@ -2807,43 +2807,110 @@ function renderBusTable() {
 }
 
 function updateNextBus() {
-    const now = new Date(); const currentTotalSeconds = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
-    let activeBus = null; let nextBus = null; let timeDiff = Infinity;
+    const now = new Date();
+    const day = now.getDay(); // 0 = Domingo, 6 = Sábado
 
-    for (let bus of busSchedule) {
-        const [h1, m1] = bus.start.split(':').map(Number); const [h2, m2] = bus.end.split(':').map(Number);
-        const startSeconds = h1 * 3600 + m1 * 60; const endSeconds = h2 * 3600 + m2 * 60;
-        if (currentTotalSeconds >= startSeconds && currentTotalSeconds < endSeconds) { activeBus = bus; break; }
-        if (startSeconds > currentTotalSeconds) { const diff = startSeconds - currentTotalSeconds; if (diff < timeDiff) { timeDiff = diff; nextBus = bus; } }
-    }
-
-    const container = document.getElementById('bus-dynamic-area'); const title = document.getElementById('dash-bus-title'); const subtitle = document.getElementById('dash-bus-subtitle');
-    const statusDot = document.getElementById('bus-status-dot'); const statusText = document.getElementById('bus-status-text');
+    const container = document.getElementById('bus-dynamic-area');
+    const title = document.getElementById('dash-bus-title');
+    const subtitle = document.getElementById('dash-bus-subtitle');
+    const statusDot = document.getElementById('bus-status-dot');
+    const statusText = document.getElementById('bus-status-text');
 
     if (!container || !title) return;
 
+    // --- LÓGICA DE FIM DE SEMANA ---
+    if (day === 0 || day === 6) {
+        statusDot.className = "w-2 h-2 rounded-full bg-red-500";
+        statusText.innerText = "Fim de Semana";
+        statusText.className = "text-xs font-bold text-red-500 uppercase tracking-wider";
+
+        title.innerText = "Off";
+        subtitle.innerText = "Circular não roda hoje.";
+
+        container.innerHTML = `
+            <div class="flex flex-col items-center justify-center h-full text-center opacity-60">
+                <i class="fas fa-couch text-2xl mb-2 text-indigo-300"></i>
+                <p class="text-xs text-gray-500">Aproveite o descanso!</p>
+            </div>
+        `;
+        return; // Para a função aqui
+    }
+
+    // --- LÓGICA NORMAL (SEGUNDA A SEXTA) ---
+    const currentTotalSeconds = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+    let activeBus = null;
+    let nextBus = null;
+    let timeDiff = Infinity;
+
+    for (let bus of busSchedule) {
+        const [h1, m1] = bus.start.split(':').map(Number);
+        const [h2, m2] = bus.end.split(':').map(Number);
+        const startSeconds = h1 * 3600 + m1 * 60;
+        const endSeconds = h2 * 3600 + m2 * 60;
+
+        if (currentTotalSeconds >= startSeconds && currentTotalSeconds < endSeconds) {
+            activeBus = bus;
+            break;
+        }
+        if (startSeconds > currentTotalSeconds) {
+            const diff = startSeconds - currentTotalSeconds;
+            if (diff < timeDiff) {
+                timeDiff = diff;
+                nextBus = bus;
+            }
+        }
+    }
+
     if (activeBus) {
-        statusDot.className = "w-2 h-2 rounded-full bg-green-500 animate-pulse"; statusText.innerText = "Em Trânsito"; statusText.className = "text-xs font-bold text-green-600 dark:text-green-400 uppercase tracking-wider";
-        title.innerText = activeBus.end; subtitle.innerText = `Destino: ${activeBus.dest}`;
+        statusDot.className = "w-2 h-2 rounded-full bg-green-500 animate-pulse";
+        statusText.innerText = "Em Trânsito";
+        statusText.className = "text-xs font-bold text-green-600 dark:text-green-400 uppercase tracking-wider";
+        title.innerText = activeBus.end;
+        subtitle.innerText = `Destino: ${activeBus.dest}`;
+
         let timelineHtml = '<div class="relative pl-3 border-l-2 border-gray-200 dark:border-neutral-800 space-y-4 ml-1">';
-        const upcomingStops = activeBus.stops.filter(s => { const [sh, sm] = s.time.split(':').map(Number); const stopSeconds = sh * 3600 + sm * 60; return stopSeconds >= (currentTotalSeconds - 60); }).slice(0, 3);
+        const upcomingStops = activeBus.stops.filter(s => {
+            const [sh, sm] = s.time.split(':').map(Number);
+            const stopSeconds = sh * 3600 + sm * 60;
+            return stopSeconds >= (currentTotalSeconds - 60);
+        }).slice(0, 3);
+
         if (upcomingStops.length === 0) timelineHtml += '<p class="text-xs text-gray-500 pl-2">Chegando ao destino...</p>';
+
         upcomingStops.forEach((stop, idx) => {
             let dotClass = idx === 0 ? "bg-green-500 ring-4 ring-green-100 dark:ring-green-900/30" : "bg-gray-300 dark:bg-neutral-700";
             let textClass = idx === 0 ? "text-green-700 dark:text-green-400 font-bold" : "text-gray-600 dark:text-gray-400";
             let animClass = "animate-fade-in-up";
             timelineHtml += `<div class="relative flex items-start route-item ${animClass}" style="animation-delay: ${idx * 100}ms"><div class="absolute -left-[19px] w-3 h-3 rounded-full ${dotClass} border-2 border-white dark:border-darkcard mt-1.5 transition-colors duration-500"></div><div class="flex justify-between w-full items-start pl-2"><span class="text-sm ${textClass} transition-colors duration-500">${stop.loc}</span><div class="text-right"><span class="text-xs font-mono text-gray-700 dark:text-gray-300 font-bold">${stop.time}</span><span class="block text-[9px] text-red-500 font-bold uppercase tracking-wide leading-tight">Estimativa</span></div></div></div>`;
         });
-        timelineHtml += '</div>'; if (container.innerHTML !== timelineHtml) { container.innerHTML = timelineHtml; }
+        timelineHtml += '</div>';
+        if (container.innerHTML !== timelineHtml) container.innerHTML = timelineHtml;
+
     } else if (nextBus) {
-        statusDot.className = "w-2 h-2 rounded-full bg-indigo-500"; statusText.innerText = "Próximo Circular"; statusText.className = "text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider";
-        title.innerText = nextBus.start; subtitle.innerText = `${nextBus.origin} ➔ ${nextBus.dest}`;
-        const hours = Math.floor(timeDiff / 3600); const minutes = Math.floor((timeDiff % 3600) / 60); const seconds = timeDiff % 60;
-        let timeString = ""; if (hours > 0) timeString += `${hours}h `; timeString += `${minutes.toString().padStart(2, '0')}m ${seconds.toString().padStart(2, '0')}s`;
+        statusDot.className = "w-2 h-2 rounded-full bg-indigo-500";
+        statusText.innerText = "Próximo Circular";
+        statusText.className = "text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider";
+        title.innerText = nextBus.start;
+        subtitle.innerText = `${nextBus.origin} ➔ ${nextBus.dest}`;
+
+        const hours = Math.floor(timeDiff / 3600);
+        const minutes = Math.floor((timeDiff % 3600) / 60);
+        const seconds = timeDiff % 60;
+
+        let timeString = "";
+        if (hours > 0) timeString += `${hours}h `;
+        timeString += `${minutes.toString().padStart(2, '0')}m ${seconds.toString().padStart(2, '0')}s`;
+
         let badgeClass = timeDiff <= 900 ? "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300 animate-pulse" : "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300";
+
         container.innerHTML = `<div class="flex items-center h-full"><div class="w-full py-3 rounded-lg text-center font-bold text-sm ${badgeClass}">Saída em ${timeString}</div></div>`;
+
     } else {
-        statusDot.className = "w-2 h-2 rounded-full bg-gray-400"; statusText.innerText = "Encerrado"; title.innerText = "Fim"; subtitle.innerText = "Sem mais viagens hoje"; container.innerHTML = `<div class="w-full py-3 rounded-lg bg-gray-100 dark:bg-neutral-800 text-gray-500 dark:text-gray-400 text-center text-sm font-medium mt-auto">Volta amanhã</div>`;
+        statusDot.className = "w-2 h-2 rounded-full bg-gray-400";
+        statusText.innerText = "Encerrado";
+        title.innerText = "Fim";
+        subtitle.innerText = "Sem mais viagens hoje";
+        container.innerHTML = `<div class="w-full py-3 rounded-lg bg-gray-100 dark:bg-neutral-800 text-gray-500 dark:text-gray-400 text-center text-sm font-medium mt-auto">Volta amanhã</div>`;
     }
 }
 
@@ -3209,9 +3276,16 @@ document.addEventListener('DOMContentLoaded', () => {
     if (document.getElementById('passing-grade')) document.getElementById('passing-grade').addEventListener('input', calculateAverage);
 });
 
-// --- NOVA FUNÇÃO AUXILIAR PARA A IA ---
+// --- NOVA FUNÇÃO AUXILIAR PARA A IA (COM REGRAS DE FIM DE SEMANA) ---
 function getBusStatusForAI() {
     const now = new Date();
+    const day = now.getDay(); // 0 = Domingo, 6 = Sábado
+
+    // LÓGICA DE FIM DE SEMANA ADICIONADA AQUI:
+    if (day === 0 || day === 6) {
+        return "STATUS: FIM DE SEMANA. O circular não funciona aos sábados e domingos. O serviço retorna na segunda-feira.";
+    }
+
     const currentTotalSeconds = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
 
     let activeBus = null;
@@ -3279,7 +3353,6 @@ window.addEventListener('popstate', (event) => {
         switchPage('home', false);
     }
 });
-
 // ============================================================
 // --- RECONHECIMENTO DE VOZ (MODO MANUAL) ---
 // ============================================================

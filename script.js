@@ -3694,8 +3694,10 @@ window.renderPremiumPage = function () {
 }
 
 // ============================================================
-// --- SISTEMA DE PAGAMENTO ---
+// --- SISTEMA DE PIX (ATUALIZADO) ---
 // ============================================================
+
+let paymentCheckInterval = null;
 
 window.startCheckout = async function () {
     if (!navigator.onLine) {
@@ -3704,33 +3706,130 @@ window.startCheckout = async function () {
 
     const btn = document.querySelector('#view-premium button');
     const originalText = btn.innerHTML;
-
-    // Efeito de carregamento
-    btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Gerando PIX...';
+    btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Gerando Pix...';
     btn.disabled = true;
 
     try {
-        const response = await fetch('/api/checkout', {
+        // 1. Solicita o Pix ao Backend
+        const response = await fetch('/api/pix', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                email: currentUser ? currentUser.email : 'visitante@ufrb.edu.br',
+                amount: 4.90
+            })
         });
 
         const data = await response.json();
 
-        if (data.url) {
-            // Redireciona para o Mercado Pago
-            window.location.href = data.url;
+        if (data.qr_code_base64) {
+            // 2. Abre o Modal do Pix
+            openPixModal(data.qr_code_base64, data.qr_code, data.id);
         } else {
-            throw new Error('Link de pagamento não gerado.');
+            throw new Error('Dados do Pix não recebidos.');
         }
 
     } catch (error) {
         console.error(error);
-        showModal("Erro", "Não foi possível iniciar o pagamento. Tente novamente.");
+        showModal("Erro", "Falha ao gerar Pix. Tente novamente.");
+    } finally {
         btn.innerHTML = originalText;
         btn.disabled = false;
     }
 };
+
+// Função para criar o Modal do Pix dinamicamente
+function openPixModal(imgBase64, copyPasteCode, paymentId) {
+    // Remove se já existir
+    const existing = document.getElementById('pix-modal');
+    if (existing) existing.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'pix-modal';
+    modal.className = "fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm fade-in px-4";
+
+    modal.innerHTML = `
+        <div class="bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center border border-gray-200 dark:border-neutral-800 relative">
+            <button onclick="closePixModal()" class="absolute top-4 right-4 text-gray-400 hover:text-red-500 transition">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+
+            <h3 class="text-xl font-bold text-gray-800 dark:text-white mb-1">Pagamento via Pix</h3>
+            <p class="text-sm text-gray-500 mb-4">Escaneie ou copie o código abaixo</p>
+
+            <div class="bg-gray-100 p-2 rounded-xl mb-4 inline-block">
+                <img src="data:image/png;base64,${imgBase64}" class="w-48 h-48 object-contain mx-auto mix-blend-multiply" alt="QR Code Pix">
+            </div>
+
+            <div class="space-y-3">
+                <div class="relative">
+                    <input type="text" value="${copyPasteCode}" readonly class="w-full bg-gray-50 dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-lg px-3 py-2 text-xs text-gray-500 font-mono truncate pr-10">
+                    <button onclick="navigator.clipboard.writeText('${copyPasteCode}'); this.innerHTML='<i class=\\'fas fa-check\\'></i>'; setTimeout(()=>this.innerHTML='<i class=\\'fas fa-copy\\'></i>', 2000)" class="absolute right-2 top-1.5 text-indigo-600 hover:text-indigo-800 transition">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                </div>
+                
+                <div class="flex items-center justify-center gap-2 text-xs font-bold text-indigo-600 dark:text-indigo-400 animate-pulse">
+                    <i class="fas fa-sync fa-spin"></i> Aguardando pagamento...
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    // 3. Inicia a verificação do status (Polling)
+    startPaymentPolling(paymentId);
+}
+
+window.closePixModal = function () {
+    const modal = document.getElementById('pix-modal');
+    if (modal) modal.remove();
+    if (paymentCheckInterval) clearInterval(paymentCheckInterval);
+}
+
+function startPaymentPolling(paymentId) {
+    if (paymentCheckInterval) clearInterval(paymentCheckInterval);
+
+    paymentCheckInterval = setInterval(async () => {
+        try {
+            const res = await fetch(`/api/status?id=${paymentId}`);
+            const data = await res.json();
+
+            if (data.status === 'approved') {
+                clearInterval(paymentCheckInterval);
+                closePixModal();
+
+                // ATIVA O PREMIUM
+                activatePremiumFeature();
+            }
+        } catch (e) {
+            console.log("Verificando status...", e);
+        }
+    }, 3000); // Verifica a cada 3 segundos
+}
+
+async function activatePremiumFeature() {
+    showModal("Pagamento Aprovado! 👑", "Seu plano Premium foi ativado com sucesso!");
+
+    // Atualiza no Firebase
+    if (currentUser) {
+        try {
+            const { doc, setDoc, getFirestore } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
+            const db = getFirestore();
+            await setDoc(doc(db, "users", currentUser.uid), { isPremium: true }, { merge: true });
+
+            // Atualiza visualmente (opcional: recarregar a página ou liberar recursos)
+            const premiumBadge = document.getElementById('nav-premium');
+            if (premiumBadge) premiumBadge.innerHTML = '<i class="fas fa-check text-green-500 mr-2"></i> Membro Pro';
+
+        } catch (e) {
+            console.error("Erro ao salvar premium no banco", e);
+        }
+    }
+
+    // Efeito de confete ou som poderia vir aqui
+}
 
 // Verifica se o usuário acabou de voltar de um pagamento com sucesso
 // (Isso roda quando a página carrega)

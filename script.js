@@ -261,15 +261,14 @@ function showProfileSetupScreen() {
 }
 
 window.fixChatLayout = function () {
-    // Esta função agora apenas garante que a view esteja visível
-    // O layout principal é controlado pelo switchPage modificando o <main>
     const viewIA = document.getElementById('view-ia');
     const messageContainer = document.getElementById('chat-messages-container');
     const inputContainer = viewIA ? viewIA.querySelector('.w-full.p-4.border-t') : null;
 
     if (viewIA) {
-        // Remove 'hidden' se estiver presente
-        viewIA.classList.remove('hidden');
+        // IMPORTANTE: Removi a linha que forçava remover o 'hidden' aqui.
+        // Agora o chat obedece a navegação e só aparece quando chamado.
+
         viewIA.classList.add('flex');
 
         // A altura agora é 100% do pai (<main>), que não tem padding
@@ -303,14 +302,19 @@ window.switchPage = function (pageId, addToHistory = true) {
         }
     }
 
+    // Esconde todas as views
     document.querySelectorAll('[id^="view-"]').forEach(el => el.classList.add('hidden'));
+
+    // Mostra APENAS a view alvo
     const target = document.getElementById(`view-${pageId}`);
     if (target) target.classList.remove('hidden');
 
+    // Atualiza Menu Ativo
     document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
     const activeLink = document.getElementById(`nav-${pageId}`);
     if (activeLink) activeLink.classList.add('active');
 
+    // Atualiza Menu Mobile
     const mobileNavLinks = document.querySelectorAll('#mobile-menu nav a');
     mobileNavLinks.forEach(link => {
         link.classList.remove('bg-indigo-50', 'text-indigo-600', 'dark:bg-indigo-900/50', 'dark:text-indigo-300');
@@ -322,6 +326,7 @@ window.switchPage = function (pageId, addToHistory = true) {
         }
     });
 
+    // Títulos da Página
     const titles = {
         home: 'Página Principal',
         onibus: 'Transporte',
@@ -338,6 +343,7 @@ window.switchPage = function (pageId, addToHistory = true) {
     const pageTitleEl = document.getElementById('page-title');
     if (pageTitleEl) pageTitleEl.innerText = titles[pageId] || 'Salve-se UFRB';
 
+    // Renderizações Específicas
     if (pageId === 'aulas' && window.renderSchedule) window.renderSchedule();
     if (pageId === 'config' && window.renderSettings) window.renderSettings();
     if (pageId === 'notas' && window.renderNotes) window.renderNotes();
@@ -347,6 +353,7 @@ window.switchPage = function (pageId, addToHistory = true) {
         refreshAllUI();
     }
 
+    // Ajuste específico da IA
     if (pageId === 'ia') {
         fixChatLayout();
         scrollToBottom();

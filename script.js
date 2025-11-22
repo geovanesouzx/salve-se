@@ -1257,7 +1257,12 @@ function renderNotesList(container) {
             </div>
         `;
     } else {
-        const sortedNotes = [...notesData].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+        // Ordena: Primeiro a fixada, depois as recentes
+        const sortedNotes = [...notesData].sort((a, b) => {
+            if (a.pinned) return -1;
+            if (b.pinned) return 1;
+            return (b.updatedAt || 0) - (a.updatedAt || 0);
+        });
 
         sortedNotes.forEach(note => {
             const tempDiv = document.createElement('div');
@@ -1266,23 +1271,38 @@ function renderNotesList(container) {
             const snippet = textContent.substring(0, 100) + (textContent.length > 100 ? "..." : "");
             const dateStr = new Date(note.updatedAt || Date.now()).toLocaleDateString('pt-BR');
 
+            // Define a cor do alfinete
+            const pinColor = note.pinned ? "text-indigo-600 dark:text-indigo-400 scale-110" : "text-gray-300 dark:text-neutral-700 hover:text-gray-500";
+            const borderClass = note.pinned ? "border-indigo-500 ring-1 ring-indigo-500" : "border-gray-200 dark:border-darkborder";
+
             const card = document.createElement('div');
-            card.className = "bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder rounded-xl p-5 hover:shadow-lg hover:border-indigo-300 dark:hover:border-indigo-700 transition cursor-pointer group flex flex-col h-48 relative";
+            card.className = `bg-white dark:bg-darkcard border ${borderClass} rounded-xl p-5 hover:shadow-lg transition cursor-pointer group flex flex-col h-48 relative`;
+
+            // Clique no card abre a nota
             card.onclick = (e) => {
-                if (!e.target.closest('.delete-note-btn')) openNote(note.id);
+                if (!e.target.closest('button')) openNote(note.id);
             };
 
             card.innerHTML = `
-                <div class="flex justify-between items-start mb-2">
+                <div class="flex justify-between items-start mb-2 gap-2">
                     <h3 class="font-bold text-gray-800 dark:text-white truncate text-lg flex-1">${note.title || "Sem título"}</h3>
-                    <button class="delete-note-btn text-gray-400 hover:text-red-500 p-1 opacity-0 group-hover:opacity-100 transition z-10" onclick="deleteNote('${note.id}')">
+                    
+                    <button onclick="togglePin('${note.id}', event)" class="p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-neutral-800 transition z-20" title="${note.pinned ? 'Desfixar' : 'Fixar na Home'}">
+                        <i class="fas fa-thumbtack ${pinColor} transition-colors"></i>
+                    </button>
+
+                    <button class="delete-note-btn text-gray-400 hover:text-red-500 p-1.5 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20 transition z-20" onclick="deleteNote('${note.id}'); event.stopPropagation();">
                         <i class="fas fa-trash-alt"></i>
                     </button>
                 </div>
+                
                 <div class="flex-1 overflow-hidden mb-3">
                     <p class="text-sm text-gray-500 dark:text-gray-400 line-clamp-4 break-words font-normal">${snippet || "Nota vazia..."}</p>
                 </div>
-                <p class="text-xs text-gray-400 text-right">${dateStr}</p>
+                <div class="flex justify-between items-center mt-auto">
+                    ${note.pinned ? '<span class="text-[10px] font-bold bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">FIXADA</span>' : '<span></span>'}
+                    <p class="text-xs text-gray-400">${dateStr}</p>
+                </div>
             `;
             grid.appendChild(card);
         });
@@ -1291,7 +1311,6 @@ function renderNotesList(container) {
     wrapper.appendChild(grid);
     container.appendChild(wrapper);
 }
-
 function renderNoteEditor(container, noteId) {
     const note = notesData.find(n => n.id === noteId);
     if (!note) { activeNoteId = null; renderNotesList(container); return; }
@@ -1411,6 +1430,9 @@ window.formatText = function (cmd, val) {
 
 window.updateNotesWidget = function () {
     const container = document.getElementById('notes-widget-content');
+    const titleEl = document.querySelector('#widget-notes h3'); // Pega o título do widget
+    const iconEl = document.querySelector('#widget-notes i'); // Pega o ícone
+
     if (!container) return;
 
     if (notesData.length === 0) {
@@ -1420,14 +1442,37 @@ window.updateNotesWidget = function () {
         return;
     }
 
-    const lastNote = [...notesData].sort((a, b) => b.updatedAt - a.updatedAt)[0];
-    const textPreview = lastNote.content.replace(/<[^>]*>?/gm, '').substring(0, 60) + "...";
+    // 1. Tenta achar a nota fixada
+    let targetNote = notesData.find(n => n.pinned);
+    let isPinned = true;
+
+    // 2. Se não tiver fixada, pega a mais recente
+    if (!targetNote) {
+        targetNote = [...notesData].sort((a, b) => b.updatedAt - a.updatedAt)[0];
+        isPinned = false;
+    }
+
+    // 3. Atualiza Título e Ícone do Widget dinamicamente
+    if (titleEl && iconEl) {
+        if (isPinned) {
+            titleEl.innerText = "Nota Fixada";
+            iconEl.className = "fas fa-thumbtack text-indigo-500 text-lg";
+        } else {
+            titleEl.innerText = "Nota Recente";
+            iconEl.className = "fas fa-sticky-note text-yellow-500 text-lg";
+        }
+    }
+
+    const textPreview = targetNote.content.replace(/<[^>]*>?/gm, '').substring(0, 100) + "...";
 
     container.innerHTML = `
-        <div onclick="switchPage('notas'); openNote('${lastNote.id}')" class="cursor-pointer hover:bg-gray-50 dark:hover:bg-neutral-800 rounded p-2 -mx-2 transition">
-            <h4 class="font-bold text-gray-800 dark:text-white truncate">${lastNote.title || "Sem Título"}</h4>
-            <p class="text-xs text-gray-500 dark:text-gray-400 line-clamp-2 mt-1">${textPreview}</p>
-            <p class="text-[10px] text-gray-400 mt-2 text-right">Última edição: ${new Date(lastNote.updatedAt).toLocaleDateString()}</p>
+        <div onclick="switchPage('notas'); openNote('${targetNote.id}')" class="cursor-pointer hover:bg-gray-50 dark:hover:bg-neutral-800 rounded p-2 -mx-2 transition h-full flex flex-col">
+            <h4 class="font-bold text-gray-800 dark:text-white truncate text-base">${targetNote.title || "Sem Título"}</h4>
+            <p class="text-xs text-gray-500 dark:text-gray-400 line-clamp-4 mt-2 leading-relaxed">${textPreview}</p>
+            <p class="text-[10px] text-gray-400 mt-auto text-right pt-2">
+                ${isPinned ? '<i class="fas fa-thumbtack mr-1"></i>' : ''} 
+                ${new Date(targetNote.updatedAt).toLocaleDateString()}
+            </p>
         </div>
     `;
 }
@@ -3303,5 +3348,35 @@ function renderMediaInContainer(containerId, url, className = "w-full h-full obj
         img.onerror = function () { this.src = 'https://files.catbox.moe/pmdtq6.png'; };
 
         container.appendChild(img);
+    }
+}
+
+// ============================================================
+// --- NOVA FUNÇÃO: FIXAR NOTA ---
+// ============================================================
+
+window.togglePin = function (id, event) {
+    // Impede que o clique abra a nota (stop propagation)
+    if (event) event.stopPropagation();
+
+    const note = notesData.find(n => n.id === id);
+    if (note) {
+        // Se já estava fixada, desfixa.
+        // Se não estava, fixa ela e DESFIXA todas as outras (só 1 permitida)
+        const wasPinned = note.pinned;
+
+        // Reseta todas para false
+        notesData.forEach(n => n.pinned = false);
+
+        // Se não estava fixada, fixa agora
+        if (!wasPinned) {
+            note.pinned = true;
+            showModal("Nota Fixada", "Esta nota agora aparece na tela inicial! 📌");
+        } else {
+            showModal("Desfixada", "O widget voltou a mostrar a nota mais recente.");
+        }
+
+        saveData();
+        renderNotes(false); // Atualiza a lista visualmente
     }
 }

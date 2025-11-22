@@ -3776,7 +3776,7 @@ window.copyPixCode = function () {
     copyText.setSelectionRange(0, 99999);
     navigator.clipboard.writeText(copyText.value);
 
-    // Feedback visual rápido
+    // Feedback visual rápidoo
     const btn = document.querySelector('#pix-modal button.bg-indigo-600');
     const original = btn.innerText;
     btn.innerText = "Copiado!";

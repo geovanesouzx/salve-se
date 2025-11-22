@@ -1,57 +1,71 @@
-// Usamos 'require' para evitar erros de módulo na Vercel
 const { MercadoPagoConfig, Payment } = require('mercadopago');
+const crypto = require('crypto'); // Nativo do Node.js
 
 export default async function handler(req, res) {
-    // 1. CORS e Método
+    // 1. Permite apenas POST
     if (req.method !== 'POST') {
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
     try {
-        // 2. Debug: Verifica se a chave existe
-        if (!process.env.MP_ACCESS_TOKEN) {
-            throw new Error("Token do Mercado Pago (MP_ACCESS_TOKEN) não encontrado nas variáveis de ambiente.");
+        // 2. Verifica a chave da API
+        const token = process.env.MP_ACCESS_TOKEN;
+        if (!token) {
+            console.error("ERRO: Token não encontrado.");
+            throw new Error("Token do Mercado Pago não configurado.");
         }
 
-        // 3. Configuração
-        const client = new MercadoPagoConfig({ accessToken: process.env.MP_ACCESS_TOKEN });
+        // 3. Configura o cliente
+        const client = new MercadoPagoConfig({ 
+            accessToken: token,
+            options: { timeout: 5000 }
+        });
         const payment = new Payment(client);
 
         const { email, amount } = req.body;
 
-        // 4. Criação do Pagamento
-        const paymentData = {
-            transaction_amount: Number(amount) || 4.90,
-            description: 'Salve-se UFRB - Premium',
+        // 4. TRATAMENTO DE DADOS (A parte crítica)
+        // Garante que o valor é um número com 2 casas decimais
+        const valorFinal = Number(parseFloat(amount || 4.90).toFixed(2));
+        
+        // Garante um e-mail válido para o teste
+        const emailPagador = (email && email.includes('@')) ? email : 'comprador_teste@ufrb.edu.br';
+
+        // Gera um ID único para essa tentativa (Idempotência)
+        const idempotencyKey = crypto.randomUUID();
+
+        const body = {
+            transaction_amount: valorFinal,
+            description: 'Salve-se UFRB Premium',
             payment_method_id: 'pix',
             payer: {
-                // Garante um email válido para teste se vier vazio ou for o mesmo da conta
-                email: (email && email.includes('@')) ? email : `user_test_${Date.now()}@test.com`,
-                first_name: 'Aluno',
-                last_name: 'UFRB'
+                email: emailPagador
             },
         };
 
-        const result = await payment.create({ body: paymentData });
+        console.log("Enviando para o Mercado Pago:", JSON.stringify(body));
 
-        // 5. Resposta
-        if (result && result.point_of_interaction) {
-            return res.status(200).json({
-                id: result.id,
-                qr_code: result.point_of_interaction.transaction_data.qr_code,
-                qr_code_base64: result.point_of_interaction.transaction_data.qr_code_base64
-            });
-        } else {
-            console.error("Resposta estranha do MP:", result);
-            throw new Error("O Mercado Pago não retornou o QR Code.");
-        }
+        // 5. Cria o pagamento com cabeçalho de idempotência
+        const requestOptions = {
+            idempotencyKey: idempotencyKey
+        };
+
+        const result = await payment.create({ body, requestOptions });
+
+        // 6. Sucesso
+        return res.status(200).json({
+            id: result.id,
+            qr_code: result.point_of_interaction.transaction_data.qr_code,
+            qr_code_base64: result.point_of_interaction.transaction_data.qr_code_base64
+        });
 
     } catch (error) {
-        console.error("ERRO FATAL NO BACKEND:", error);
-        // Retorna o erro detalhado para você ver no Console do navegador
+        console.error("ERRO PIX DETALHADO:", JSON.stringify(error, null, 2));
+        
+        // Retorna o erro de forma que o frontend entenda
         return res.status(500).json({ 
-            error: error.message || "Erro interno",
-            details: error.cause || "Sem detalhes"
+            error: "Erro ao criar Pix",
+            details: error.message || JSON.stringify(error)
         });
     }
 }

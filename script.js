@@ -1135,12 +1135,20 @@ function initRealtimeSync(uid) {
 function updateUserInterfaceInfo() {
     const nameDisplay = document.getElementById('user-display-name');
     const handleDisplay = document.getElementById('user-display-id');
-    const sidebarAvatar = document.getElementById('user-avatar-sidebar');
+
+    // ATUALIZADO: Usa o container pai para injetar vídeo ou img
+    // O ID 'user-avatar-sidebar' era a IMG, vamos pegar o PAI dela
+    const avatarImg = document.getElementById('user-avatar-sidebar');
+    if (avatarImg && userProfile && userProfile.photoURL) {
+        const parent = avatarImg.parentElement;
+        parent.id = "sidebar-avatar-container"; // Damos um ID ao pai para facilitar
+        avatarImg.remove(); // Remove a img antiga para recriar limpo
+        renderMediaInContainer("sidebar-avatar-container", userProfile.photoURL);
+    }
 
     if (userProfile) {
         if (nameDisplay) nameDisplay.innerText = userProfile.displayName;
         if (handleDisplay) handleDisplay.innerText = "@" + userProfile.handle;
-        if (sidebarAvatar && userProfile.photoURL) sidebarAvatar.src = userProfile.photoURL;
     }
 }
 
@@ -1612,11 +1620,17 @@ window.editSemester = function () {
 window.changePhoto = function () {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = 'image/*';
+    // AGORA ACEITA VÍDEOS E GIFS
+    input.accept = 'image/*, video/mp4, video/webm';
 
     input.onchange = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
+
+        // Validação de tamanho (Imgur grátis limita vídeos pesados)
+        if (file.size > 10 * 1024 * 1024) { // 10MB
+            return showModal("Arquivo muito grande", "Por favor, escolha um GIF ou vídeo menor que 10MB.");
+        }
 
         const loadingBtn = document.getElementById('btn-change-photo-settings');
         let originalBtnContent = "";
@@ -1625,14 +1639,14 @@ window.changePhoto = function () {
             loadingBtn.innerHTML = '<i class="fas fa-circle-notch fa-spin mr-2"></i> Enviando...';
             loadingBtn.disabled = true;
         } else {
-            showModal("Aguarde", "Enviando sua foto para o servidor...");
+            showModal("Aguarde", "Enviando mídia para o servidor...");
         }
 
         const formData = new FormData();
-        formData.append('image', file);
+        formData.append('image', file); // O endpoint do Imgur aceita video no campo 'image' ou 'video'
 
         try {
-            const response = await fetch('https://api.imgur.com/3/image', {
+            const response = await fetch('https://api.imgur.com/3/upload', {
                 method: 'POST',
                 headers: { 'Authorization': 'Client-ID 513bb727cecf9ac' },
                 body: formData
@@ -1646,17 +1660,22 @@ window.changePhoto = function () {
                 await updateProfile(currentUser, { photoURL: newUrl });
                 await setDoc(doc(db, "users", currentUser.uid), { photoURL: newUrl }, { merge: true });
 
+                // Atualiza imediatamente na tela
+                userProfile.photoURL = newUrl;
+                updateUserInterfaceInfo();
+                if (document.getElementById('settings-content')) renderSettings();
+
                 const genericModal = document.getElementById('generic-modal');
                 if (genericModal && !genericModal.classList.contains('hidden')) closeGenericModal();
 
-                showModal("Sucesso", "Foto de perfil atualizada com sucesso!");
+                showModal("Sucesso", "Perfil atualizado com movimento! 🎬");
             } else {
-                throw new Error('Falha no upload: ' + (data.data.error || 'Erro desconhecido'));
+                throw new Error('Falha no upload. Tente um arquivo menor.');
             }
 
         } catch (error) {
             console.error("Erro ao atualizar foto:", error);
-            showModal("Erro", "Erro ao enviar foto: " + error.message);
+            showModal("Erro", "Erro ao enviar: " + error.message);
         } finally {
             if (loadingBtn) {
                 loadingBtn.innerHTML = originalBtnContent;
@@ -1695,7 +1714,13 @@ window.renderSettings = function () {
         dateStr = date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
     }
 
-    const photo = userProfile.photoURL || "https://files.catbox.moe/pmdtq6.png";
+    const photoUrl = userProfile.photoURL || "https://files.catbox.moe/pmdtq6.png";
+
+    // Detecta se é vídeo para renderizar o HTML correto no template string
+    const isVideo = photoUrl.match(/\.(mp4|webm)$/i);
+    const mediaHtml = isVideo
+        ? `<video src="${photoUrl}" class="w-full h-full object-cover" autoplay loop muted playsinline></video>`
+        : `<img src="${photoUrl}" class="w-full h-full object-cover" onerror="this.src='https://files.catbox.moe/pmdtq6.png'">`;
 
     const createActionCard = (onclick, svgIcon, title, subtitle, colorClass = "text-gray-500 group-hover:text-indigo-500") => `
         <button onclick="${onclick}" class="group w-full bg-white dark:bg-darkcard border border-gray-100 dark:border-darkborder p-4 rounded-2xl flex items-center justify-between hover:border-indigo-500 dark:hover:border-indigo-500 hover:shadow-md transition-all duration-200 mb-3 text-left">
@@ -1717,15 +1742,16 @@ window.renderSettings = function () {
     container.innerHTML = `
         <div class="max-w-2xl mx-auto w-full pb-24 space-y-6">
             
-            <!-- Header do Perfil -->
             <div class="bg-white dark:bg-darkcard rounded-3xl shadow-sm border border-gray-200 dark:border-darkborder p-6 md:p-8 flex flex-col items-center text-center relative overflow-hidden">
                  <div class="absolute top-0 left-0 w-full h-24 bg-gradient-to-r from-indigo-500 to-purple-600 opacity-10 dark:opacity-20"></div>
                  
                  <div class="relative group mb-4 mt-4">
-                    <div class="w-28 h-28 rounded-full overflow-hidden p-1 border-4 border-white dark:border-darkcard shadow-lg relative z-10">
-                        <img src="${photo}" class="w-full h-full object-cover rounded-full bg-gray-100" onerror="this.src='https://files.catbox.moe/pmdtq6.png'">
+                    <div class="w-28 h-28 rounded-full overflow-hidden p-1 border-4 border-white dark:border-darkcard shadow-lg relative z-10 bg-white dark:bg-darkcard">
+                        <div class="w-full h-full rounded-full overflow-hidden relative">
+                            ${mediaHtml}
+                        </div>
                     </div>
-                    <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition rounded-full flex items-center justify-center cursor-pointer m-1 z-20" onclick="changePhoto()">
+                    <div id="btn-change-photo-settings" class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition rounded-full flex items-center justify-center cursor-pointer m-1 z-20" onclick="changePhoto()">
                         <i class="fas fa-camera text-white text-2xl"></i>
                     </div>
                 </div>
@@ -1747,22 +1773,19 @@ window.renderSettings = function () {
                 </div>
             </div>
 
-            <!-- Seção de Ações -->
             <div>
                 <h3 class="px-4 text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Gerenciar Conta</h3>
-                ${createActionCard('changePhoto()', svgs.photo, 'Foto de Perfil', 'Atualize sua imagem de exibição')}
+                ${createActionCard('changePhoto()', svgs.photo, 'Foto de Perfil', 'Atualize sua imagem ou vídeo')}
                 ${createActionCard('editName()', svgs.user, 'Nome de Exibição', 'Como seu nome aparece no app')}
                 ${createActionCard('editHandle()', svgs.at, 'Nome de Usuário', 'Seu identificador único @handle')}
                 ${createActionCard('editSemester()', svgs.school, 'Semestre Atual', 'Para organizar suas matérias')}
             </div>
             
-            <!-- Widgets -->
             <div>
                  <h3 class="px-4 text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Interface</h3>
                  ${createActionCard("switchPage('ocultos')", `<i class="fas fa-eye-slash"></i>`, 'Widgets Ocultos', 'Gerenciar itens escondidos da tela inicial')}
             </div>
 
-            <!-- Segurança e Dados -->
             <div>
                 <h3 class="px-4 text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Segurança & Dados</h3>
                 
@@ -1787,12 +1810,11 @@ window.renderSettings = function () {
 
             <div class="text-center pt-4 pb-8">
                  <p class="text-xs text-gray-300 dark:text-gray-600 font-mono">ID: ${currentUser.uid.substring(0, 8)}...</p>
-                 <p class="text-xs text-gray-300 dark:text-gray-600 mt-1">Salve-se UFRB v3.3 (Mobile + PC Fixes)</p>
+                 <p class="text-xs text-gray-300 dark:text-gray-600 mt-1">Salve-se UFRB v3.4 (GIF Support)</p>
             </div>
         </div>
     `;
 }
-
 // ============================================================
 // --- FUNCIONALIDADE: TAREFAS (TODO LIST) ---
 // ============================================================
@@ -3238,3 +3260,28 @@ setInterval(updateSmartSummary, 60000); // Atualiza a cada minuto
 document.addEventListener('DOMContentLoaded', () => {
     setTimeout(updateSmartSummary, 500); // Roda ao iniciar
 });
+
+// --- FUNÇÃO PARA RENDERIZAR AVATAR (IMG OU VIDEO) ---
+function renderMediaInContainer(containerId, url, className = "w-full h-full object-cover") {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    // Verifica se é vídeo (mp4, webm)
+    const isVideo = url.match(/\.(mp4|webm)$/i);
+
+    if (isVideo) {
+        // Cria tag de vídeo mudo em loop
+        container.innerHTML = `
+            <video src="${url}" 
+                   class="${className}" 
+                   autoplay loop muted playsinline 
+                   style="width: 100%; height: 100%; object-fit: cover;">
+            </video>`;
+    } else {
+        // Cria tag de imagem padrão (suporta GIF)
+        container.innerHTML = `
+            <img src="${url}" 
+                 class="${className}" 
+                 onerror="this.src='https://files.catbox.moe/pmdtq6.png'">`;
+    }
+}

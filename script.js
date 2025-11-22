@@ -1682,7 +1682,7 @@ window.editSemester = function () {
     );
 }
 
-wwindow.changePhoto = function () {
+window.changePhoto = function () {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/*, video/mp4, video/webm';

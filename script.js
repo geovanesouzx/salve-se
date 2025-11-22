@@ -1059,20 +1059,18 @@ function initRealtimeSync(uid) {
 function updateUserInterfaceInfo() {
     const nameDisplay = document.getElementById('user-display-name');
     const handleDisplay = document.getElementById('user-display-id');
-
-    // ATUALIZADO: Usa o container pai para injetar vídeo ou img
-    // O ID 'user-avatar-sidebar' era a IMG, vamos pegar o PAI dela
-    const avatarImg = document.getElementById('user-avatar-sidebar');
-    if (avatarImg && userProfile && userProfile.photoURL) {
-        const parent = avatarImg.parentElement;
-        parent.id = "sidebar-avatar-container"; // Damos um ID ao pai para facilitar
-        avatarImg.remove(); // Remove a img antiga para recriar limpo
-        renderMediaInContainer("sidebar-avatar-container", userProfile.photoURL);
-    }
+    const container = document.getElementById('sidebar-avatar-container');
 
     if (userProfile) {
+        // Atualiza textos
         if (nameDisplay) nameDisplay.innerText = userProfile.displayName;
         if (handleDisplay) handleDisplay.innerText = "@" + userProfile.handle;
+
+        // Atualiza Mídia (Foto/GIF/Vídeo)
+        if (container && userProfile.photoURL) {
+            // Usa a função auxiliar que já trata vídeo e imagem automaticamente
+            renderMediaInContainer("sidebar-avatar-container", userProfile.photoURL);
+        }
     }
 }
 

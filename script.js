@@ -1330,9 +1330,16 @@ function renderNoteEditor(container, noteId) {
     `;
 
     toolbar.innerHTML = `
-        <button onclick="closeNote()" class="mr-2 p-2 rounded hover:bg-gray-200 dark:hover:bg-neutral-700 text-indigo-600 font-bold flex items-center gap-1">
-            <i class="fas fa-arrow-left"></i> Voltar
+        <button onclick="closeNote()" class="mr-2 p-2 rounded hover:bg-gray-200 dark:hover:bg-neutral-700 text-gray-600 dark:text-gray-400 font-bold flex items-center gap-1">
+            <i class="fas fa-arrow-left"></i>
         </button>
+        
+        <button onclick="forceSaveNote()" id="btn-manual-save" class="mr-2 p-2 rounded bg-indigo-100 hover:bg-indigo-200 dark:bg-indigo-900/30 dark:hover:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 font-bold flex items-center gap-2 transition shadow-sm" title="Salvar Agora">
+            <i class="fas fa-save"></i> <span class="text-xs hidden sm:inline">Salvar</span>
+        </button>
+        
+        <span id="save-status" class="text-[10px] text-gray-400 uppercase font-bold w-16 text-center mr-2 transition-opacity">Salvo</span>
+
         <div class="w-px h-6 bg-gray-300 dark:bg-neutral-700 mx-1"></div>
         ${createToolBtn('bold', 'bold')}
         ${createToolBtn('italic', 'italic')}
@@ -1340,8 +1347,8 @@ function renderNoteEditor(container, noteId) {
         <div class="w-px h-6 bg-gray-300 dark:bg-neutral-700 mx-1"></div>
         ${createToolBtn('list-ul', 'insertUnorderedList')}
         ${createToolBtn('list-ol', 'insertOrderedList')}
-        <div class="w-px h-6 bg-gray-300 dark:bg-neutral-700 mx-1"></div>
-        <div class="flex gap-1">
+        <div class="w-px h-6 bg-gray-300 dark:bg-neutral-700 mx-1 hidden sm:block"></div>
+        <div class="flex gap-1 hidden sm:flex">
              <button onclick="formatText('hiliteColor', '#fef08a')" class="w-6 h-6 rounded-full bg-yellow-200 border border-gray-300 hover:scale-110 transition" title="Amarelo"></button>
              <button onclick="formatText('hiliteColor', '#bbf7d0')" class="w-6 h-6 rounded-full bg-green-200 border border-gray-300 hover:scale-110 transition" title="Verde"></button>
              <button onclick="formatText('hiliteColor', '#fbcfe8')" class="w-6 h-6 rounded-full bg-pink-200 border border-gray-300 hover:scale-110 transition" title="Rosa"></button>
@@ -1371,7 +1378,43 @@ function renderNoteEditor(container, noteId) {
         note.updatedAt = Date.now();
         debounceSaveNote();
     };
+    window.forceSaveNote = async function () {
+        const btn = document.getElementById('btn-manual-save');
+        const icon = btn ? btn.querySelector('i') : null;
+        const status = document.getElementById('save-status');
 
+        // Efeito visual no botão
+        if (icon) {
+            icon.className = "fas fa-circle-notch fa-spin";
+        }
+        if (status) {
+            status.innerText = "Salvando...";
+            status.classList.add("text-indigo-500");
+        }
+
+        // Salva
+        await saveData();
+
+        // Restaura efeito visual
+        setTimeout(() => {
+            if (icon) icon.className = "fas fa-check";
+            if (status) {
+                status.innerText = "Salvo!";
+                status.classList.remove("text-indigo-500");
+                status.classList.add("text-green-500");
+            }
+
+            // Volta ao ícone original depois de 1.5s
+            setTimeout(() => {
+                if (icon) icon.className = "fas fa-save";
+                if (status) {
+                    status.innerText = "Salvo";
+                    status.classList.remove("text-green-500");
+                    status.classList.add("text-gray-400");
+                }
+            }, 1500);
+        }, 500);
+    }
     editorWrapper.appendChild(toolbar);
     editorWrapper.appendChild(titleInput);
     editorWrapper.appendChild(contentDiv);
@@ -1380,10 +1423,18 @@ function renderNoteEditor(container, noteId) {
 
 function debounceSaveNote() {
     const status = document.getElementById('save-status');
+    if (status) {
+        status.innerText = "Salvando...";
+        status.className = "text-[10px] text-indigo-500 uppercase font-bold w-16 text-center mr-2 animate-pulse";
+    }
 
     clearTimeout(saveTimeout);
     saveTimeout = setTimeout(() => {
         saveData();
+        if (status) {
+            status.innerText = "Salvo";
+            status.className = "text-[10px] text-gray-400 uppercase font-bold w-16 text-center mr-2";
+        }
     }, 1000);
 }
 
@@ -1417,6 +1468,44 @@ window.deleteNote = function (id) {
         saveData();
         renderNotes(true);
     });
+}
+
+window.forceSaveNote = async function () {
+    const btn = document.getElementById('btn-manual-save');
+    const icon = btn ? btn.querySelector('i') : null;
+    const status = document.getElementById('save-status');
+
+    // Efeito visual no botão
+    if (icon) {
+        icon.className = "fas fa-circle-notch fa-spin";
+    }
+    if (status) {
+        status.innerText = "Salvando...";
+        status.classList.add("text-indigo-500");
+    }
+
+    // Salva
+    await saveData();
+
+    // Restaura efeito visual
+    setTimeout(() => {
+        if (icon) icon.className = "fas fa-check";
+        if (status) {
+            status.innerText = "Salvo!";
+            status.classList.remove("text-indigo-500");
+            status.classList.add("text-green-500");
+        }
+
+        // Volta ao ícone original depois de 1.5s
+        setTimeout(() => {
+            if (icon) icon.className = "fas fa-save";
+            if (status) {
+                status.innerText = "Salvo";
+                status.classList.remove("text-green-500");
+                status.classList.add("text-gray-400");
+            }
+        }, 1500);
+    }, 500);
 }
 
 window.formatText = function (cmd, val) {

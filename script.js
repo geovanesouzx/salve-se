@@ -621,7 +621,7 @@ window.sendIAMessage = async function () {
 
     if (!message) return;
 
-    // 1. Exibe a mensagem do usuário na tela e salva no histórico local
+    // 1. Exibe a mensagem do usuário
     appendMessage('user', message);
     input.value = '';
     input.disabled = true;
@@ -631,54 +631,54 @@ window.sendIAMessage = async function () {
     showTypingIndicator();
 
     try {
-        // 2. Coleta dados do contexto local
+        // 2. Contexto
         const statusCircular = getBusStatusForAI();
-        const tempElement = document.getElementById('weather-temp');
 
-        // 3. Monta o Prompt do Sistema
+        // 3. PROMPT DO SISTEMA (SUPER ATUALIZADO)
         let systemInstructionText = `
 VOCÊ É A "SALVE-SE IA", ASSISTENTE ACADÊMICA DA UFRB.
-Sua missão é organizar a vida do estudante, reduzir o estresse e ajudar nos estudos.
-Fale sempre em Português do Brasil de forma natural.
+Sua missão é organizar a vida do estudante, reduzir estresse e potencializar os estudos.
+Fale sempre em Português do Brasil (pt-BR).
 
 CONTEXTO ATUAL:
 - Tela: ${currentViewContext}
 - Hora: ${new Date().toLocaleTimeString('pt-BR')}
-- Dia: ${new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric' })}
+- Data: ${new Date().toLocaleDateString('pt-BR')}
 - Ônibus: ${statusCircular}
-- Tarefas Pendentes: ${tasksData.filter(t => !t.done).length}
 
-SUAS HABILIDADES:
-1. 🎨 Designer: Você pode mudar as cores do app.
-   CORES DISPONÍVEIS: Azul (use 'indigo'), Verde, Vermelho, Roxo, Rosa, Laranja, Amarelo, Preto, Ciano, Violeta, Lima.
-2. 📅 Organizador: Crie tarefas e lembretes.
-3. 🎓 Tutor: Ajude com dúvidas da UFRB.
+SUAS SUPER HABILIDADES:
+1. ✍️ Redator Acadêmico (CRÍTICO): Você pode criar Notas completas.
+   - Ao criar notas, USE HTML para formatar o conteúdo:
+     - <b>negrito</b>, <i>itálico</i>, <u>sublinhado</u>
+     - <br> para pular linhas (não use \\n)
+     - <h2>Subtítulos</h2>
+     - <ul><li>Listas com marcadores</li></ul>
+     - <ol><li>Listas numeradas</li></ol>
+   - Se pedirem ABNT, formate rigorosamente (margens e fontes você simula com estrutura visual).
 
-AÇÕES PERMITIDAS (Responda APENAS com JSON):
-ESTRUTURA: { "message": "texto amigável", "commands": [ { "action": "...", "params": {...} } ] }
+2. 🎨 Designer: Mudar cores (azul, verde, rosa, preto, etc).
+3. 📅 Organizador: Criar tarefas e lembretes.
 
-Comandos:
-- "toggle_theme": { "mode": "dark|light" }
-- "set_global_color": { "color": "nome_da_cor_em_portugues" }
+AÇÕES (Retorne APENAS JSON):
+{ "message": "texto curto pro chat", "commands": [ { "action": "...", "params": {...} } ] }
+
+Comandos Disponíveis:
+- "create_note": { "title": "Título da Nota", "content": "Conteúdo em HTML..." }
 - "create_task": { "text": "...", "priority": "normal|high" }
 - "create_reminder": { "desc": "...", "date": "YYYY-MM-DD" }
-- "navigate": { "page": "home|todo|aulas|notas|onibus|calc|pomo" }
+- "set_global_color": { "color": "nome_da_cor" }
+- "navigate": { "page": "nome_da_tela" }
 `;
 
-        // 4. Prepara o histórico para enviar
+        // 4. Histórico (Correção do bug de duplicidade incluída)
         let historyPayload = [{ role: 'system', text: systemInstructionText }];
-
-        // CORREÇÃO DO BUG "ROSAROSA":
-        // Pegamos o histórico, mas removemos a última mensagem (a atual),
-        // pois a API já adiciona a mensagem atual separadamente.
-        // O .slice(0, -1) remove a última. O .slice(-4) pega as 4 anteriores a ela.
-        const recentHistory = chatHistory.slice(0, -1).slice(-4);
+        const recentHistory = chatHistory.slice(0, -1).slice(-6); // Pega as últimas 6 interações
 
         recentHistory.forEach(msg => {
             historyPayload.push({ role: msg.role, text: msg.text });
         });
 
-        // 5. Envia para a API
+        // 5. Envio para API
         const response = await fetch('/api/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -690,10 +690,9 @@ Comandos:
         });
 
         const data = await response.json();
-
         if (data.error) throw new Error(data.error);
 
-        // 6. Processa a resposta
+        // 6. Tratamento da Resposta
         let aiResponseText = data.text;
         let cleanText = aiResponseText.replace(/```json/g, '').replace(/```/g, '').trim();
         const first = cleanText.indexOf('{');
@@ -703,23 +702,24 @@ Comandos:
         const responseJson = JSON.parse(cleanText);
 
         if (responseJson.message) appendMessage('ai', responseJson.message);
-        else appendMessage('ai', "Feito.");
+        else appendMessage('ai', "Feito!");
 
+        // Executa os comandos
         if (responseJson.commands && Array.isArray(responseJson.commands)) {
             for (const cmd of responseJson.commands) {
                 await executeAICommand(cmd);
-                await new Promise(r => setTimeout(r, 300));
+                await new Promise(r => setTimeout(r, 500)); // Delay para dar tempo de ver a ação
             }
         }
 
     } catch (error) {
-        console.error("Erro Geral:", error);
-        appendMessage('ai', `⚠️ Erro: ${error.message}`);
+        console.error("Erro IA:", error);
+        appendMessage('ai', `Desculpe, tive um erro: ${error.message}`);
     } finally {
         hideTypingIndicator();
-        document.getElementById('chat-input').disabled = false;
-        document.getElementById('chat-send-btn').disabled = false;
-        document.getElementById('chat-input').focus();
+        input.disabled = false;
+        sendBtn.disabled = false;
+        input.focus();
         scrollToBottom();
     }
 };
@@ -883,12 +883,33 @@ async function executeAICommand(cmd) {
             if (p.page !== currentViewContext) switchPage(p.page);
             break;
 
-        // --- NOTAS ---
+        // --- NOTAS (Melhorado para IA) ---
         case 'create_note':
             const newNoteId = Date.now().toString();
-            notesData.push({ id: newNoteId, title: p.title || "Nota da IA", content: p.content || "", updatedAt: Date.now() });
+
+            // Garante que o conteúdo venha formatado ou vazio
+            let noteContent = p.content || "";
+
+            notesData.push({
+                id: newNoteId,
+                title: p.title || "Nota da IA",
+                content: noteContent,
+                updatedAt: Date.now()
+            });
+
             saveData();
-            if (currentViewContext === 'notas') { renderNotes(); openNote(newNoteId); }
+
+            // Se não estiver na tela de notas, vai pra lá
+            if (currentViewContext !== 'notas') {
+                switchPage('notas');
+            }
+
+            // Renderiza e abre a nota criada
+            setTimeout(() => {
+                renderNotes();
+                openNote(newNoteId);
+                showModal("Nota Criada 🤖", "A IA gerou uma nova anotação para você.");
+            }, 300);
             break;
 
         // --- WIDGETS ---

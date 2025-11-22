@@ -3694,7 +3694,7 @@ window.renderPremiumPage = function () {
 }
 
 // ============================================================
-// --- SISTEMA DE PAGAMENTO ---
+// --- SISTEMA DE PAGAMENTO (VERSÃO PIX DIRETO) ---
 // ============================================================
 
 window.startCheckout = async function () {
@@ -3710,27 +3710,88 @@ window.startCheckout = async function () {
     btn.disabled = true;
 
     try {
+        // Envia o email do usuário atual para vincular o pagamento
         const response = await fetch('/api/checkout', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                email: currentUser ? currentUser.email : 'anonimo@ufrb.edu.br'
+            })
         });
 
         const data = await response.json();
 
-        if (data.url) {
-            // Redireciona para o Mercado Pago
-            window.location.href = data.url;
+        if (data.qr_code_base64) {
+            // Sucesso! Abre o modal com o QR Code
+            openPixModal(data.qr_code_base64, data.qr_code);
         } else {
-            throw new Error('Link de pagamento não gerado.');
+            throw new Error('Dados do PIX não recebidos.');
         }
 
     } catch (error) {
         console.error(error);
-        showModal("Erro", "Não foi possível iniciar o pagamento. Tente novamente.");
+        showModal("Erro", "Falha ao gerar PIX. Verifique se o email da conta é válido.");
+    } finally {
         btn.innerHTML = originalText;
         btn.disabled = false;
     }
 };
+
+// --- FUNÇÕES DO MODAL PIX ---
+
+window.openPixModal = function (base64Image, copyCode) {
+    const modal = document.getElementById('pix-modal');
+    const img = document.getElementById('pix-qr-image');
+    const input = document.getElementById('pix-copy-code');
+
+    if (!modal) return;
+
+    // Preenche os dados
+    img.src = `data:image/png;base64,${base64Image}`;
+    img.classList.remove('opacity-50', 'animate-pulse'); // Tira o efeito de loading
+    input.value = copyCode;
+
+    // Mostra o modal
+    modal.classList.remove('hidden');
+    setTimeout(() => {
+        modal.classList.remove('opacity-0');
+        modal.firstElementChild.classList.remove('scale-95');
+        modal.firstElementChild.classList.add('scale-100');
+    }, 10);
+}
+
+window.closePixModal = function () {
+    const modal = document.getElementById('pix-modal');
+    if (!modal) return;
+
+    modal.classList.add('opacity-0');
+    modal.firstElementChild.classList.remove('scale-100');
+    modal.firstElementChild.classList.add('scale-95');
+    setTimeout(() => modal.classList.add('hidden'), 300);
+}
+
+window.copyPixCode = function () {
+    const copyText = document.getElementById("pix-copy-code");
+    copyText.select();
+    copyText.setSelectionRange(0, 99999);
+    navigator.clipboard.writeText(copyText.value);
+
+    // Feedback visual rápidoo
+    const btn = document.querySelector('#pix-modal button.bg-indigo-600');
+    const original = btn.innerText;
+    btn.innerText = "Copiado!";
+    btn.classList.replace('bg-indigo-600', 'bg-green-600');
+    setTimeout(() => {
+        btn.innerText = original;
+        btn.classList.replace('bg-green-600', 'bg-indigo-600');
+    }, 2000);
+}
+
+window.finishPixPayment = function () {
+    closePixModal();
+    // Simula a verificação de sucesso (Em produção, usaria Webhooks)
+    showModal("Pagamento em Análise", "Assim que o banco confirmar, seu Premium será ativado automaticamente! ⏳");
+}
 
 // Verifica se o usuário acabou de voltar de um pagamento com sucesso
 // (Isso roda quando a página carrega)

@@ -835,22 +835,38 @@ function appendMessage(sender, text) {
     scrollToBottom();
 }
 
+// ============================================================
+// --- EXECUTOR DE COMANDOS DA IA ---
+// ============================================================
+
 async function executeAICommand(cmd) {
-    console.log("Executando comando IA:", cmd);
+    console.log("🤖 Comando IA recebido:", cmd); // Isso ajuda a ver erros no F12 (Console)
     const p = cmd.params || {};
 
     switch (cmd.action) {
+        // --- TEMA E CORES ---
         case 'toggle_theme':
-            toggleTheme(); // Alterna Claro/Escuro
+            // Se a IA mandar 'mode': 'dark' ou 'light', forçamos esse modo
+            if (p.mode === 'dark') {
+                document.documentElement.classList.add('dark');
+                localStorage.setItem('theme', 'dark');
+            } else if (p.mode === 'light') {
+                document.documentElement.classList.remove('dark');
+                localStorage.setItem('theme', 'light');
+            } else {
+                // Se não mandar nada, apenas alterna (toggle)
+                toggleTheme();
+            }
             break;
 
         case 'set_global_color':
-            // Muda a cor principal do site (ex: "red", "green", "indigo")
+            // Muda a cor do site
             if (p.color) setThemeColor(p.color);
             break;
 
+        // --- TAREFAS ---
         case 'create_task':
-            tasksData.push({ id: Date.now().toString() + Math.random(), text: p.text, done: false, priority: p.priority || 'normal', category: p.category || 'geral', createdAt: Date.now() });
+            tasksData.push({ id: Date.now().toString(), text: p.text, done: false, priority: p.priority || 'normal', category: p.category || 'geral', createdAt: Date.now() });
             saveData();
             break;
 
@@ -866,8 +882,9 @@ async function executeAICommand(cmd) {
             saveData();
             break;
 
+        // --- LEMBRETES ---
         case 'create_reminder':
-            remindersData.push({ id: Date.now().toString() + Math.random(), desc: p.desc, date: p.date, prio: p.prio || 'medium', createdAt: Date.now() });
+            remindersData.push({ id: Date.now().toString(), desc: p.desc, date: p.date, prio: p.prio || 'medium', createdAt: Date.now() });
             saveData();
             break;
 
@@ -883,22 +900,26 @@ async function executeAICommand(cmd) {
             saveData();
             break;
 
+        // --- AULAS ---
         case 'create_class':
-            scheduleData.push({ id: Date.now().toString() + Math.random(), name: p.name, prof: p.prof || 'N/A', room: p.room || 'N/A', day: p.day, start: p.start, end: p.end, color: 'indigo' });
+            scheduleData.push({ id: Date.now().toString(), name: p.name, prof: p.prof || 'N/A', room: p.room || 'N/A', day: p.day, start: p.start, end: p.end, color: 'indigo' });
             saveData();
             break;
 
+        // --- NAVEGAÇÃO ---
         case 'navigate':
             if (p.page !== currentViewContext) switchPage(p.page);
             break;
 
+        // --- NOTAS ---
         case 'create_note':
             const newNoteId = Date.now().toString();
-            notesData.push({ id: newNoteId, title: p.title || "Nova Nota IA", content: (p.content || "").replace(/\n/g, "<br>"), updatedAt: Date.now() });
+            notesData.push({ id: newNoteId, title: p.title || "Nota da IA", content: p.content || "", updatedAt: Date.now() });
             saveData();
             if (currentViewContext === 'notas') { renderNotes(); openNote(newNoteId); }
             break;
 
+        // --- WIDGETS ---
         case 'hide_widget':
             if (p.id && !hiddenWidgets.includes(p.id)) toggleWidget(p.id);
             break;
@@ -908,7 +929,7 @@ async function executeAICommand(cmd) {
             break;
 
         default:
-            console.log("Comando desconhecido:", cmd.action);
+            console.warn("⚠️ Comando IA não reconhecido:", cmd.action);
     }
 }
 

@@ -25,7 +25,7 @@ import {
     collection
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-// Use as variáveis globais do ambiente se disponíveis
+// --- CONFIGURAÇÃO DO FIREBASE (ISSO PRECISA FICAR AQUI!) ---
 const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
     apiKey: "AIzaSyD5Ggqw9FpMS98CHcfXKnghMQNMV5WIVTw",
     authDomain: "salvee-se.firebaseapp.com",
@@ -36,7 +36,7 @@ const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__f
 };
 
 // ============================================================
-// --- CONFIGURAÇÃO DAS IAs ---
+// --- CONFIGURAÇÃO DAS IAs (VIA VERCEL) ---
 // ============================================================
 
 // Controle de qual IA está ativa
@@ -59,7 +59,6 @@ try {
 } catch (e) {
     console.log("Persistência já ativa ou não suportada");
 }
-
 // ============================================================
 // --- VARIÁVEIS GLOBAIS ---
 // ============================================================

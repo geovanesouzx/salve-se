@@ -852,28 +852,44 @@ function appendMessage(sender, text) {
 // ============================================================
 
 async function executeAICommand(cmd) {
-    console.log("🤖 Comando IA recebido:", cmd); // Isso ajuda a ver erros no F12 (Console)
+    console.log("🤖 Comando IA recebido:", cmd);
     const p = cmd.params || {};
 
     switch (cmd.action) {
-        // --- TEMA E CORES ---
+        // --- TEMA E CORES (AGORA TRADUZIDO) ---
         case 'toggle_theme':
-            // Se a IA mandar 'mode': 'dark' ou 'light', forçamos esse modo
-            if (p.mode === 'dark') {
+            if (p.mode === 'dark' || p.mode === 'escuro') {
                 document.documentElement.classList.add('dark');
                 localStorage.setItem('theme', 'dark');
-            } else if (p.mode === 'light') {
+            } else if (p.mode === 'light' || p.mode === 'claro') {
                 document.documentElement.classList.remove('dark');
                 localStorage.setItem('theme', 'light');
             } else {
-                // Se não mandar nada, apenas alterna (toggle)
                 toggleTheme();
             }
             break;
 
         case 'set_global_color':
-            // Muda a cor do site
-            if (p.color) setThemeColor(p.color);
+            let color = p.color ? p.color.toLowerCase() : 'indigo';
+
+            // TRADUTOR DE CORES (PT-BR -> EN)
+            const colorMap = {
+                'verde': 'green',
+                'vermelho': 'red',
+                'azul': 'indigo', // Mapeando azul para indigo (cor padrão do tema)
+                'roxo': 'purple',
+                'rosa': 'pink',
+                'laranja': 'orange',
+                'amarelo': 'yellow',
+                'preto': 'black',
+                'ciano': 'cyan',
+                'violeta': 'violet',
+                'lima': 'lime'
+            };
+
+            // Se a cor estiver em português, traduz. Se não, usa a original.
+            const finalColor = colorMap[color] || color;
+            setThemeColor(finalColor);
             break;
 
         // --- TAREFAS ---

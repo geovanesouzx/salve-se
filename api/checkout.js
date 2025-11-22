@@ -1,19 +1,29 @@
-import { MercadoPagoConfig, Preference } from 'mercadopago';
+// api/checkout.js
+// Versão compatível (CommonJS) para evitar erro de PolicyAgent
+
+const { MercadoPagoConfig, Preference } = require('mercadopago');
 
 export default async function handler(req, res) {
+    // 1. Segurança: Só aceita POST
     if (req.method !== 'POST') {
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
-    // 1. Configuração (Pegamos a chave das variáveis de ambiente)
-    const client = new MercadoPagoConfig({ 
-        accessToken: process.env.MP_ACCESS_TOKEN 
-    });
-
     try {
-        // 2. Cria a preferência de compra
+        // 2. Verifica se a chave existe
+        if (!process.env.MP_ACCESS_TOKEN) {
+            console.error("ERRO: MP_ACCESS_TOKEN não encontrado nas variáveis.");
+            throw new Error("Token do Mercado Pago não configurado.");
+        }
+
+        // 3. Configura o Mercado Pago
+        const client = new MercadoPagoConfig({ 
+            accessToken: process.env.MP_ACCESS_TOKEN 
+        });
+
         const preference = new Preference(client);
 
+        // 4. Cria a cobrança
         const result = await preference.create({
             body: {
                 items: [
@@ -27,7 +37,6 @@ export default async function handler(req, res) {
                     }
                 ],
                 back_urls: {
-                    // Para onde o usuário volta depois de pagar
                     success: 'https://salve-se-ufrb.vercel.app/?status=success',
                     failure: 'https://salve-se-ufrb.vercel.app/?status=failure',
                     pending: 'https://salve-se-ufrb.vercel.app/?status=pending'
@@ -36,11 +45,15 @@ export default async function handler(req, res) {
             }
         });
 
-        // 3. Devolve o link de pagamento para o frontend
+        // 5. Sucesso! Devolve o link
         return res.status(200).json({ url: result.init_point });
 
     } catch (error) {
-        console.error(error);
-        return res.status(500).json({ error: 'Erro ao criar pagamento' });
+        console.error("ERRO NO CHECKOUT:", error);
+        // Retorna o erro para o console do navegador (F12) pra gente ver se der pau
+        return res.status(500).json({ 
+            error: error.message || 'Erro interno no servidor',
+            details: error.cause || null
+        });
     }
 }

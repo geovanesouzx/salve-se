@@ -40,14 +40,12 @@ const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__f
 // ============================================================
 
 // NOVA CHAVE ADICIONADA:
-const apiKey = "AIzaSyCyPVRZA8FySx2tCwwJfwBEl1mNZt0G6OE";
 
 // AGORA SIM: Usando o nome exato que aparece no seu painel do Google AI Studio
 const GEMINI_MODEL = "gemini-2.5-flash";
 
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
 
-const GROQ_API_KEY = "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";
 const GROQ_MODEL = "llama-3.3-70b-versatile";
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 
@@ -634,6 +632,7 @@ window.sendIAMessage = async function () {
 
     if (!message) return;
 
+    // 1. Exibe a mensagem do usuário na tela imediatamente
     appendMessage('user', message);
     input.value = '';
     input.disabled = true;
@@ -643,138 +642,96 @@ window.sendIAMessage = async function () {
     showTypingIndicator();
 
     try {
+        // 2. Coleta dados do contexto local
         const statusCircular = getBusStatusForAI();
         const tempElement = document.getElementById('weather-temp');
 
-        const contextData = {
-            tela_atual: currentViewContext,
-            hora_atual: new Date().toLocaleTimeString('pt-BR'),
-            data_hoje: new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric' }),
-            info_circular: statusCircular,
-            clima_atual_ufrb: tempElement ? tempElement.innerText : "Indisponível",
-            tarefas_pendentes: tasksData.filter(t => !t.done).map(t => t.text),
-            widgets_ocultos: hiddenWidgets,
-            aiProvider: currentAIProvider
-        };
-
-        // ... (dentro de sendIAMessage, logo após definir contextData) ...
-
+        // 3. Monta o Prompt do Sistema (Instruções para a IA)
+        // Isso ensina a IA quem ela é e o que pode fazer
         let systemInstructionText = `
 VOCÊ É A "SALVE-SE IA", ASSISTENTE ACADÊMICA DA UFRB.
 Sua missão é organizar a vida do estudante, reduzir o estresse e ajudar nos estudos.
 
-CONTEXTO ATUAL DO USUÁRIO: ${JSON.stringify(contextData)}
+CONTEXTO ATUAL:
+- Tela: ${currentViewContext}
+- Hora: ${new Date().toLocaleTimeString('pt-BR')}
+- Data: ${new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric' })}
+- Ônibus: ${statusCircular}
+- Clima: ${tempElement ? tempElement.innerText : "Indisponível"}
+- Tarefas Pendentes: ${tasksData.filter(t => !t.done).map(t => t.text).join(', ')}
+- Widgets Ocultos: ${hiddenWidgets.join(', ')}
 
-SUAS NOVAS HABILIDADES ESPECIAIS:
-
-1. 🧐 **Especialista ABNT:**
-   - Se o usuário pedir referência de um livro/site, formate estritamente na norma ABNT (NBR 6023).
-   - Exemplo de resposta: "Aqui está: SOBRENOME, Nome. Título: subtítulo. Edição. Cidade: Editora, Ano."
-
-2. 📅 **Estrategista de Tempo:**
-   - Use os dados de 'aulas_hoje' e 'tarefas_pendentes'.
-   - Se o usuário perguntar "O que faço agora?", analise se ele tem tempo livre entre aulas e sugira uma tarefa pendente específica.
-   - Ex: "Você tem 40min antes da próxima aula. Dá tempo de adiantar a tarefa 'Ler artigo de Solos'."
-
-3. 🎓 **Tutor de Revisão:**
-   - Se o usuário colar um texto e pedir "Me ajude a estudar", crie 3 perguntas de múltipla escolha sobre o texto.
-   - Depois que ele responder, corrija e explique.
-
-4. 🌦️ **Consultor de Clima/Ônibus:**
-   - Sempre cruze o dado do 'clima_atual_ufrb' com o 'info_circular'.
-   - Ex: "O ônibus sai às 14h e está chovendo (22°C). Leve guarda-chuva para o ponto."
+SUAS HABILIDADES ESPECIAIS:
+1. 🧐 Especialista ABNT (formate referências na norma NBR 6023).
+2. 📅 Estrategista de Tempo (sugira tarefas baseadas no tempo livre).
+3. 🎓 Tutor de Revisão (crie quizzes se o usuário pedir ajuda para estudar).
+4. 🌦️ Consultor de Clima/Ônibus (cruze dados de clima com horários do circular).
 
 AÇÕES PERMITIDAS (Responda APENAS com JSON):
-
-1. TEMA E CORES:
-- "toggle_theme": { "mode": "dark" }  <-- Para forçar modo escuro
-- "toggle_theme": { "mode": "light" } <-- Para forçar modo claro
-- "toggle_theme": {}                  <-- Apenas alternar
-- "set_global_color": { "color": "indigo|red|green|blue|purple|pink|orange|teal|black" }
-
-2. ORGANIZAÇÃO:
-- "create_task": { "text": "...", "priority": "normal|medium|high" }
-- "delete_task": { "text": "..." }
-- "delete_all_tasks": {}
-- "create_reminder": { "desc": "...", "date": "YYYY-MM-DD" }
-- "delete_reminder": { "desc": "..." }
-- "delete_all_reminders": {}
-- "create_note": { "title": "...", "content": "HTML" }
-
-3. NAVEGAÇÃO:
-- "navigate": { "page": "home|todo|aulas|notas|onibus|calc|pomo" }
-- "hide_widget": { "id": "widget-bus|widget-tasks|widget-ai" }
-- "show_widget": { "id": "..." }
-
-REGRAS:
-1. Responda estritamente com a estrutura JSON abaixo.
-2. Não use Markdown (\`\`\`json).
 ESTRUTURA: { "message": "texto", "commands": [ { "action": "...", "params": {...} } ] }
+
+Comandos disponíveis:
+- "toggle_theme": { "mode": "dark|light" }
+- "set_global_color": { "color": "indigo|red|green..." }
+- "create_task": { "text": "...", "priority": "normal|high" }
+- "create_reminder": { "desc": "...", "date": "YYYY-MM-DD" }
+- "navigate": { "page": "home|todo|aulas|notas|onibus|calc|pomo" }
 `;
 
-        let messagesPayload = [];
-        messagesPayload.push({ role: "system", content: systemInstructionText });
+        // 4. Prepara o histórico da conversa para enviar
+        // A primeira mensagem é sempre o sistema (prompt)
+        let historyPayload = [{ role: 'system', text: systemInstructionText }];
 
+        // Adiciona as últimas 4 mensagens da conversa real para manter o contexto
         const recentHistory = chatHistory.slice(-4);
         recentHistory.forEach(msg => {
-            messagesPayload.push({ role: msg.role === 'user' ? 'user' : 'assistant', content: msg.text });
+            historyPayload.push({ role: msg.role, text: msg.text });
         });
-        messagesPayload.push({ role: "user", content: message });
 
-        let aiResponseText = "";
+        // 5. SEGURANÇA: Chama a SUA API (/api/chat) na Vercel
+        // Nenhuma chave secreta é enviada aqui, apenas o provedor escolhido
+        const response = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                provider: currentAIProvider, // 'gemini' ou 'groq'
+                message: message,            // O que o usuário digitou
+                history: historyPayload      // O contexto montado acima
+            })
+        });
 
-        if (currentAIProvider === 'groq') {
-            const response = await fetch(GROQ_API_URL, {
-                method: "POST",
-                headers: { "Authorization": `Bearer ${GROQ_API_KEY}`, "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    model: GROQ_MODEL,
-                    messages: messagesPayload,
-                    temperature: 0.1,
-                    response_format: { type: "json_object" }
-                })
-            });
-            const data = await response.json();
-            aiResponseText = data.choices[0].message.content;
-        } else {
-            const geminiContents = [{ role: "user", parts: [{ text: systemInstructionText + "\n\nUsuário: " + message }] }];
-            const response = await fetch(GEMINI_API_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ contents: geminiContents, generationConfig: { temperature: 0.1, responseMimeType: "application/json" } })
-            });
-            const data = await response.json();
+        const data = await response.json();
 
-            if (data.error) throw new Error(data.error.message);
-            aiResponseText = data.candidates[0].content.parts[0].text;
-        }
+        if (data.error) throw new Error(data.error);
 
-        try {
-            let cleanText = aiResponseText.replace(/```json/g, '').replace(/```/g, '').trim();
-            const first = cleanText.indexOf('{');
-            const last = cleanText.lastIndexOf('}');
-            if (first !== -1 && last !== -1) cleanText = cleanText.substring(first, last + 1);
+        // 6. Processa a resposta da IA
+        let aiResponseText = data.text;
 
-            const responseJson = JSON.parse(cleanText);
+        // Limpeza do JSON (caso a IA mande blocos de código markdown)
+        let cleanText = aiResponseText.replace(/```json/g, '').replace(/```/g, '').trim();
+        const first = cleanText.indexOf('{');
+        const last = cleanText.lastIndexOf('}');
+        if (first !== -1 && last !== -1) cleanText = cleanText.substring(first, last + 1);
 
-            if (responseJson.message) appendMessage('ai', responseJson.message);
-            else appendMessage('ai', "Feito.");
+        const responseJson = JSON.parse(cleanText);
 
-            if (responseJson.commands && Array.isArray(responseJson.commands)) {
-                for (const cmd of responseJson.commands) {
-                    await executeAICommand(cmd);
-                    await new Promise(r => setTimeout(r, 300));
-                }
+        // Exibe a resposta da IA na tela
+        if (responseJson.message) appendMessage('ai', responseJson.message);
+        else appendMessage('ai', "Feito.");
+
+        // Executa comandos (criar tarefa, mudar tema, etc.)
+        if (responseJson.commands && Array.isArray(responseJson.commands)) {
+            for (const cmd of responseJson.commands) {
+                await executeAICommand(cmd);
+                await new Promise(r => setTimeout(r, 300)); // Pequeno delay entre ações
             }
-        } catch (e) {
-            console.error("Erro JSON:", e);
-            appendMessage('ai', "Erro técnico ao processar comando.");
         }
 
     } catch (error) {
         console.error("Erro Geral:", error);
         appendMessage('ai', `⚠️ Erro: ${error.message}`);
     } finally {
+        // Limpeza final: reabilita o input
         hideTypingIndicator();
         document.getElementById('chat-input').disabled = false;
         document.getElementById('chat-send-btn').disabled = false;
@@ -782,38 +739,6 @@ ESTRUTURA: { "message": "texto", "commands": [ { "action": "...", "params": {...
         scrollToBottom();
     }
 };
-
-function scrollToBottom() {
-    const container = document.getElementById('chat-messages-container');
-    if (container) {
-        requestAnimationFrame(() => {
-            container.scrollTop = container.scrollHeight;
-        });
-    }
-}
-
-function showTypingIndicator() {
-    const container = document.getElementById('chat-messages-container');
-    if (!container) return;
-
-    hideTypingIndicator();
-
-    const div = document.createElement('div');
-    div.id = 'dynamic-typing-indicator';
-    div.className = 'flex gap-2 max-w-[90%] animate-fade-in-up mt-2 mb-4';
-    div.innerHTML = `
-        <div class="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center flex-shrink-0 text-white text-xs shadow-sm mt-auto mb-1">
-            <i class="fas fa-robot animate-pulse"></i>
-        </div>
-        <div class="bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder rounded-2xl rounded-tl-none px-4 py-3 shadow-sm flex items-center gap-1">
-            <div class="w-1.5 h-1.5 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce"></div>
-            <div class="w-1.5 h-1.5 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce" style="animation-delay: 0.1s"></div>
-            <div class="w-1.5 h-1.5 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce" style="animation-delay: 0.2s"></div>
-        </div>
-    `;
-    container.appendChild(div);
-    scrollToBottom();
-}
 
 function hideTypingIndicator() {
     const existing = document.getElementById('dynamic-typing-indicator');

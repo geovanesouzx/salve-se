@@ -3482,3 +3482,18 @@ window.togglePin = function (id, event) {
         renderNotes(false); // Atualiza a lista visualmente
     }
 }
+
+// ============================================================
+// --- FUNÇÃO QUE FALTAVA: SCROLL TO BOTTOM ---
+// ============================================================
+
+window.scrollToBottom = function () {
+    const container = document.getElementById('chat-messages-container');
+    if (container) {
+        // Rola suavemente para o final
+        container.scrollTo({
+            top: container.scrollHeight,
+            behavior: 'smooth'
+        });
+    }
+}

@@ -36,7 +36,7 @@ const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__f
 };
 
 // ============================================================
-// --- CONFIGURAÇÃO DAS IAs (VIA VERCEL) ---
+// --- CONFIGURAÇÃO DAS IAS(VIA VERCEL) ---
 // ============================================================
 
 // Controle de qual IA está ativa

@@ -3038,13 +3038,13 @@ window.addEventListener('popstate', (event) => {
 // --- RECONHECIMENTO DE VOZ (MODO MANUAL) ---
 // ============================================================
 
-window.startVoiceRecognition = function() {
+window.startVoiceRecognition = function () {
     const btn = document.getElementById('btn-mic');
     const icon = btn.querySelector('i');
     const input = document.getElementById('chat-input');
 
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    
+
     if (!SpeechRecognition) {
         showModal("Não suportado", "Seu navegador não suporta comandos de voz.");
         return;
@@ -3060,7 +3060,7 @@ window.startVoiceRecognition = function() {
     btn.classList.add('bg-red-500', 'text-white', 'animate-pulse');
     icon.classList.remove('fa-microphone');
     icon.classList.add('fa-stop'); // Ícone de "Parar"
-    
+
     const originalPlaceholder = input.placeholder;
     input.placeholder = "Estou ouvindo...";
 
@@ -3068,7 +3068,7 @@ window.startVoiceRecognition = function() {
 
     recognition.onresult = (event) => {
         const text = event.results[0][0].transcript;
-        
+
         // AQUI ESTÁ A MUDANÇA:
         // Apenas coloca o texto no input, NÃO envia automático.
         input.value = text;
@@ -3083,7 +3083,7 @@ window.startVoiceRecognition = function() {
     recognition.onerror = (event) => {
         console.error('Erro voz:', event.error);
         resetMicButton();
-        if(event.error === 'not-allowed') {
+        if (event.error === 'not-allowed') {
             showModal("Permissão", "Ative o microfone para usar essa função.");
         }
     };
@@ -3096,3 +3096,71 @@ window.startVoiceRecognition = function() {
         input.placeholder = originalPlaceholder;
     }
 };
+
+// ============================================================
+// --- WIDGET: RESUMO INTELIGENTE DO DIA ---
+// ============================================================
+
+function updateSmartSummary() {
+    const container = document.getElementById('ai-widget-content');
+    if (!container) return;
+
+    // 1. Contar Tarefas Pendentes
+    const pendingTasks = tasksData.filter(t => !t.done).length;
+
+    // 2. Verificar Próximo Ônibus (Reutilizando a lógica que criamos)
+    const busStatus = getBusStatusForAI(); // Pega o texto do ônibus
+    let busShort = "Sem circulares agora.";
+
+    // Extrai apenas a parte útil do texto do ônibus para o widget
+    if (busStatus.includes("EM TRÂNSITO")) busShort = "🚍 Circular rodando agora.";
+    else if (busStatus.includes("AGUARDANDO")) {
+        const match = busStatus.match(/sai às (\d{2}:\d{2})/);
+        if (match) busShort = `🚍 Próximo ônibus às ${match[1]}.`;
+    }
+
+    // 3. Verificar Próxima Aula
+    const now = new Date();
+    const days = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
+    const todayKey = days[now.getDay()];
+    const currentTime = now.getHours() * 60 + now.getMinutes();
+
+    const todayClasses = scheduleData.filter(c => c.day === todayKey);
+    const nextClass = todayClasses.find(c => {
+        const [h, m] = c.start.split(':').map(Number);
+        return (h * 60 + m) > currentTime;
+    });
+
+    let classText = "Sem mais aulas hoje.";
+    if (nextClass) classText = `🎓 Aula de ${nextClass.name} às ${nextClass.start}.`;
+
+    // 4. Montar o HTML
+    let taskColor = pendingTasks > 0 ? "text-orange-500" : "text-green-500";
+    let taskIcon = pendingTasks > 0 ? "fa-exclamation-circle" : "fa-check-circle";
+    let taskMsg = pendingTasks > 0 ? `${pendingTasks} tarefas pendentes.` : "Tudo feito por hoje!";
+
+    container.innerHTML = `
+        <div class="space-y-3 animate-fade-in-up">
+            <div class="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-300">
+                <i class="fas ${taskIcon} ${taskColor} w-5 text-center"></i>
+                <span>${taskMsg}</span>
+            </div>
+            
+            <div class="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-300">
+                <i class="fas fa-bus text-indigo-500 w-5 text-center"></i>
+                <span>${busShort}</span>
+            </div>
+
+            <div class="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-300">
+                <i class="fas fa-graduation-cap text-purple-500 w-5 text-center"></i>
+                <span>${classText}</span>
+            </div>
+        </div>
+    `;
+}
+
+// Adicione isso no final do arquivo para rodar sempre
+setInterval(updateSmartSummary, 60000); // Atualiza a cada minuto
+document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(updateSmartSummary, 500); // Roda ao iniciar
+});

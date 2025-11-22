@@ -3596,7 +3596,7 @@ window.showTypingIndicator = function () {
 // --- PÁGINA PREMIUM (ALINHADA) ---
 // ============================================================
 
-window.renderPremiumPage = function() {
+window.renderPremiumPage = function () {
     const container = document.getElementById('view-premium');
     if (!container) return;
 
@@ -3682,7 +3682,7 @@ window.renderPremiumPage = function() {
                         </li>
                     </ul>
 
-                    <button onclick="showModal('Em Breve', 'O sistema de pagamentos será ativado em breve!')" class="w-full py-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold shadow-lg shadow-indigo-500/30 transition transform active:scale-95 flex items-center justify-center gap-2 mt-auto">
+                    <button onclick="startCheckout()" class="w-full py-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold shadow-lg shadow-indigo-500/30 transition transform active:scale-95 flex items-center justify-center gap-2 mt-auto">
                         Assinar Agora <i class="fas fa-arrow-right"></i>
                     </button>
                     <p class="text-[10px] text-center text-gray-400 mt-3">Cancele quando quiser.</p>
@@ -3692,3 +3692,59 @@ window.renderPremiumPage = function() {
         </div>
     `;
 }
+
+// ============================================================
+// --- SISTEMA DE PAGAMENTO ---
+// ============================================================
+
+window.startCheckout = async function () {
+    if (!navigator.onLine) {
+        return showModal("Sem Internet", "Você precisa estar online para assinar.");
+    }
+
+    const btn = document.querySelector('#view-premium button');
+    const originalText = btn.innerHTML;
+
+    // Efeito de carregamento
+    btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Gerando PIX...';
+    btn.disabled = true;
+
+    try {
+        const response = await fetch('/api/checkout', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+
+        const data = await response.json();
+
+        if (data.url) {
+            // Redireciona para o Mercado Pago
+            window.location.href = data.url;
+        } else {
+            throw new Error('Link de pagamento não gerado.');
+        }
+
+    } catch (error) {
+        console.error(error);
+        showModal("Erro", "Não foi possível iniciar o pagamento. Tente novamente.");
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    }
+};
+
+// Verifica se o usuário acabou de voltar de um pagamento com sucesso
+// (Isso roda quando a página carrega)
+document.addEventListener('DOMContentLoaded', () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const status = urlParams.get('status');
+
+    if (status === 'success') {
+        showModal("Parabéns! 👑", "Pagamento aprovado! Seus recursos Premium serão ativados em instantes.");
+
+        // LIMPEZA DA URL (Para não ficar aparecendo ?status=success sempre)
+        window.history.replaceState({}, document.title, window.location.pathname);
+
+        // AQUI VOCÊ ATIVARIA O PREMIUM NO FIREBASE
+        // activatePremiumForUser(); 
+    }
+});

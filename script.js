@@ -3497,3 +3497,41 @@ window.scrollToBottom = function () {
         });
     }
 }
+
+// ============================================================
+// --- FUNÇÃO QUE FALTAVA: MOSTRAR DIGITANDO... ---
+// ============================================================
+
+window.showTypingIndicator = function () {
+    const container = document.getElementById('chat-messages-container');
+    if (!container) return;
+
+    // Remove se já existir (para evitar duplicatas)
+    const existing = document.getElementById('dynamic-typing-indicator');
+    if (existing) existing.remove();
+
+    const div = document.createElement('div');
+    div.id = 'dynamic-typing-indicator';
+    div.className = "flex w-full justify-start mb-4 animate-fade-in-up";
+
+    div.innerHTML = `
+        <div class="flex gap-3 max-w-[90%]">
+            <div class="flex-shrink-0 flex flex-col justify-end">
+                <div class="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-xs shadow-sm animate-pulse">
+                    <i class="fas fa-robot"></i>
+                </div>
+            </div>
+            <div class="flex flex-col items-start">
+                <div class="bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder text-gray-500 dark:text-gray-400 rounded-2xl rounded-bl-sm px-4 py-3 shadow-sm text-sm flex items-center gap-1 h-[46px]">
+                    <span class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0s"></span>
+                    <span class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.2s"></span>
+                    <span class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.4s"></span>
+                </div>
+                <span class="text-[10px] text-gray-400 mt-1 ml-1">Digitando...</span>
+            </div>
+        </div>
+    `;
+
+    container.appendChild(div);
+    scrollToBottom(); // Rola para ver a animação
+}

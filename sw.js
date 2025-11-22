@@ -1,4 +1,4 @@
-const CACHE_NAME = 'salvese-v27.0-FINAL';
+const CACHE_NAME = 'v27.2-FIX'; 
 const URLS_TO_CACHE = [
     './',
     './index.html',
@@ -52,15 +52,15 @@ self.addEventListener('activate', event => {
 // 3. Interceptação de Requisições
 self.addEventListener('fetch', event => {
     const url = event.request.url;
-
+    
     // IMPORTANTE: Ignorar APIs dinâmicas para garantir dados frescos
-    if (url.includes('firestore.googleapis.com') ||
-        url.includes('googleapis.com/auth') ||
+    if (url.includes('firestore.googleapis.com') || 
+        url.includes('googleapis.com/auth') || 
         url.includes('generativelanguage.googleapis.com') || // Gemini
         url.includes('api.groq.com') || // Groq (Llama)
         (url.includes('firebase') && !url.endsWith('.js')) ||
-        url.includes('api.imgur.com')) {
-        return;
+        url.includes('api.imgur.com')) { 
+        return; 
     }
 
     event.respondWith(
@@ -69,10 +69,10 @@ self.addEventListener('fetch', event => {
             // Retorna o cache se existir, mas busca atualização em background para a próxima visita
             const fetchPromise = fetch(event.request).then(networkResponse => {
                 if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
-                    const responseToCache = networkResponse.clone();
-                    caches.open(CACHE_NAME).then(cache => {
-                        cache.put(event.request, responseToCache);
-                    });
+                     const responseToCache = networkResponse.clone();
+                     caches.open(CACHE_NAME).then(cache => {
+                         cache.put(event.request, responseToCache);
+                     });
                 }
                 return networkResponse;
             }).catch(() => {

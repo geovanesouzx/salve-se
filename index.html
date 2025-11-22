@@ -316,6 +316,13 @@
                 </a>
 
                 <div class="pt-6"></div>
+                <a onclick="switchPage('premium')" id="nav-premium"
+                    class="nav-item flex items-center px-3 py-2.5 text-sm font-bold rounded-md cursor-pointer text-amber-600 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-900/20 transition-colors group">
+                    <i class="fas fa-crown mr-3 text-amber-500 group-hover:scale-110 transition-transform"></i>
+                    Seja Premium
+                </a>
+
+                <div class="pt-6"></div>
                 <p class="px-3 text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Sistema</p>
 
                 <a onclick="switchPage('config')" id="nav-config"
@@ -605,6 +612,11 @@
                         </svg>
                         Templates
                     </a>
+                    <a onclick="switchPage('premium'); document.getElementById('mobile-menu').classList.add('-translate-x-full')"
+                        class="block px-4 py-3 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-900/20 text-amber-600 dark:text-amber-400 font-bold transition border border-amber-100 dark:border-amber-800/30 my-2">
+                        <i class="fas fa-crown mr-3"></i> Seja Premium
+                    </a>
+                    <hr class="border-gray-200 dark:border-neutral-800 my-2">
                     <hr class="border-gray-200 dark:border-neutral-800 my-2">
                     <a onclick="switchPage('config'); document.getElementById('mobile-menu').classList.add('-translate-x-full')"
                         class="block px-4 py-3 rounded-lg hover:bg-gray-50 dark:hover:bg-neutral-800 text-gray-600 dark:text-gray-400 font-medium transition">
@@ -1236,14 +1248,15 @@
                 <!-- NOVA VIEW DE CONFIGURAÇÕES -->
                 <div id="view-config" class="hidden fade-in w-full">
                     <div id="settings-content" class="w-full">
-                        <!-- Conteúdo injetado via JS -->
                     </div>
                 </div>
 
-                <!-- NOVA VIEW DE WIDGETS OCULTOS -->
                 <div id="view-ocultos" class="hidden fade-in w-full"></div>
 
                 <div id="view-aulas" class="hidden fade-in"></div>
+
+                <div id="view-premium" class="hidden fade-in w-full"></div>
+
             </main>
         </div>
     </div>

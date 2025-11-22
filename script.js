@@ -326,7 +326,8 @@ window.switchPage = function (pageId, addToHistory = true) {
         config: 'Configurações',
         notas: 'Anotações',
         ia: 'Salve-se IA',
-        ocultos: 'Widgets Ocultos'
+        ocultos: 'Widgets Ocultos',
+        premium: 'Planos & Assinatura'
     };
     const pageTitleEl = document.getElementById('page-title');
     if (pageTitleEl) pageTitleEl.innerText = titles[pageId] || 'Salve-se UFRB';
@@ -336,6 +337,7 @@ window.switchPage = function (pageId, addToHistory = true) {
     if (pageId === 'config' && window.renderSettings) window.renderSettings();
     if (pageId === 'notas' && window.renderNotes) window.renderNotes();
     if (pageId === 'ocultos' && window.renderHiddenWidgetsPage) window.renderHiddenWidgetsPage();
+    if (pageId === 'premium' && window.renderPremiumPage) window.renderPremiumPage();
     if (pageId === 'home') {
         applyWidgetVisibility();
         refreshAllUI();
@@ -3588,4 +3590,102 @@ window.showTypingIndicator = function () {
 
     container.appendChild(div);
     scrollToBottom(); // Rola para ver a animação
+}
+
+// ============================================================
+// --- PÁGINA PREMIUM ---
+// ============================================================
+
+window.renderPremiumPage = function () {
+    const container = document.getElementById('view-premium');
+    if (!container) return;
+
+    container.innerHTML = `
+        <div class="max-w-5xl mx-auto pb-12">
+            <div class="text-center py-8 md:py-12 space-y-4">
+                <div class="inline-flex items-center justify-center p-3 bg-amber-100 dark:bg-amber-900/30 rounded-full mb-2">
+                    <i class="fas fa-crown text-3xl text-amber-500"></i>
+                </div>
+                <h2 class="text-3xl md:text-4xl font-black text-gray-900 dark:text-white tracking-tight">
+                    Desbloqueie o Poder Total
+                </h2>
+                <p class="text-lg text-gray-500 dark:text-gray-400 max-w-2xl mx-auto">
+                    Leve seus estudos para outro nível com recursos exclusivos do Salve-se UFRB Pro.
+                </p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto px-4">
+                
+                <div class="bg-white dark:bg-darkcard rounded-3xl p-8 border border-gray-200 dark:border-darkborder flex flex-col relative overflow-hidden">
+                    <div class="mb-6">
+                        <h3 class="text-lg font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Estudante</h3>
+                        <div class="mt-4 flex items-baseline gap-2">
+                            <span class="text-4xl font-black text-gray-900 dark:text-white">R$ 0</span>
+                            <span class="text-gray-500">/mês</span>
+                        </div>
+                        <p class="mt-2 text-sm text-gray-500">O essencial para sobreviver ao semestre.</p>
+                    </div>
+                    
+                    <ul class="space-y-4 mb-8 flex-1">
+                        <li class="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-300">
+                            <i class="fas fa-check text-green-500"></i> Grade Horária Básica
+                        </li>
+                        <li class="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-300">
+                            <i class="fas fa-check text-green-500"></i> Calculadora de Média
+                        </li>
+                        <li class="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-300">
+                            <i class="fas fa-check text-green-500"></i> Chat com IA (Limitado)
+                        </li>
+                        <li class="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-300">
+                            <i class="fas fa-check text-green-500"></i> Temas Básico (Claro/Escuro)
+                        </li>
+                    </ul>
+
+                    <button onclick="switchPage('home')" class="w-full py-3 rounded-xl border-2 border-gray-200 dark:border-neutral-700 font-bold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-neutral-800 transition">
+                        Continuar Grátis
+                    </button>
+                </div>
+
+                <div class="bg-gray-900 dark:bg-white rounded-3xl p-8 border-0 flex flex-col relative overflow-hidden transform md:-translate-y-4 shadow-2xl shadow-indigo-500/20">
+                    <div class="absolute top-0 right-0 bg-gradient-to-br from-amber-400 to-orange-500 text-white text-[10px] font-bold px-3 py-1 rounded-bl-xl uppercase tracking-widest">
+                        Mais Popular
+                    </div>
+
+                    <div class="mb-6">
+                        <h3 class="text-lg font-bold text-indigo-400 dark:text-indigo-600 uppercase tracking-wider">Pro</h3>
+                        <div class="mt-4 flex items-baseline gap-2">
+                            <span class="text-4xl font-black text-white dark:text-gray-900">R$ 4,90</span>
+                            <span class="text-gray-400 dark:text-gray-500">/mês</span>
+                        </div>
+                        <p class="mt-2 text-sm text-gray-400 dark:text-gray-600">Para quem quer dominar a universidade.</p>
+                    </div>
+                    
+                    <ul class="space-y-4 mb-8 flex-1">
+                        <li class="flex items-center gap-3 text-sm text-white dark:text-gray-800 font-medium">
+                            <div class="w-6 h-6 rounded-full bg-indigo-500/20 flex items-center justify-center text-indigo-400 dark:text-indigo-600"><i class="fas fa-check text-xs"></i></div>
+                            IA Ilimitada (Gemini & Llama)
+                        </li>
+                        <li class="flex items-center gap-3 text-sm text-white dark:text-gray-800 font-medium">
+                            <div class="w-6 h-6 rounded-full bg-indigo-500/20 flex items-center justify-center text-indigo-400 dark:text-indigo-600"><i class="fas fa-check text-xs"></i></div>
+                            Todas as Cores de Tema 🎨
+                        </li>
+                        <li class="flex items-center gap-3 text-sm text-white dark:text-gray-800 font-medium">
+                            <div class="w-6 h-6 rounded-full bg-indigo-500/20 flex items-center justify-center text-indigo-400 dark:text-indigo-600"><i class="fas fa-check text-xs"></i></div>
+                            Geração de Emails Automática
+                        </li>
+                        <li class="flex items-center gap-3 text-sm text-white dark:text-gray-800 font-medium">
+                            <div class="w-6 h-6 rounded-full bg-indigo-500/20 flex items-center justify-center text-indigo-400 dark:text-indigo-600"><i class="fas fa-check text-xs"></i></div>
+                            Backup em Nuvem Prioritário
+                        </li>
+                    </ul>
+
+                    <button onclick="showModal('Em Breve', 'O sistema de pagamentos será ativado em breve!')" class="w-full py-4 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold shadow-lg shadow-indigo-500/30 transition transform active:scale-95 flex items-center justify-center gap-2">
+                        Assinar Agora <i class="fas fa-arrow-right"></i>
+                    </button>
+                    <p class="text-[10px] text-center text-gray-500 mt-3">Cancele quando quiser.</p>
+                </div>
+
+            </div>
+        </div>
+    `;
 }

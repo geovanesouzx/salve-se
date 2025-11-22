@@ -1362,10 +1362,10 @@ function renderNoteEditor(container, noteId) {
     titleInput.className = "w-full p-4 text-xl font-bold bg-transparent border-b border-gray-100 dark:border-darkborder outline-none text-gray-900 dark:text-white flex-shrink-0";
     titleInput.placeholder = "Título da Nota";
     titleInput.value = note.title;
-    titleInput.oninput = (e) => {
-        note.title = e.target.value;
-        debounceSaveNote();
-    };
+
+    // CORREÇÃO: Salva ao digitar E ao sair do campo (blur)
+    titleInput.oninput = (e) => { note.title = e.target.value; debounceSaveNote(); };
+    titleInput.onblur = () => { saveData(); };
 
     const contentDiv = document.createElement('div');
     contentDiv.id = 'editor-content';
@@ -1373,48 +1373,14 @@ function renderNoteEditor(container, noteId) {
     contentDiv.className = "flex-1 p-4 outline-none overflow-y-auto text-gray-800 dark:text-gray-200 text-base leading-relaxed";
     contentDiv.innerHTML = note.content;
 
+    // CORREÇÃO: Salva ao digitar E ao sair do campo (blur)
     contentDiv.oninput = () => {
         note.content = contentDiv.innerHTML;
         note.updatedAt = Date.now();
         debounceSaveNote();
     };
-    window.forceSaveNote = async function () {
-        const btn = document.getElementById('btn-manual-save');
-        const icon = btn ? btn.querySelector('i') : null;
-        const status = document.getElementById('save-status');
+    contentDiv.onblur = () => { saveData(); };
 
-        // Efeito visual no botão
-        if (icon) {
-            icon.className = "fas fa-circle-notch fa-spin";
-        }
-        if (status) {
-            status.innerText = "Salvando...";
-            status.classList.add("text-indigo-500");
-        }
-
-        // Salva
-        await saveData();
-
-        // Restaura efeito visual
-        setTimeout(() => {
-            if (icon) icon.className = "fas fa-check";
-            if (status) {
-                status.innerText = "Salvo!";
-                status.classList.remove("text-indigo-500");
-                status.classList.add("text-green-500");
-            }
-
-            // Volta ao ícone original depois de 1.5s
-            setTimeout(() => {
-                if (icon) icon.className = "fas fa-save";
-                if (status) {
-                    status.innerText = "Salvo";
-                    status.classList.remove("text-green-500");
-                    status.classList.add("text-gray-400");
-                }
-            }, 1500);
-        }, 500);
-    }
     editorWrapper.appendChild(toolbar);
     editorWrapper.appendChild(titleInput);
     editorWrapper.appendChild(contentDiv);
@@ -1438,6 +1404,37 @@ function debounceSaveNote() {
     }, 1000);
 }
 
+window.forceSaveNote = async function () {
+    const btn = document.getElementById('btn-manual-save');
+    const icon = btn ? btn.querySelector('i') : null;
+    const status = document.getElementById('save-status');
+
+    if (icon) icon.className = "fas fa-circle-notch fa-spin";
+    if (status) {
+        status.innerText = "Salvando...";
+        status.classList.add("text-indigo-500");
+    }
+
+    await saveData();
+
+    setTimeout(() => {
+        if (icon) icon.className = "fas fa-check";
+        if (status) {
+            status.innerText = "Salvo!";
+            status.classList.remove("text-indigo-500");
+            status.classList.add("text-green-500");
+        }
+        setTimeout(() => {
+            if (icon) icon.className = "fas fa-save";
+            if (status) {
+                status.innerText = "Salvo";
+                status.classList.remove("text-green-500");
+                status.classList.add("text-gray-400");
+            }
+        }, 1500);
+    }, 500);
+}
+
 window.createNewNote = function () {
     const newId = Date.now().toString();
     notesData.push({
@@ -1456,11 +1453,30 @@ window.openNote = function (id) {
 }
 
 window.closeNote = function () {
+    // 1. SEGURANÇA: Antes de fechar, pega o que está escrito na tela AGORA
+    const titleInput = document.querySelector('#view-notas input[type="text"]');
+    const contentDiv = document.getElementById('editor-content');
+
+    // Se a nota estiver aberta, atualizamos a memória com o texto da tela
+    if (activeNoteId && titleInput && contentDiv) {
+        const note = notesData.find(n => n.id === activeNoteId);
+        if (note) {
+            note.title = titleInput.value;
+            note.content = contentDiv.innerHTML;
+            note.updatedAt = Date.now();
+        }
+    }
+
+    // 2. Cancela qualquer salvamento automático pendente para não duplicar
+    if (typeof saveTimeout !== 'undefined') clearTimeout(saveTimeout);
+
+    // 3. Salva imediatamente no banco de dados
     saveData();
+
+    // 4. Fecha a nota e volta para a lista
     activeNoteId = null;
     renderNotes(true);
 }
-
 window.deleteNote = function (id) {
     openCustomConfirmModal("Excluir Nota", "Tem certeza que deseja apagar esta nota?", () => {
         notesData = notesData.filter(n => n.id !== id);

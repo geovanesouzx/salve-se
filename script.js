@@ -35,19 +35,9 @@ const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__f
     appId: "1:132544174908:web:00c6aa4855cc18ed2cdc39"
 };
 
-/// ============================================================
+// ============================================================
 // --- CONFIGURAÇÃO DAS IAs ---
 // ============================================================
-
-// NOVA CHAVE ADICIONADA:
-
-// AGORA SIM: Usando o nome exato que aparece no seu painel do Google AI Studio
-const GEMINI_MODEL = "gemini-2.5-flash";
-
-const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
-
-const GROQ_MODEL = "llama-3.3-70b-versatile";
-const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 
 // Controle de qual IA está ativa
 let currentAIProvider = 'gemini';

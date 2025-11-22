@@ -27,7 +27,7 @@ import {
 
 // Use as variáveis globais do ambiente se disponíveis
 const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
-    apiKey: "AIzaSyD5Ggqw9FpMS98CHcfXKnghMQNMV5WIVTw",
+    apiKey: "AIzaSyCyPVRZA8FySx2tCwwJfwBEl1mNZt0G6OE",
     authDomain: "salvee-se.firebaseapp.com",
     projectId: "salvee-se",
     storageBucket: "salvee-se.firebasestorage.app",

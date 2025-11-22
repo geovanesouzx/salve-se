@@ -3593,10 +3593,10 @@ window.showTypingIndicator = function () {
 }
 
 // ============================================================
-// --- PÁGINA PREMIUM (DESIGN V2 - CLEAN) ---
+// --- PÁGINA PREMIUM (ALINHADA) ---
 // ============================================================
 
-window.renderPremiumPage = function () {
+window.renderPremiumPage = function() {
     const container = document.getElementById('view-premium');
     if (!container) return;
 
@@ -3614,9 +3614,9 @@ window.renderPremiumPage = function () {
                 </p>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto px-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto px-4 items-stretch">
                 
-                <div class="bg-white dark:bg-darkcard rounded-3xl p-8 border border-gray-200 dark:border-darkborder flex flex-col relative overflow-hidden hover:border-gray-300 transition">
+                <div class="bg-white dark:bg-darkcard rounded-3xl p-8 border border-gray-200 dark:border-darkborder flex flex-col relative overflow-hidden hover:border-gray-300 transition h-full">
                     <div class="mb-6">
                         <h3 class="text-lg font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Estudante</h3>
                         <div class="mt-4 flex items-baseline gap-2">
@@ -3641,12 +3641,12 @@ window.renderPremiumPage = function () {
                         </li>
                     </ul>
 
-                    <button onclick="switchPage('home')" class="w-full py-3 rounded-xl border-2 border-gray-200 dark:border-neutral-700 font-bold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-neutral-800 transition">
+                    <button onclick="switchPage('home')" class="w-full py-3 rounded-xl border-2 border-gray-200 dark:border-neutral-700 font-bold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-neutral-800 transition mt-auto">
                         Continuar Grátis
                     </button>
                 </div>
 
-                <div class="bg-white dark:bg-darkcard rounded-3xl p-8 border-2 border-indigo-600 dark:border-indigo-500 flex flex-col relative overflow-hidden transform md:-translate-y-4 shadow-2xl shadow-indigo-500/20">
+                <div class="bg-white dark:bg-darkcard rounded-3xl p-8 border-2 border-indigo-600 dark:border-indigo-500 flex flex-col relative overflow-hidden shadow-2xl shadow-indigo-500/20 h-full">
                     
                     <div class="absolute top-0 right-0 bg-indigo-600 text-white text-[10px] font-bold px-3 py-1 rounded-bl-xl uppercase tracking-widest">
                         Recomendado
@@ -3682,7 +3682,7 @@ window.renderPremiumPage = function () {
                         </li>
                     </ul>
 
-                    <button onclick="showModal('Em Breve', 'O sistema de pagamentos será ativado em breve!')" class="w-full py-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold shadow-lg shadow-indigo-500/30 transition transform active:scale-95 flex items-center justify-center gap-2">
+                    <button onclick="showModal('Em Breve', 'O sistema de pagamentos será ativado em breve!')" class="w-full py-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold shadow-lg shadow-indigo-500/30 transition transform active:scale-95 flex items-center justify-center gap-2 mt-auto">
                         Assinar Agora <i class="fas fa-arrow-right"></i>
                     </button>
                     <p class="text-[10px] text-center text-gray-400 mt-3">Cancele quando quiser.</p>

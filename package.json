@@ -1,7 +1,5 @@
 {
   "name": "salve-se-ufrb",
   "version": "1.0.0",
-  "dependencies": {
-    "mercadopago": "^2.0.0"
-  }
+  "dependencies": {}
 }

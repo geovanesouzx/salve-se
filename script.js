@@ -719,7 +719,7 @@ window.sendIAMessage = async function () {
 
     if (!message) return;
 
-    // 🔒 TRAVA DE SEGURANÇA PREMIUM (Mantida - UI Check)
+    // 🔒 TRAVA DE SEGURANÇA PREMIUM
     if (currentAIProvider === 'gemini' && !isUserPremium()) {
         requirePremium('IA Gemini (Google)');
         updateAISelectorUI();
@@ -738,81 +738,66 @@ window.sendIAMessage = async function () {
     showTypingIndicator();
 
     try {
-        // 2. Contexto
-        const statusCircular = getBusStatusForAI();
-        const isPremium = isUserPremium(); // Verifica se é premium
+        // 2. COLETA O CONTEXTO ATUALIZADO (AQUI É A MÁGICA)
+        const statusCircularAgora = getBusStatusForAI(); // Status instantâneo (onde tá o onibus agora)
+        const tabelaCircular = getFullBusScheduleForAI(); // Tabela completa
+        const gradeHoraria = getClassContextForAI(); // Aulas do aluno
+        const isPremium = isUserPremium();
+        const diaSemana = new Date().toLocaleDateString('pt-BR', { weekday: 'long' });
+        const dataHoje = new Date().toLocaleDateString('pt-BR');
 
         // --- LÓGICA DE RESTRIÇÃO DA IA ---
-        // Aqui definimos o que a IA pode ou não fazer baseado no plano
         let permissionInstructions = "";
 
         if (isPremium) {
             permissionInstructions = `
 STATUS DA CONTA: PREMIUM 👑
-- O usuário tem acesso total a todas as cores e funções.
-- Pode executar qualquer comando da lista técnica.
+- O usuário tem acesso total.
+- Pode executar qualquer comando.
             `;
         } else {
             permissionInstructions = `
 STATUS DA CONTA: GRÁTIS (LIMITED) 🔒
-ATENÇÃO: Você deve agir como um 'Gatekeeper' (Porteiro) das funções pagas.
-
-REGRAS DE BLOQUEIO (SE O USUÁRIO PEDIR, VOCÊ DEVE NEGAR):
-1. CORES PROIBIDAS: O usuário SÓ pode usar as cores: 'Indigo' (Azul), 'Cyan' (Ciano) e 'Green' (Verde).
-   - Se ele pedir para mudar o tema para Preto, Roxo, Rosa, Laranja, Vermelho, etc -> RECUSE.
-   - Diga: "O tema [Cor] é exclusivo para membros Premium 👑. Você pode usar Azul, Ciano ou Verde."
-
-2. TEMPLATES DE EMAIL: A action "generate_template" é PROIBIDA para usuários grátis.
-   - Se ele pedir para escrever um email -> RECUSE.
-   - Diga: "A geração automática de emails é um recurso Premium 👑."
-
-3. IA GEMINI: Se ele perguntar, lembre que o modelo Gemini é Premium.
-
-IMPORTANTE: Se o pedido for bloqueado, NÃO envie o campo "commands" no JSON. Apenas envie a "message" explicando o motivo.
+REGRAS DE BLOQUEIO:
+1. CORES: Apenas 'Indigo', 'Cyan' e 'Green'. Recuse outras.
+2. EMAIL: Action "generate_template" é PROIBIDA.
+3. LEMBRETE: Lembre que o modelo Gemini é Premium se ele perguntar.
             `;
         }
 
-        // 3. PROMPT DO SISTEMA (ATUALIZADO COM AS REGRAS)
+        // 3. PROMPT DO SISTEMA (COM DADOS INJETADOS)
         let systemInstructionText = `
 VOCÊ É A "SALVE-SE IA", ASSISTENTE ACADÊMICA DA UFRB.
-Sua missão é organizar a vida do estudante, reduzir estresse e potencializar os estudos.
-Fale sempre em Português do Brasil (pt-BR).
+Sua missão é organizar a vida do estudante.
+Fale sempre em Português do Brasil (pt-BR). Seja concisa e direta.
 
-CONTEXTO ATUAL:
-- Tela: ${currentViewContext}
-- Hora: ${new Date().toLocaleTimeString('pt-BR')}
-- Ônibus: ${statusCircular}
+--- DADOS EM TEMPO REAL ---
+📅 Hoje é: ${diaSemana}, ${dataHoje}.
+🕒 Hora atual: ${new Date().toLocaleTimeString('pt-BR')}.
+
+🎓 GRADE HORÁRIA DO ALUNO:
+${gradeHoraria}
+
+🚌 STATUS DO TRANSPORTE (CIRCULAR):
+${statusCircularAgora}
+
+📋 TABELA DE HORÁRIOS DO ÔNIBUS:
+${tabelaCircular}
+---------------------------
 
 ${permissionInstructions}
 
-⚠️ LISTA TÉCNICA DE COMANDOS (Use apenas se permitido pelas regras acima):
-Para realizar ações no site, você DEVE usar o campo "commands" no JSON com as actions exatas abaixo:
+⚠️ LISTA TÉCNICA DE COMANDOS (Use "commands" no JSON para agir):
+1. MUDAR COR: action: "set_global_color", params: { "color": "nome" }
+2. MUDAR TEMA: action: "toggle_theme", params: { "mode": "dark/light" }
+3. CRIAR TAREFA: action: "create_task", params: { "text": "...", "priority": "high/medium/normal" }
+4. CRIAR NOTA: action: "create_note", params: { "title": "...", "content": "..." }
+5. GERAR EMAIL: action: "generate_template", params: { "content": "..." }
 
-1. MUDAR COR DO TEMA:
-   action: "set_global_color"
-   params: { "color": "nome_da_cor" }
-   (Lembre-se de checar se a cor é permitida para o plano do usuário).
-
-2. MUDAR MODO CLARO/ESCURO:
-   action: "toggle_theme"
-   params: { "mode": "dark" } ou { "mode": "light" }
-
-3. CRIAR TAREFA:
-   action: "create_task"
-   params: { "text": "descrição", "priority": "high/medium/normal" }
-
-4. CRIAR NOTA:
-   action: "create_note"
-   params: { "title": "Título", "content": "HTML permitido" }
-
-5. GERAR EMAIL (PREMIUM):
-   action: "generate_template"
-   params: { "content": "texto do email" }
-
-AÇÕES (Retorne APENAS JSON VÁLIDO):
+RESPOSTA (JSON):
 { 
-  "message": "texto curto e simpático pro chat", 
-  "commands": [ { "action": "nome_da_action", "params": {...} } ] 
+  "message": "Sua resposta textual aqui (use os dados acima para responder perguntas sobre aulas ou onibus)", 
+  "commands": [] 
 }
 `;
 
@@ -850,7 +835,6 @@ AÇÕES (Retorne APENAS JSON VÁLIDO):
         if (responseJson.message) appendMessage('ai', responseJson.message);
         else appendMessage('ai', "Feito!");
 
-        // Executa os comandos (Se a IA obedeceu, ela não mandou comandos proibidos)
         if (responseJson.commands && Array.isArray(responseJson.commands)) {
             for (const cmd of responseJson.commands) {
                 await executeAICommand(cmd);
@@ -4209,7 +4193,7 @@ let paymentCheckInterval = null;
 let currentPaymentId = null;
 
 // 1. Função Principal (O botão chama esta) - Agora pede CPF!
-window.startPayment = function() {
+window.startPayment = function () {
     if (!currentUser) {
         alert("Faça login para continuar.");
         return showLoginScreen();
@@ -4240,12 +4224,12 @@ async function processPaymentWithCpf(cpf) {
     const modal = document.getElementById('payment-modal');
     const qrImg = document.getElementById('pix-qr-image');
     const loader = document.getElementById('pix-loading');
-    
+
     if (modal) {
         modal.classList.remove('hidden');
         setTimeout(() => {
             modal.classList.remove('opacity-0');
-            if(modal.firstElementChild) {
+            if (modal.firstElementChild) {
                 modal.firstElementChild.classList.remove('scale-95');
                 modal.firstElementChild.classList.add('scale-100');
             }
@@ -4265,18 +4249,18 @@ async function processPaymentWithCpf(cpf) {
         });
 
         const data = await response.json();
-        
+
         if (data.error) throw new Error(data.error);
 
         // Sucesso: Exibe o QR Code
         currentPaymentId = data.id;
-        
+
         if (qrImg) {
             qrImg.src = `data:image/png;base64,${data.encodedImage}`;
             qrImg.classList.remove('opacity-50');
         }
         if (loader) loader.classList.add('hidden');
-        
+
         const copyInput = document.getElementById('pix-copy-paste');
         if (copyInput) copyInput.value = data.payload;
 
@@ -4292,11 +4276,11 @@ async function processPaymentWithCpf(cpf) {
 }
 
 // 3. Função para fechar o modal
-window.closePaymentModal = function() {
+window.closePaymentModal = function () {
     const modal = document.getElementById('payment-modal');
     if (modal) {
         modal.classList.add('opacity-0');
-        if(modal.firstElementChild) {
+        if (modal.firstElementChild) {
             modal.firstElementChild.classList.remove('scale-100');
             modal.firstElementChild.classList.add('scale-95');
         }
@@ -4306,12 +4290,12 @@ window.closePaymentModal = function() {
 }
 
 // 4. Função para copiar o código PIX
-window.copyPixCode = function() {
+window.copyPixCode = function () {
     const input = document.getElementById('pix-copy-paste');
     if (input) {
         input.select();
         document.execCommand('copy');
-        
+
         const btn = document.querySelector('#payment-modal button i.fa-copy')?.parentNode;
         if (btn) {
             const original = btn.innerHTML;
@@ -4350,7 +4334,7 @@ async function activatePremiumForUser() {
 
     const now = new Date();
     const endDate = new Date();
-    endDate.setDate(now.getDate() + 30); 
+    endDate.setDate(now.getDate() + 30);
 
     const subscriptionData = {
         isPremium: true,
@@ -4366,6 +4350,49 @@ async function activatePremiumForUser() {
 
     updateUserInterfaceInfo();
     renderPremiumPage();
-    
+
     if (document.getElementById('settings-content')) renderSettings();
+}
+
+// ============================================================
+// --- FUNÇÕES AUXILIARES PARA CONTEXTO DA IA ---
+// ============================================================
+
+function getClassContextForAI() {
+    if (!scheduleData || scheduleData.length === 0) {
+        return "O usuário ainda não cadastrou nenhuma aula.";
+    }
+
+    const daysMap = { 'seg': 'Segunda-feira', 'ter': 'Terça-feira', 'qua': 'Quarta-feira', 'qui': 'Quinta-feira', 'sex': 'Sexta-feira', 'sab': 'Sábado', 'dom': 'Domingo' };
+
+    // Agrupa aulas por dia
+    let text = "";
+    const sortedClasses = [...scheduleData].sort((a, b) => {
+        // Ordenação simples por dia e hora
+        const daysOrder = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
+        if (daysOrder.indexOf(a.day) !== daysOrder.indexOf(b.day)) return daysOrder.indexOf(a.day) - daysOrder.indexOf(b.day);
+        return parseInt(a.start) - parseInt(b.start);
+    });
+
+    sortedClasses.forEach(c => {
+        text += `- ${daysMap[c.day] || c.day}: ${c.name} (${c.start} às ${c.end}) na sala ${c.room || 'N/A'}. Prof: ${c.prof || 'N/A'}.\n`;
+    });
+
+    return text;
+}
+
+function getFullBusScheduleForAI() {
+    // Gera um resumo de todos os horários disponíveis
+    let text = "TABELA COMPLETA DO CIRCULAR (UFRB):\n";
+
+    // Agrupa por tipo de rota para não ficar gigante
+    const saidas = busSchedule.filter(b => b.origin.includes('Garagem')).map(b => b.start).join(', ');
+    const voltas = busSchedule.filter(b => b.origin.includes('RU') && b.dest.includes('Garagem')).map(b => b.start).join(', ');
+    const circular = busSchedule.filter(b => b.origin.includes('RU') && b.dest.includes('RU')).map(b => b.start).join(', ');
+
+    text += `- Saídas da Garagem (Indo p/ Campus): ${saidas}\n`;
+    text += `- Rodando no Campus (Circular): ${circular}\n`;
+    text += `- Recolhendo (Volta p/ Garagem/Centro): ${voltas}\n`;
+
+    return text;
 }

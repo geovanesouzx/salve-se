@@ -3657,7 +3657,7 @@ window.renderPremiumPage = function () {
                     <div class="mb-6">
                         <h3 class="text-lg font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">Pro</h3>
                         <div class="mt-4 flex items-baseline gap-2">
-                            <span class="text-4xl font-black text-gray-900 dark:text-white">R$ 4,90</span>
+                            <span class="text-4xl font-black text-gray-900 dark:text-white">R$ 5,00</span>
                             <span class="text-gray-500 dark:text-gray-400">/mês</span>
                         </div>
                         <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">Para quem quer dominar a universidade.</p>

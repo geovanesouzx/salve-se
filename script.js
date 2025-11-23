@@ -694,6 +694,10 @@ function formatAIContent(text) {
     return text.split('\n').filter(line => line.trim() !== '').map(line => `<p>${line}</p>`).join('');
 }
 
+// Configuração do Limite Grátis
+const FREE_DAILY_CREDITS = 20; // Créditos iniciais por dia
+const AD_REWARD = 20;          // Créditos ganhos ao ver anúncio
+
 window.sendIAMessage = async function () {
     const input = document.getElementById('chat-input');
     const message = input.value.trim();
@@ -702,19 +706,80 @@ window.sendIAMessage = async function () {
     if (!message) return;
 
     // =================================================================
-    // 🔒 TRAVA DE SEGURANÇA (NOVA)
-    // Verifica se está tentando usar Gemini sem ser Premium antes de enviar
+    // 🔒 TRAVA 1: GEMINI (Apenas Premium)
     // =================================================================
     if (currentAIProvider === 'gemini' && !isUserPremium()) {
-        requirePremium('IA Gemini (Google)'); // Mostra o modal de venda
-
-        // Opcional: Já muda o seletor visualmente para o Llama (que é grátis)
-        // para facilitar a vida do usuário na próxima tentativa
+        requirePremium('IA Gemini (Google)');
         updateAISelectorUI();
         const btnGroq = document.getElementById('btn-ai-groq');
-        if (btnGroq) btnGroq.click(); // Simula clique no Llama
+        if (btnGroq) btnGroq.click();
+        return;
+    }
 
-        return; // ⛔ PARE AQUI. Não envia nada para a API.
+    // =================================================================
+    // 🔒 TRAVA 2: LLAMA (Sistema de Créditos com Anúncio)
+    // =================================================================
+    if (!isUserPremium()) {
+        // Recupera dados de créditos do LocalStorage
+        const today = new Date().toLocaleDateString('pt-BR');
+        let creditData = JSON.parse(localStorage.getItem('salvese_ai_credits')) || { date: today, value: FREE_DAILY_CREDITS };
+
+        // Se virou o dia, reseta para o pacote diário gratuito (20)
+        if (creditData.date !== today) {
+            creditData = { date: today, value: FREE_DAILY_CREDITS };
+            localStorage.setItem('salvese_ai_credits', JSON.stringify(creditData));
+        }
+
+        // Verifica se acabaram os créditos
+        if (creditData.value <= 0) {
+            // Abre modal de "Assistir Anúncio"
+            openCustomConfirmModal(
+                "Acabaram seus créditos 🔋",
+                `Você usou todas as suas mensagens.\n\nAssista a um anúncio rapidinho para recarregar +${AD_REWARD} mensagens agora mesmo!`,
+                () => {
+                    // Simula assistir anúncio (Delay de 3s)
+                    const btnYes = document.querySelector('#custom-confirm-yes');
+                    const btnNo = document.querySelector('#custom-confirm-no');
+
+                    if (btnYes) {
+                        const originalText = btnYes.innerText;
+                        btnYes.innerHTML = '<i class="fas fa-play"></i> Assistindo...';
+                        btnYes.disabled = true;
+                        if (btnNo) btnNo.style.display = 'none'; // Esconde o botão "Não" durante o anúncio
+
+                        setTimeout(() => {
+                            // === RECOMPENSA ===
+                            creditData.value += AD_REWARD;
+                            localStorage.setItem('salvese_ai_credits', JSON.stringify(creditData));
+
+                            // Fecha modal e avisa
+                            document.getElementById('custom-confirm-modal').classList.add('hidden');
+                            showModal("Recarga Sucesso! ⚡", `Você ganhou +${AD_REWARD} mensagens. Aproveite!`);
+
+                            // Restaura botões para a próxima vez
+                            btnYes.innerText = "Assistir Anúncio";
+                            btnYes.disabled = false;
+                            if (btnNo) btnNo.style.display = 'inline-block';
+
+                        }, 3000); // 3 segundos de duração do "anúncio"
+                    }
+                }
+            );
+
+            // Ajusta textos dos botões do modal
+            setTimeout(() => {
+                const btnYes = document.getElementById('custom-confirm-yes');
+                const btnNo = document.getElementById('custom-confirm-no');
+                if (btnYes) btnYes.innerText = "Assistir Anúncio (+20)";
+                if (btnNo) btnNo.innerText = "Agora não";
+            }, 50);
+
+            return; // Bloqueia o envio da mensagem atual
+        }
+
+        // Se tem créditos, desconta 1 e salva
+        creditData.value--;
+        localStorage.setItem('salvese_ai_credits', JSON.stringify(creditData));
     }
     // =================================================================
 
@@ -728,40 +793,32 @@ window.sendIAMessage = async function () {
     showTypingIndicator();
 
     try {
-        // 2. Contexto
         const statusCircular = getBusStatusForAI();
 
-        // 3. PROMPT DO SISTEMA
         let systemInstructionText = `
 VOCÊ É A "SALVE-SE IA", ASSISTENTE ACADÊMICA DA UFRB.
 Sua missão é organizar a vida do estudante, reduzir estresse e potencializar os estudos.
 Fale sempre em Português do Brasil (pt-BR).
+Responda de forma curta e direta (máximo 3 parágrafos), a menos que peçam um texto longo.
 
 CONTEXTO ATUAL:
 - Tela: ${currentViewContext}
 - Hora: ${new Date().toLocaleTimeString('pt-BR')}
-- Data: ${new Date().toLocaleDateString('pt-BR')}
 - Ônibus: ${statusCircular}
 
-SUAS SUPER HABILIDADES:
-1. 📧 Redator de Emails: Crie emails formais. Use o comando "generate_template".
-2. ✍️ Redator de Notas: Use HTML (<b>, <ul>, <h2>).
-3. 🎨 Designer: Mudar cores.
-4. 📅 Organizador: Criar tarefas e lembretes.
+SUAS HABILIDADES:
+1. 📧 Emails: Use o comando "generate_template".
+2. ✍️ Notas: Use HTML básico.
+3. 📅 Organizador: Use "create_task" ou "create_reminder".
+4. 🎨 Cores: Use "set_global_color".
 
-AÇÕES (Retorne APENAS JSON):
-{ "message": "texto curto pro chat", "commands": [ { "action": "...", "params": {...} } ] }
+AÇÕES (Retorne JSON): { "message": "...", "commands": [] }
 `;
 
-        // 4. Histórico
         let historyPayload = [{ role: 'system', text: systemInstructionText }];
         const recentHistory = chatHistory.slice(0, -1).slice(-6);
+        recentHistory.forEach(msg => historyPayload.push({ role: msg.role, text: msg.text }));
 
-        recentHistory.forEach(msg => {
-            historyPayload.push({ role: msg.role, text: msg.text });
-        });
-
-        // 5. Envio para API
         const response = await fetch('/api/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -775,9 +832,7 @@ AÇÕES (Retorne APENAS JSON):
         const data = await response.json();
         if (data.error) throw new Error(data.error);
 
-        // 6. Tratamento da Resposta
-        let aiResponseText = data.text;
-        let cleanText = aiResponseText.replace(/```json/g, '').replace(/```/g, '').trim();
+        let cleanText = data.text.replace(/```json/g, '').replace(/```/g, '').trim();
         const first = cleanText.indexOf('{');
         const last = cleanText.lastIndexOf('}');
         if (first !== -1 && last !== -1) cleanText = cleanText.substring(first, last + 1);
@@ -787,7 +842,6 @@ AÇÕES (Retorne APENAS JSON):
         if (responseJson.message) appendMessage('ai', responseJson.message);
         else appendMessage('ai', "Feito!");
 
-        // Executa os comandos
         if (responseJson.commands && Array.isArray(responseJson.commands)) {
             for (const cmd of responseJson.commands) {
                 await executeAICommand(cmd);
@@ -797,7 +851,15 @@ AÇÕES (Retorne APENAS JSON):
 
     } catch (error) {
         console.error("Erro IA:", error);
-        appendMessage('ai', `Desculpe, tive um erro: ${error.message}`);
+        // Se deu erro na API, devolve o crédito gasto (opcional, mas justo)
+        if (!isUserPremium()) {
+            let creditData = JSON.parse(localStorage.getItem('salvese_ai_credits'));
+            if (creditData) {
+                creditData.value++;
+                localStorage.setItem('salvese_ai_credits', JSON.stringify(creditData));
+            }
+        }
+        appendMessage('ai', `Desculpe, tive um erro de conexão. Tente novamente.`);
     } finally {
         hideTypingIndicator();
         input.disabled = false;

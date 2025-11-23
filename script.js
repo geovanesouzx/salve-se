@@ -424,15 +424,21 @@ function injectWidgetControls() {
         const existingControls = widget.querySelector('.widget-controls');
         if (existingControls) existingControls.remove();
 
+        // Verifica se o usuário é Premium para decidir se mostra a coroa
+        const premiumIcon = !isUserPremium() ? '<i class="fas fa-crown text-[8px] text-amber-500 absolute -top-1 -right-1 bg-white dark:bg-darkcard rounded-full px-0.5 shadow-sm"></i>' : '';
+
         const controlsDiv = document.createElement('div');
-        controlsDiv.className = "widget-controls absolute top-3 right-3 flex gap-2 z-20 opacity-0 group-hover:opacity-100 transition-opacity bg-white/80 dark:bg-black/50 backdrop-blur-sm rounded-lg p-1 shadow-sm";
+        // Ajustei o z-index e posicionamento
+        controlsDiv.className = "widget-controls absolute top-3 right-3 flex gap-2 z-30 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 dark:bg-black/60 backdrop-blur-sm rounded-lg p-1.5 shadow-sm border border-gray-100 dark:border-neutral-800";
 
         controlsDiv.innerHTML = `
-            <button onclick="openWidgetCustomizer('${id}')" class="w-6 h-6 flex items-center justify-center text-gray-500 hover:text-indigo-500 dark:text-gray-300 dark:hover:text-indigo-400 transition" title="Personalizar Estilo">
+            <button onclick="openWidgetCustomizer('${id}')" class="relative w-6 h-6 flex items-center justify-center text-gray-500 hover:text-indigo-500 dark:text-gray-300 dark:hover:text-indigo-400 transition" title="Personalizar Estilo">
                 <i class="fas fa-palette text-xs"></i>
+                ${premiumIcon}
             </button>
-            <button onclick="toggleWidget('${id}')" class="w-6 h-6 flex items-center justify-center text-gray-500 hover:text-red-500 dark:text-gray-300 dark:hover:text-red-400 transition" title="Ocultar Widget">
+            <button onclick="toggleWidget('${id}')" class="relative w-6 h-6 flex items-center justify-center text-gray-500 hover:text-red-500 dark:text-gray-300 dark:hover:text-red-400 transition" title="Ocultar Widget">
                 <i class="fas fa-eye-slash text-xs"></i>
+                ${premiumIcon}
             </button>
         `;
 
@@ -3176,25 +3182,18 @@ window.toggleColorMenu = function (device) {
 
     if (isHidden) {
         menu.innerHTML = '';
-
-        // Lista de cores grátis (deve ser igual à usada em setThemeColor)
         const freeColors = ['indigo', 'cyan', 'green'];
 
         Object.keys(colorPalettes).forEach(color => {
             const btn = document.createElement('button');
             const rgb = colorPalettes[color][500];
-
-            // Verifica se esta cor deve estar bloqueada
             const isLocked = !isUserPremium() && !freeColors.includes(color);
 
-            // Se bloqueado, adiciona o ícone de cadeado
-            let innerContent = isLocked ? '<i class="fas fa-lock text-white/70 text-[10px] drop-shadow-sm"></i>' : '';
+            // MUDANÇA AQUI: Ícone de Coroa Dourada
+            let innerContent = isLocked ? '<i class="fas fa-crown text-amber-400 text-[10px] drop-shadow-sm" style="text-shadow: 0 1px 2px rgba(0,0,0,0.3);"></i>' : '';
 
-            // Adicionei 'flex items-center justify-center' para centralizar o cadeado
             btn.className = `w-6 h-6 rounded-full border border-gray-200 dark:border-gray-700 hover:scale-110 transition transform focus:outline-none ring-2 ring-transparent focus:ring-offset-1 focus:ring-gray-400 flex items-center justify-center`;
             btn.style.backgroundColor = `rgb(${rgb})`;
-
-            // Tooltip mostra se é Premium
             btn.title = color.charAt(0).toUpperCase() + color.slice(1) + (isLocked ? " (Premium)" : "");
             btn.innerHTML = innerContent;
 

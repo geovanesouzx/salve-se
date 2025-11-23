@@ -4003,7 +4003,7 @@ window.showTypingIndicator = function () {
 }
 
 // ============================================================
-// --- PÁGINA PREMIUM (ATUALIZADO PARA R$ 6,00) ---
+// --- PÁGINA PREMIUM (COM PAGAMENTO ASAAS PIX) ---
 // ============================================================
 
 window.renderPremiumPage = function () {
@@ -4092,6 +4092,7 @@ window.renderPremiumPage = function () {
     }
 
     // --- CONTEÚDO DE VENDA (SE NÃO FOR PREMIUM) ---
+    // AQUI ESTÁ A MUDANÇA PRINCIPAL: O botão agora chama startPayment()
     container.innerHTML = `
         <div class="max-w-4xl mx-auto pb-12 px-4 md:px-0">
             
@@ -4166,7 +4167,7 @@ window.renderPremiumPage = function () {
                 </div>
 
                 <div class="p-6 pt-0">
-                    <button onclick="simulateSubscription()" class="w-full py-4 rounded-xl bg-gray-900 dark:bg-white text-white dark:text-black font-bold shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-95 transition-all duration-300 flex items-center justify-center gap-2 group relative overflow-hidden">
+                    <button onclick="startPayment()" class="w-full py-4 rounded-xl bg-gray-900 dark:bg-white text-white dark:text-black font-bold shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-95 transition-all duration-300 flex items-center justify-center gap-2 group relative overflow-hidden">
                         <span class="relative z-10 flex items-center gap-2">
                             Desbloquear Tudo <i class="fas fa-arrow-right group-hover:translate-x-1 transition-transform"></i>
                         </span>
@@ -4174,7 +4175,7 @@ window.renderPremiumPage = function () {
                     </button>
                     
                     <p class="text-center text-[10px] text-gray-400 mt-4">
-                        Pagamento seguro. Cancele quando quiser.
+                        Pagamento via PIX (Asaas). Liberação imediata.
                     </p>
                 </div>
             </div>

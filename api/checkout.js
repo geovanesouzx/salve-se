@@ -52,7 +52,7 @@ export default async function handler(req, res) {
         const paymentBody = {
             customer: customerId,
             billingType: 'PIX',
-            value: 4.90, // Valor da assinatura
+            value: 5.00, // Valor da assinatura
             dueDate: new Date().toISOString().split('T')[0], // Vence hoje
             description: 'Assinatura Premium - Salve-se UFRB',
             postalService: false

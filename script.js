@@ -3593,7 +3593,7 @@ window.showTypingIndicator = function () {
 }
 
 // ============================================================
-// --- PÁGINA PREMIUM (ALINHADA) ---
+// --- PÁGINA PREMIUM (BENEFÍCIOS ATUALIZADOS) ---
 // ============================================================
 
 window.renderPremiumPage = function () {
@@ -3607,10 +3607,10 @@ window.renderPremiumPage = function () {
                     <i class="fas fa-crown text-3xl text-amber-500"></i>
                 </div>
                 <h2 class="text-3xl md:text-4xl font-black text-gray-900 dark:text-white tracking-tight">
-                    Desbloqueie o Poder Total
+                    Seja Salve-se Pro
                 </h2>
                 <p class="text-lg text-gray-500 dark:text-gray-400 max-w-2xl mx-auto">
-                    Leve seus estudos para outro nível com recursos exclusivos do Salve-se UFRB Pro.
+                    Desbloqueie personalização total e inteligência avançada.
                 </p>
             </div>
 
@@ -3618,74 +3618,76 @@ window.renderPremiumPage = function () {
                 
                 <div class="bg-white dark:bg-darkcard rounded-3xl p-8 border border-gray-200 dark:border-darkborder flex flex-col relative overflow-hidden hover:border-gray-300 transition h-full">
                     <div class="mb-6">
-                        <h3 class="text-lg font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Estudante</h3>
+                        <h3 class="text-lg font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Básico</h3>
                         <div class="mt-4 flex items-baseline gap-2">
                             <span class="text-4xl font-black text-gray-900 dark:text-white">R$ 0</span>
-                            <span class="text-gray-500">/mês</span>
                         </div>
-                        <p class="mt-2 text-sm text-gray-500">O essencial para sobreviver ao semestre.</p>
+                        <p class="mt-2 text-sm text-gray-500">Funcionalidades essenciais.</p>
                     </div>
                     
                     <ul class="space-y-4 mb-8 flex-1">
                         <li class="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-300">
-                            <div class="w-6 h-6 rounded-full bg-gray-100 dark:bg-neutral-800 flex items-center justify-center text-gray-500"><i class="fas fa-check text-xs"></i></div>
-                            Grade Horária Básica
+                            <i class="fas fa-check text-green-500"></i>
+                            Llama 3.3 (Com anúncios)
                         </li>
                         <li class="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-300">
-                            <div class="w-6 h-6 rounded-full bg-gray-100 dark:bg-neutral-800 flex items-center justify-center text-gray-500"><i class="fas fa-check text-xs"></i></div>
-                            Calculadora de Média
+                            <i class="fas fa-check text-green-500"></i>
+                            3 Cores de Tema
                         </li>
                         <li class="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-300">
-                            <div class="w-6 h-6 rounded-full bg-gray-100 dark:bg-neutral-800 flex items-center justify-center text-gray-500"><i class="fas fa-check text-xs"></i></div>
-                            Chat com IA (Limitado)
+                            <i class="fas fa-check text-green-500"></i>
+                            Widgets Padrão (Fixo)
                         </li>
                     </ul>
 
                     <button onclick="switchPage('home')" class="w-full py-3 rounded-xl border-2 border-gray-200 dark:border-neutral-700 font-bold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-neutral-800 transition mt-auto">
-                        Continuar Grátis
+                        Usar Grátis
                     </button>
                 </div>
 
                 <div class="bg-white dark:bg-darkcard rounded-3xl p-8 border-2 border-indigo-600 dark:border-indigo-500 flex flex-col relative overflow-hidden shadow-2xl shadow-indigo-500/20 h-full">
                     
                     <div class="absolute top-0 right-0 bg-indigo-600 text-white text-[10px] font-bold px-3 py-1 rounded-bl-xl uppercase tracking-widest">
-                        Recomendado
+                        Melhor Valor
                     </div>
 
                     <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500"></div>
 
                     <div class="mb-6">
-                        <h3 class="text-lg font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">Pro</h3>
+                        <h3 class="text-lg font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">Premium</h3>
                         <div class="mt-4 flex items-baseline gap-2">
                             <span class="text-4xl font-black text-gray-900 dark:text-white">R$ 4,90</span>
                             <span class="text-gray-500 dark:text-gray-400">/mês</span>
                         </div>
-                        <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">Para quem quer dominar a universidade.</p>
+                        <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">Poder total sem limites.</p>
                     </div>
                     
                     <ul class="space-y-4 mb-8 flex-1">
-                        <li class="flex items-center gap-3 text-sm text-gray-700 dark:text-gray-200 font-medium">
-                            <div class="w-6 h-6 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400"><i class="fas fa-check text-xs"></i></div>
-                            IA Ilimitada (Gemini & Llama)
+                        <li class="flex items-center gap-3 text-sm text-gray-700 dark:text-gray-200 font-bold">
+                            <div class="w-6 h-6 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400"><i class="fas fa-robot text-xs"></i></div>
+                            IA Gemini (Google) Ilimitada
                         </li>
                         <li class="flex items-center gap-3 text-sm text-gray-700 dark:text-gray-200 font-medium">
                             <div class="w-6 h-6 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400"><i class="fas fa-palette text-xs"></i></div>
-                            Todas as Cores de Tema
+                            Todas as Cores (+10 temas)
+                        </li>
+                        <li class="flex items-center gap-3 text-sm text-gray-700 dark:text-gray-200 font-medium">
+                            <div class="w-6 h-6 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400"><i class="fas fa-eye-slash text-xs"></i></div>
+                            Ocultar Widgets
+                        </li>
+                        <li class="flex items-center gap-3 text-sm text-gray-700 dark:text-gray-200 font-medium">
+                            <div class="w-6 h-6 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400"><i class="fas fa-paint-brush text-xs"></i></div>
+                            Mudar Cor dos Widgets
                         </li>
                         <li class="flex items-center gap-3 text-sm text-gray-700 dark:text-gray-200 font-medium">
                             <div class="w-6 h-6 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400"><i class="fas fa-envelope text-xs"></i></div>
-                            Geração de Emails Automática
-                        </li>
-                        <li class="flex items-center gap-3 text-sm text-gray-700 dark:text-gray-200 font-medium">
-                            <div class="w-6 h-6 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400"><i class="fas fa-cloud text-xs"></i></div>
-                            Backup em Nuvem Prioritário
+                            Templates de Email
                         </li>
                     </ul>
 
-                    <button onclick="startCheckout()" class="w-full py-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold shadow-lg shadow-indigo-500/30 transition transform active:scale-95 flex items-center justify-center gap-2 mt-auto">
+                    <button onclick="simulateSubscription()" class="w-full py-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold shadow-lg shadow-indigo-500/30 transition transform active:scale-95 flex items-center justify-center gap-2 mt-auto">
                         Assinar Agora <i class="fas fa-arrow-right"></i>
                     </button>
-                    <p class="text-[10px] text-center text-gray-400 mt-3">Cancele quando quiser.</p>
                 </div>
 
             </div>

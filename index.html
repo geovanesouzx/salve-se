@@ -780,7 +780,7 @@
 
                         <!-- CARD IA FEED -->
                         <div id="widget-ai"
-                            class="bg-whiidte dark:bg-darkcard rounded-xl border border-gray-200 dark:border-darkborder shadow-sm p-6 flex flex-col justify-center min-h-[200px] relative overflow-hidden group">
+                            class="bg-white dark:bg-darkcard rounded-xl border border-gray-200 dark:border-darkborder shadow-sm p-6 flex flex-col justify-center min-h-[200px] relative overflow-hidden group">
                             <div
                                 class="absolute top-0 right-0 p-4 opacity-10 text-6xl transform translate-x-2 -translate-y-2 rotate-12">
                                 <i class="fas fa-clipboard-list"></i>
@@ -872,8 +872,8 @@
                                 <path d="M8 2v4"></path>
                                 <path d="M16 2v4"></path>
                                 <rect width="18" height="18" x="3" y="4" rx="2">
-                                    </path>
-                                    <path d="M3 10h18"></path>
+                                </rect>
+                                <path d="M3 10h18"></path>
                             </svg>
                             <p class="font-bold text-gray-700 dark:text-gray-200">Aulas</p>
                         </button>
@@ -887,12 +887,12 @@
                                 <path d="M10 6h4"></path>
                                 <path d="m22 7-2-1"></path>
                                 <rect width="16" height="16" x="4" y="3" rx="2">
-                                    </path>
-                                    <path d="M4 11h16"></path>
-                                    <path d="M8 15h.01"></path>
-                                    <path d="M16 15h.01"></path>
-                                    <path d="M6 19v2"></path>
-                                    <path d="M18 21v-2"></path>
+                                </rect>
+                                <path d="M4 11h16"></path>
+                                <path d="M8 15h.01"></path>
+                                <path d="M16 15h.01"></path>
+                                <path d="M6 19v2"></path>
+                                <path d="M18 21v-2"></path>
                             </svg>
                             <p class="font-bold text-gray-700 dark:text-gray-200">Circular</p>
                         </button>
@@ -902,7 +902,7 @@
                 <!-- VIEW IA (FIXED LAYOUT) -->
                 <div id="view-ia"
                     class="hidden fade-in flex flex-col h-full relative bg-gray-50 dark:bg-darkbg overflow-hidden">
-                    <!-- Header/Disclaimer -->
+
                     <div
                         class="text-center py-4 bg-white dark:bg-darkcard border-b border-gray-200 dark:border-darkborder flex-shrink-0 z-10 shadow-sm">
                         <div
@@ -910,349 +910,356 @@
                             <i class="fas fa-robot"></i>
                         </div>
                         <h2 class="font-bold text-gray-800 dark:text-white text-sm">Salve-se IA</h2>
-                        <!-- AI Selector -->
-                        <button id="btn-ai-gemini" onclick="setAIProvider('gemini')"
-                            class="text-[10px] font-bold px-3 py-1 rounded-full bg-white dark:bg-darkcard border border-indigo-500 ring-2 ring-indigo-500 text-indigo-600 dark:text-indigo-400 shadow-sm transition flex items-center gap-1">
-                            <span>Gemini</span>
-                            <i class="fas fa-crown text-amber-500"></i>
-                        </button>
+
+                        <div class="flex justify-center gap-3 mt-2">
+                            <button id="btn-ai-gemini" onclick="setAIProvider('gemini')"
+                                class="text-[10px] font-bold px-3 py-1 rounded-full bg-white dark:bg-darkcard border border-indigo-500 ring-2 ring-indigo-500 text-indigo-600 dark:text-indigo-400 shadow-sm transition flex items-center gap-1">
+                                <span>Gemini</span>
+                                <i class="fas fa-crown text-amber-500"></i>
+                            </button>
+                            <button id="btn-ai-groq" onclick="setAIProvider('groq')"
+                                class="text-[10px] font-bold px-3 py-1 rounded-full bg-white dark:bg-darkcard border border-gray-300 dark:border-gray-700 text-gray-500 dark:text-gray-400 shadow-sm transition">
+                                Llama 3.3
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="chat-messages-container" class="flex-1 overflow-y-auto p-4 space-y-4 scroll-smooth pb-20">
+                        <div class="flex gap-3 max-w-[90%] animate-fade-in-up">
+                            <div class="flex-shrink-0 flex flex-col justify-end">
+                                <div
+                                    class="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-xs shadow-sm">
+                                    <i class="fas fa-robot"></i>
+                                </div>
+                            </div>
+                            <div class="flex flex-col items-start">
+                                <div
+                                    class="bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder text-gray-800 dark:text-gray-200 rounded-2xl rounded-bl-sm px-4 py-3 shadow-sm text-sm leading-relaxed">
+                                    <p>Olá! Sou sua assistente virtual. Posso ajudar com resumos, dúvidas sobre a UFRB
+                                        ou organizar sua rotina. Em que posso ajudar?</p>
+                                </div>
+                                <span class="text-[10px] text-gray-400 mt-1 ml-1">Salve-se IA</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div
+                        class="flex-none w-full p-4 bg-white dark:bg-darkcard border-t border-gray-200 dark:border-darkborder z-20 relative">
+                        <div class="relative max-w-3xl mx-auto flex items-center gap-2">
+
+                            <div class="relative flex-1">
+                                <input type="text" id="chat-input"
+                                    class="w-full bg-gray-100 dark:bg-neutral-800 border-0 rounded-full pl-5 pr-14 py-4 shadow-inner focus:ring-2 focus:ring-indigo-500 outline-none transition dark:text-white placeholder-gray-400"
+                                    placeholder="Digite ou toque no microfone..."
+                                    onkeypress="if(event.key === 'Enter') sendIAMessage()">
+
+                                <button id="chat-send-btn" onclick="sendIAMessage()"
+                                    class="absolute right-2 top-2 bottom-2 w-10 h-10 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full flex items-center justify-center transition shadow-lg shadow-indigo-500/30 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 active:scale-95">
+                                    <i class="fas fa-paper-plane text-sm"></i>
+                                </button>
+                            </div>
+
+                            <button id="btn-mic" onclick="startVoiceRecognition()"
+                                class="w-14 h-14 flex-shrink-0 rounded-full bg-gray-200 dark:bg-neutral-800 hover:bg-red-500 hover:text-white text-gray-600 dark:text-gray-300 transition-all duration-300 flex items-center justify-center shadow-sm group">
+                                <i class="fas fa-microphone text-xl group-hover:scale-110 transition-transform"></i>
+                            </button>
+
+                        </div>
                     </div>
                 </div>
 
-                <!-- Chat History -->
-                <div id="chat-messages-container" class="flex-1 overflow-y-auto p-4 space-y-4 scroll-smooth pb-20">
-                    <!-- Welcome Message -->
-                    <div class="flex gap-3 max-w-[90%] animate-fade-in-up">
-                        <div class="flex-shrink-0 flex flex-col justify-end">
-                            <div
-                                class="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-xs shadow-sm">
-                                <i class="fas fa-robot"></i>
-                            </div>
+                <!-- DEMAIS VIEWS -->
+                <div id="view-onibus" class="hidden fade-in max-w-4xl mx-auto">
+                    <div
+                        class="bg-white dark:bg-darkcard rounded-xl shadow-sm border border-gray-200 dark:border-darkborder overflow-hidden p-6">
+                        <div
+                            class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4 border-b border-gray-100 dark:border-neutral-800 pb-4">
+                            <h2 class="text-xl font-bold text-gray-800 dark:text-white">Grade Completa 2025.1</h2>
+                            <a href="https://www.ufrb.edu.br/cso/images/Hor%C3%A1rio_do_%C3%94nibus_Circular_2025.2.pdf"
+                                target="_blank"
+                                class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-bold transition flex items-center gap-2 shadow-md hover:shadow-lg">
+                                <i class="fas fa-file-pdf"></i> Baixar Horários
+                            </a>
                         </div>
-                        <div class="flex flex-col items-start">
-                            <div
-                                class="bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder text-gray-800 dark:text-gray-200 rounded-2xl rounded-bl-sm px-4 py-3 shadow-sm text-sm leading-relaxed">
-                                <p>Olá! Sou sua assistente virtual. Posso ajudar com resumos, dúvidas sobre a UFRB
-                                    ou organizar sua rotina. Em que posso ajudar?</p>
-                            </div>
-                            <span class="text-[10px] text-gray-400 mt-1 ml-1">Salve-se IA</span>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm text-left">
+                                <thead
+                                    class="bg-gray-50 dark:bg-neutral-900 text-gray-500 dark:text-gray-300 uppercase text-xs font-bold tracking-wider">
+                                    <tr>
+                                        <th class="px-6 py-4">Horário</th>
+                                        <th class="px-6 py-4">Itinerário (Paradas Estimadas)</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="bus-table-body"
+                                    class="divide-y divide-gray-200 dark:divide-darkborder text-gray-700 dark:text-gray-300">
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
 
-                <!-- Input Area -->
-                <div
-                    class="flex-none w-full p-4 bg-white dark:bg-darkcard border-t border-gray-200 dark:border-darkborder z-20 relative">
-                    <div class="relative max-w-3xl mx-auto flex items-center gap-2">
+                <div id="view-calc" class="hidden fade-in max-w-3xl mx-auto pb-10">
+                    <div
+                        class="bg-white dark:bg-darkcard rounded-2xl shadow-xl border border-gray-200 dark:border-darkborder overflow-hidden">
+                        <div
+                            class="bg-gradient-to-r from-indigo-600 to-purple-600 p-8 text-white text-center relative overflow-hidden">
+                            <div class="relative z-10">
+                                <h2 class="text-3xl font-bold mb-2">Calculadora de Média</h2>
+                                <p class="text-indigo-100 text-sm">Preencha suas notas e pesos para calcular.</p>
+                            </div>
+                            <div
+                                class="absolute top-0 left-0 w-full h-full opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]">
+                            </div>
+                        </div>
 
-                        <div class="relative flex-1">
-                            <input type="text" id="chat-input"
-                                class="w-full bg-gray-100 dark:bg-neutral-800 border-0 rounded-full pl-5 pr-14 py-4 shadow-inner focus:ring-2 focus:ring-indigo-500 outline-none transition dark:text-white placeholder-gray-400"
-                                placeholder="Digite ou toque no microfone..."
-                                onkeypress="if(event.key === 'Enter') sendIAMessage()">
+                        <div class="p-6 md:p-8">
+                            <div
+                                class="flex justify-center items-center gap-4 mb-8 p-4 bg-gray-50 dark:bg-neutral-900/50 rounded-xl border border-gray-200 dark:border-neutral-800">
+                                <label
+                                    class="text-sm font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wide">Média
+                                    para Aprovação:</label>
+                                <input type="number" id="passing-grade" value="6.0" step="0.1"
+                                    class="w-20 bg-white dark:bg-neutral-800 border border-gray-300 dark:border-neutral-700 rounded-lg px-3 py-2 text-center font-bold text-lg focus:ring-2 focus:ring-indigo-500 outline-none dark:text-white transition shadow-sm">
+                            </div>
+                            <div id="grades-container" class="space-y-4 mb-8"></div>
+                            <div class="flex gap-4 mb-10">
+                                <button onclick="addGradeRow()"
+                                    class="flex-1 py-3 border-2 border-dashed border-gray-300 dark:border-neutral-700 rounded-xl text-gray-500 hover:border-indigo-500 hover:text-indigo-500 dark:text-gray-400 dark:hover:text-indigo-400 transition font-medium flex items-center justify-center gap-2 group">
+                                    <div
+                                        class="w-6 h-6 rounded-full bg-gray-200 dark:bg-neutral-800 group-hover:bg-indigo-100 dark:group-hover:bg-indigo-900/30 flex items-center justify-center transition-colors">
+                                        <i class="fas fa-plus text-xs"></i>
+                                    </div>
+                                    Adicionar Nota
+                                </button>
+                                <button onclick="resetCalc()"
+                                    class="px-6 py-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-xl hover:bg-red-100 hover:scale-105 transition shadow-sm font-bold"
+                                    title="Limpar tudo">
+                                    <i class="fas fa-trash-alt"></i>
+                                </button>
+                            </div>
+                            <div
+                                class="bg-gray-50 dark:bg-neutral-900 rounded-2xl p-8 text-center border border-gray-200 dark:border-neutral-800 relative overflow-hidden">
+                                <p class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Sua Média
+                                    Final</p>
+                                <h3 id="result-display"
+                                    class="text-6xl font-black text-gray-300 dark:text-gray-600 mb-6 transition-all duration-500">
+                                    --</h3>
+                                <div id="result-feedback"
+                                    class="min-h-[200px] flex flex-col items-center justify-center transition-all duration-500">
+                                    <p class="text-gray-400 text-sm italic">Adicione notas para ver o resultado...</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
-                            <button id="chat-send-btn" onclick="sendIAMessage()"
-                                class="absolute right-2 top-2 bottom-2 w-10 h-10 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full flex items-center justify-center transition shadow-lg shadow-indigo-500/30 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 active:scale-95">
-                                <i class="fas fa-paper-plane text-sm"></i>
+                <div id="view-pomo" class="hidden fade-in max-w-2xl mx-auto text-center pt-8">
+                    <div
+                        class="bg-white dark:bg-darkcard rounded-3xl p-10 shadow-2xl border border-gray-100 dark:border-darkborder relative overflow-hidden">
+                        <div
+                            class="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500">
+                        </div>
+                        <div class="relative w-72 h-72 mx-auto mb-10 flex items-center justify-center group">
+                            <svg class="transform -rotate-90 w-72 h-72 drop-shadow-lg">
+                                <circle cx="144" cy="144" r="130" stroke="currentColor" stroke-width="8"
+                                    fill="transparent"
+                                    class="text-gray-100 dark:text-neutral-800 transition-colors duration-500" />
+                                <circle id="timer-circle" cx="144" cy="144" r="130" stroke="currentColor"
+                                    stroke-width="8" fill="transparent" stroke-dasharray="816" stroke-dashoffset="0"
+                                    stroke-linecap="round"
+                                    class="text-indigo-500 transition-all duration-1000 group-hover:text-indigo-400" />
+                            </svg>
+                            <div class="absolute inset-0 flex flex-col items-center justify-center">
+                                <span id="timer-display"
+                                    class="text-6xl font-bold tracking-tighter font-mono text-gray-800 dark:text-white transition-colors">25:00</span>
+                                <span id="timer-label"
+                                    class="text-sm uppercase font-extrabold tracking-widest text-indigo-500 mt-4 bg-indigo-50 dark:bg-indigo-900/30 px-3 py-1 rounded-full">Foco</span>
+                            </div>
+                        </div>
+                        <div class="flex justify-center gap-6 mb-10">
+                            <button onclick="toggleTimer()" id="btn-start"
+                                class="w-20 h-20 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white text-2xl shadow-indigo-200 dark:shadow-none shadow-xl flex items-center justify-center transition transform hover:scale-110 active:scale-95">
+                                <i class="fas fa-play pl-1"></i>
+                            </button>
+                            <button onclick="resetTimer()"
+                                class="w-20 h-20 rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-gray-500 dark:text-gray-300 text-xl flex items-center justify-center transition transform hover:scale-110 active:scale-95">
+                                <i class="fas fa-redo"></i>
+                            </button>
+                        </div>
+                        <div class="inline-flex bg-gray-100 dark:bg-neutral-800 p-1.5 rounded-full shadow-inner">
+                            <button onclick="setTimerMode('pomodoro')"
+                                class="px-6 py-2 text-sm font-bold rounded-full bg-white dark:bg-neutral-700 text-indigo-600 dark:text-white shadow-sm transition-all duration-300"
+                                id="mode-pomodoro">Foco</button>
+                            <button onclick="setTimerMode('short')"
+                                class="px-6 py-2 text-sm font-bold rounded-full text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-all duration-300"
+                                id="mode-short">Curta</button>
+                            <button onclick="setTimerMode('long')"
+                                class="px-6 py-2 text-sm font-bold rounded-full text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-all duration-300"
+                                id="mode-long">Longa</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="view-todo" class="hidden fade-in max-w-3xl mx-auto">
+                    <div
+                        class="bg-white dark:bg-darkcard rounded-xl shadow-sm border border-gray-200 dark:border-darkborder min-h-[500px] flex flex-col">
+                        <div
+                            class="p-6 border-b border-gray-200 dark:border-darkborder bg-gray-50/50 dark:bg-neutral-900/30">
+                            <h2 class="text-xl font-bold mb-6 text-gray-800 dark:text-white">Lista de Tarefas</h2>
+
+                            <!-- New Input Area -->
+                            <div class="space-y-4">
+                                <div class="flex gap-2">
+                                    <input type="text" id="todo-input"
+                                        class="flex-1 bg-white dark:bg-neutral-800 border border-gray-300 dark:border-neutral-700 rounded-lg px-4 py-3 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition dark:text-white shadow-sm"
+                                        placeholder="O que precisa ser feito?"
+                                        onkeypress="if(event.key === 'Enter') addTask()">
+                                    <button onclick="addTask()"
+                                        class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 rounded-lg transition font-bold shadow-md flex items-center justify-center"><i
+                                            class="fas fa-plus"></i></button>
+                                </div>
+
+                                <div class="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+                                    <select id="todo-category"
+                                        class="bg-white dark:bg-neutral-800 border border-gray-300 dark:border-neutral-700 text-gray-700 dark:text-gray-300 text-xs rounded-lg px-3 py-2 focus:outline-none focus:border-indigo-500">
+                                        <option value="geral">Geral</option>
+                                        <option value="estudo">Estudos</option>
+                                        <option value="trabalho">Trabalho</option>
+                                        <option value="pessoal">Pessoal</option>
+                                    </select>
+
+                                    <select id="todo-priority"
+                                        class="bg-white dark:bg-neutral-800 border border-gray-300 dark:border-neutral-700 text-gray-700 dark:text-gray-300 text-xs rounded-lg px-3 py-2 focus:outline-none focus:border-indigo-500">
+                                        <option value="normal">Prioridade Normal</option>
+                                        <option value="medium">Média</option>
+                                        <option value="high">Alta</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- Filters -->
+                            <div class="flex gap-2 mt-6 text-xs font-medium">
+                                <button id="filter-all" onclick="setTaskFilter('all')"
+                                    class="px-3 py-1.5 rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300 transition">Todas</button>
+                                <button id="filter-active" onclick="setTaskFilter('active')"
+                                    class="px-3 py-1.5 rounded-full hover:bg-gray-200 dark:hover:bg-neutral-800 text-gray-600 dark:text-gray-400 transition">Pendentes</button>
+                                <button id="filter-completed" onclick="setTaskFilter('completed')"
+                                    class="px-3 py-1.5 rounded-full hover:bg-gray-200 dark:hover:bg-neutral-800 text-gray-600 dark:text-gray-400 transition">Concluídas</button>
+                            </div>
+                        </div>
+
+                        <div class="flex-1 overflow-y-auto p-4 space-y-2 bg-gray-50 dark:bg-darkbg" id="todo-list">
+                        </div>
+
+                        <div
+                            class="p-3 bg-white dark:bg-darkcard border-t border-gray-200 dark:border-darkborder flex justify-between items-center text-xs text-gray-500">
+                            <span id="task-count">0 tarefas</span>
+                            <button onclick="clearCompleted()" class="hover:text-red-500 transition font-medium">Limpar
+                                Concluídas</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- VIEW DE NOTAS -->
+                <div id="view-notas" class="hidden fade-in h-full"></div>
+
+                <div id="view-email" class="hidden fade-in h-full flex flex-col max-w-6xl mx-auto">
+
+                    <div class="mb-4 md:hidden">
+                        <h2 class="text-xl font-bold text-gray-800 dark:text-white">Templates</h2>
+                        <p class="text-xs text-gray-500">Deslize para escolher um modelo</p>
+                    </div>
+
+                    <div class="flex flex-col lg:grid lg:grid-cols-3 gap-4 lg:gap-6 h-full lg:h-[600px]">
+
+                        <div
+                            class="flex lg:flex-col gap-3 overflow-x-auto lg:overflow-y-auto no-scrollbar pb-2 lg:pb-0 shrink-0 lg:pr-2 snap-x snap-mandatory">
+
+                            <button onclick="loadTemplate('deadline')"
+                                class="snap-center min-w-[260px] lg:min-w-0 text-left p-4 rounded-xl bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder hover:border-indigo-500 dark:hover:border-indigo-500 transition group shadow-sm active:scale-95">
+                                <div class="flex items-center justify-between mb-1">
+                                    <span
+                                        class="font-bold text-gray-700 dark:text-gray-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400">Extensão
+                                        de Prazo</span>
+                                    <i class="fas fa-hourglass-half text-gray-300 group-hover:text-indigo-500"></i>
+                                </div>
+                                <span class="text-xs text-gray-500 dark:text-gray-400 line-clamp-2">Pedir mais tempo
+                                    para entregar um trabalho ou atividade.</span>
+                            </button>
+
+                            <button onclick="loadTemplate('review')"
+                                class="snap-center min-w-[260px] lg:min-w-0 text-left p-4 rounded-xl bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder hover:border-indigo-500 dark:hover:border-indigo-500 transition group shadow-sm active:scale-95">
+                                <div class="flex items-center justify-between mb-1">
+                                    <span
+                                        class="font-bold text-gray-700 dark:text-gray-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400">Revisão
+                                        de Nota</span>
+                                    <i class="fas fa-search text-gray-300 group-hover:text-indigo-500"></i>
+                                </div>
+                                <span class="text-xs text-gray-500 dark:text-gray-400 line-clamp-2">Solicitar vista de
+                                    prova ou revisão de correção.</span>
+                            </button>
+
+                            <button onclick="loadTemplate('absence')"
+                                class="snap-center min-w-[260px] lg:min-w-0 text-left p-4 rounded-xl bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder hover:border-indigo-500 dark:hover:border-indigo-500 transition group shadow-sm active:scale-95">
+                                <div class="flex items-center justify-between mb-1">
+                                    <span
+                                        class="font-bold text-gray-700 dark:text-gray-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400">Justificar
+                                        Falta</span>
+                                    <i class="fas fa-user-injured text-gray-300 group-hover:text-indigo-500"></i>
+                                </div>
+                                <span class="text-xs text-gray-500 dark:text-gray-400 line-clamp-2">Enviar atestado ou
+                                    explicar ausência por motivos de saúde.</span>
+                            </button>
+
+                            <button onclick="loadTemplate('tcc')"
+                                class="snap-center min-w-[260px] lg:min-w-0 text-left p-4 rounded-xl bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder hover:border-indigo-500 dark:hover:border-indigo-500 transition group shadow-sm active:scale-95">
+                                <div class="flex items-center justify-between mb-1">
+                                    <span
+                                        class="font-bold text-gray-700 dark:text-gray-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400">Orientador
+                                        TCC</span>
+                                    <i class="fas fa-graduation-cap text-gray-300 group-hover:text-indigo-500"></i>
+                                </div>
+                                <span class="text-xs text-gray-500 dark:text-gray-400 line-clamp-2">Convite formal para
+                                    orientação de trabalho de conclusão.</span>
                             </button>
                         </div>
 
-                        <button id="btn-mic" onclick="startVoiceRecognition()"
-                            class="w-14 h-14 flex-shrink-0 rounded-full bg-gray-200 dark:bg-neutral-800 hover:bg-red-500 hover:text-white text-gray-600 dark:text-gray-300 transition-all duration-300 flex items-center justify-center shadow-sm group">
-                            <i class="fas fa-microphone text-xl group-hover:scale-110 transition-transform"></i>
-                        </button>
-
-                    </div>
-                </div>
-        </div>
-
-        <!-- DEMAIS VIEWS -->
-        <div id="view-onibus" class="hidden fade-in max-w-4xl mx-auto">
-            <div
-                class="bg-white dark:bg-darkcard rounded-xl shadow-sm border border-gray-200 dark:border-darkborder overflow-hidden p-6">
-                <div
-                    class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4 border-b border-gray-100 dark:border-neutral-800 pb-4">
-                    <h2 class="text-xl font-bold text-gray-800 dark:text-white">Grade Completa 2025.1</h2>
-                    <a href="https://www.ufrb.edu.br/cso/images/Hor%C3%A1rio_do_%C3%94nibus_Circular_2025.2.pdf"
-                        target="_blank"
-                        class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-bold transition flex items-center gap-2 shadow-md hover:shadow-lg">
-                        <i class="fas fa-file-pdf"></i> Baixar Horários
-                    </a>
-                </div>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-sm text-left">
-                        <thead
-                            class="bg-gray-50 dark:bg-neutral-900 text-gray-500 dark:text-gray-300 uppercase text-xs font-bold tracking-wider">
-                            <tr>
-                                <th class="px-6 py-4">Horário</th>
-                                <th class="px-6 py-4">Itinerário (Paradas Estimadas)</th>
-                            </tr>
-                        </thead>
-                        <tbody id="bus-table-body"
-                            class="divide-y divide-gray-200 dark:divide-darkborder text-gray-700 dark:text-gray-300">
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-
-        <div id="view-calc" class="hidden fade-in max-w-3xl mx-auto pb-10">
-            <div
-                class="bg-white dark:bg-darkcard rounded-2xl shadow-xl border border-gray-200 dark:border-darkborder overflow-hidden">
-                <div
-                    class="bg-gradient-to-r from-indigo-600 to-purple-600 p-8 text-white text-center relative overflow-hidden">
-                    <div class="relative z-10">
-                        <h2 class="text-3xl font-bold mb-2">Calculadora de Média</h2>
-                        <p class="text-indigo-100 text-sm">Preencha suas notas e pesos para calcular.</p>
-                    </div>
-                    <div
-                        class="absolute top-0 left-0 w-full h-full opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]">
-                    </div>
-                </div>
-
-                <div class="p-6 md:p-8">
-                    <div
-                        class="flex justify-center items-center gap-4 mb-8 p-4 bg-gray-50 dark:bg-neutral-900/50 rounded-xl border border-gray-200 dark:border-neutral-800">
-                        <label class="text-sm font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wide">Média
-                            para Aprovação:</label>
-                        <input type="number" id="passing-grade" value="6.0" step="0.1"
-                            class="w-20 bg-white dark:bg-neutral-800 border border-gray-300 dark:border-neutral-700 rounded-lg px-3 py-2 text-center font-bold text-lg focus:ring-2 focus:ring-indigo-500 outline-none dark:text-white transition shadow-sm">
-                    </div>
-                    <div id="grades-container" class="space-y-4 mb-8"></div>
-                    <div class="flex gap-4 mb-10">
-                        <button onclick="addGradeRow()"
-                            class="flex-1 py-3 border-2 border-dashed border-gray-300 dark:border-neutral-700 rounded-xl text-gray-500 hover:border-indigo-500 hover:text-indigo-500 dark:text-gray-400 dark:hover:text-indigo-400 transition font-medium flex items-center justify-center gap-2 group">
+                        <div
+                            class="flex-1 lg:col-span-2 flex flex-col bg-white dark:bg-darkcard rounded-xl border border-gray-200 dark:border-darkborder overflow-hidden shadow-sm min-h-[300px]">
                             <div
-                                class="w-6 h-6 rounded-full bg-gray-200 dark:bg-neutral-800 group-hover:bg-indigo-100 dark:group-hover:bg-indigo-900/30 flex items-center justify-center transition-colors">
-                                <i class="fas fa-plus text-xs"></i>
+                                class="px-4 py-3 bg-gray-50 dark:bg-neutral-900 border-b border-gray-200 dark:border-darkborder flex justify-between items-center">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-xs font-bold uppercase text-gray-500 tracking-wider">Editor de
+                                        Texto</span>
+                                    <span id="template-status"
+                                        class="hidden text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full animate-fade-in-up">Carregado</span>
+                                </div>
+                                <button onclick="copyEmail()"
+                                    class="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-4 py-2 rounded-lg transition shadow-md active:scale-95">
+                                    <i class="fas fa-copy"></i> Copiar
+                                </button>
                             </div>
-                            Adicionar Nota
-                        </button>
-                        <button onclick="resetCalc()"
-                            class="px-6 py-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-xl hover:bg-red-100 hover:scale-105 transition shadow-sm font-bold"
-                            title="Limpar tudo">
-                            <i class="fas fa-trash-alt"></i>
-                        </button>
-                    </div>
-                    <div
-                        class="bg-gray-50 dark:bg-neutral-900 rounded-2xl p-8 text-center border border-gray-200 dark:border-neutral-800 relative overflow-hidden">
-                        <p class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Sua Média
-                            Final</p>
-                        <h3 id="result-display"
-                            class="text-6xl font-black text-gray-300 dark:text-gray-600 mb-6 transition-all duration-500">
-                            --</h3>
-                        <div id="result-feedback"
-                            class="min-h-[200px] flex flex-col items-center justify-center transition-all duration-500">
-                            <p class="text-gray-400 text-sm italic">Adicione notas para ver o resultado...</p>
+
+                            <textarea id="email-content"
+                                class="flex-1 w-full p-5 bg-transparent outline-none resize-none font-mono text-sm leading-relaxed text-gray-700 dark:text-gray-300 placeholder-gray-300 dark:placeholder-neutral-700 focus:bg-indigo-50/10 transition-colors"
+                                placeholder="Toque em um modelo acima para começar..." spellcheck="false"></textarea>
                         </div>
                     </div>
                 </div>
-            </div>
+                <!-- NOVA VIEW DE CONFIGURAÇÕES -->
+                <div id="view-config" class="hidden fade-in w-full">
+                    <div id="settings-content" class="w-full">
+                    </div>
+                </div>
+
+                <div id="view-ocultos" class="hidden fade-in w-full"></div>
+
+                <div id="view-aulas" class="hidden fade-in"></div>
+
+                <div id="view-premium" class="hidden fade-in w-full"></div>
+
+            </main>
         </div>
-
-        <div id="view-pomo" class="hidden fade-in max-w-2xl mx-auto text-center pt-8">
-            <div
-                class="bg-white dark:bg-darkcard rounded-3xl p-10 shadow-2xl border border-gray-100 dark:border-darkborder relative overflow-hidden">
-                <div
-                    class="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500">
-                </div>
-                <div class="relative w-72 h-72 mx-auto mb-10 flex items-center justify-center group">
-                    <svg class="transform -rotate-90 w-72 h-72 drop-shadow-lg">
-                        <circle cx="144" cy="144" r="130" stroke="currentColor" stroke-width="8" fill="transparent"
-                            class="text-gray-100 dark:text-neutral-800 transition-colors duration-500" />
-                        <circle id="timer-circle" cx="144" cy="144" r="130" stroke="currentColor" stroke-width="8"
-                            fill="transparent" stroke-dasharray="816" stroke-dashoffset="0" stroke-linecap="round"
-                            class="text-indigo-500 transition-all duration-1000 group-hover:text-indigo-400" />
-                    </svg>
-                    <div class="absolute inset-0 flex flex-col items-center justify-center">
-                        <span id="timer-display"
-                            class="text-6xl font-bold tracking-tighter font-mono text-gray-800 dark:text-white transition-colors">25:00</span>
-                        <span id="timer-label"
-                            class="text-sm uppercase font-extrabold tracking-widest text-indigo-500 mt-4 bg-indigo-50 dark:bg-indigo-900/30 px-3 py-1 rounded-full">Foco</span>
-                    </div>
-                </div>
-                <div class="flex justify-center gap-6 mb-10">
-                    <button onclick="toggleTimer()" id="btn-start"
-                        class="w-20 h-20 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white text-2xl shadow-indigo-200 dark:shadow-none shadow-xl flex items-center justify-center transition transform hover:scale-110 active:scale-95">
-                        <i class="fas fa-play pl-1"></i>
-                    </button>
-                    <button onclick="resetTimer()"
-                        class="w-20 h-20 rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-gray-500 dark:text-gray-300 text-xl flex items-center justify-center transition transform hover:scale-110 active:scale-95">
-                        <i class="fas fa-redo"></i>
-                    </button>
-                </div>
-                <div class="inline-flex bg-gray-100 dark:bg-neutral-800 p-1.5 rounded-full shadow-inner">
-                    <button onclick="setTimerMode('pomodoro')"
-                        class="px-6 py-2 text-sm font-bold rounded-full bg-white dark:bg-neutral-700 text-indigo-600 dark:text-white shadow-sm transition-all duration-300"
-                        id="mode-pomodoro">Foco</button>
-                    <button onclick="setTimerMode('short')"
-                        class="px-6 py-2 text-sm font-bold rounded-full text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-all duration-300"
-                        id="mode-short">Curta</button>
-                    <button onclick="setTimerMode('long')"
-                        class="px-6 py-2 text-sm font-bold rounded-full text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-all duration-300"
-                        id="mode-long">Longa</button>
-                </div>
-            </div>
-        </div>
-
-        <div id="view-todo" class="hidden fade-in max-w-3xl mx-auto">
-            <div
-                class="bg-white dark:bg-darkcard rounded-xl shadow-sm border border-gray-200 dark:border-darkborder min-h-[500px] flex flex-col">
-                <div class="p-6 border-b border-gray-200 dark:border-darkborder bg-gray-50/50 dark:bg-neutral-900/30">
-                    <h2 class="text-xl font-bold mb-6 text-gray-800 dark:text-white">Lista de Tarefas</h2>
-
-                    <!-- New Input Area -->
-                    <div class="space-y-4">
-                        <div class="flex gap-2">
-                            <input type="text" id="todo-input"
-                                class="flex-1 bg-white dark:bg-neutral-800 border border-gray-300 dark:border-neutral-700 rounded-lg px-4 py-3 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition dark:text-white shadow-sm"
-                                placeholder="O que precisa ser feito?" onkeypress="if(event.key === 'Enter') addTask()">
-                            <button onclick="addTask()"
-                                class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 rounded-lg transition font-bold shadow-md flex items-center justify-center"><i
-                                    class="fas fa-plus"></i></button>
-                        </div>
-
-                        <div class="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
-                            <select id="todo-category"
-                                class="bg-white dark:bg-neutral-800 border border-gray-300 dark:border-neutral-700 text-gray-700 dark:text-gray-300 text-xs rounded-lg px-3 py-2 focus:outline-none focus:border-indigo-500">
-                                <option value="geral">Geral</option>
-                                <option value="estudo">Estudos</option>
-                                <option value="trabalho">Trabalho</option>
-                                <option value="pessoal">Pessoal</option>
-                            </select>
-
-                            <select id="todo-priority"
-                                class="bg-white dark:bg-neutral-800 border border-gray-300 dark:border-neutral-700 text-gray-700 dark:text-gray-300 text-xs rounded-lg px-3 py-2 focus:outline-none focus:border-indigo-500">
-                                <option value="normal">Prioridade Normal</option>
-                                <option value="medium">Média</option>
-                                <option value="high">Alta</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <!-- Filters -->
-                    <div class="flex gap-2 mt-6 text-xs font-medium">
-                        <button id="filter-all" onclick="setTaskFilter('all')"
-                            class="px-3 py-1.5 rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300 transition">Todas</button>
-                        <button id="filter-active" onclick="setTaskFilter('active')"
-                            class="px-3 py-1.5 rounded-full hover:bg-gray-200 dark:hover:bg-neutral-800 text-gray-600 dark:text-gray-400 transition">Pendentes</button>
-                        <button id="filter-completed" onclick="setTaskFilter('completed')"
-                            class="px-3 py-1.5 rounded-full hover:bg-gray-200 dark:hover:bg-neutral-800 text-gray-600 dark:text-gray-400 transition">Concluídas</button>
-                    </div>
-                </div>
-
-                <div class="flex-1 overflow-y-auto p-4 space-y-2 bg-gray-50 dark:bg-darkbg" id="todo-list">
-                </div>
-
-                <div
-                    class="p-3 bg-white dark:bg-darkcard border-t border-gray-200 dark:border-darkborder flex justify-between items-center text-xs text-gray-500">
-                    <span id="task-count">0 tarefas</span>
-                    <button onclick="clearCompleted()" class="hover:text-red-500 transition font-medium">Limpar
-                        Concluídas</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- VIEW DE NOTAS -->
-        <div id="view-notas" class="hidden fade-in h-full"></div>
-
-        <div id="view-email" class="hidden fade-in h-full flex flex-col max-w-6xl mx-auto">
-
-            <div class="mb-4 md:hidden">
-                <h2 class="text-xl font-bold text-gray-800 dark:text-white">Templates</h2>
-                <p class="text-xs text-gray-500">Deslize para escolher um modelo</p>
-            </div>
-
-            <div class="flex flex-col lg:grid lg:grid-cols-3 gap-4 lg:gap-6 h-full lg:h-[600px]">
-
-                <div
-                    class="flex lg:flex-col gap-3 overflow-x-auto lg:overflow-y-auto no-scrollbar pb-2 lg:pb-0 shrink-0 lg:pr-2 snap-x snap-mandatory">
-
-                    <button onclick="loadTemplate('deadline')"
-                        class="snap-center min-w-[260px] lg:min-w-0 text-left p-4 rounded-xl bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder hover:border-indigo-500 dark:hover:border-indigo-500 transition group shadow-sm active:scale-95">
-                        <div class="flex items-center justify-between mb-1">
-                            <span
-                                class="font-bold text-gray-700 dark:text-gray-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400">Extensão
-                                de Prazo</span>
-                            <i class="fas fa-hourglass-half text-gray-300 group-hover:text-indigo-500"></i>
-                        </div>
-                        <span class="text-xs text-gray-500 dark:text-gray-400 line-clamp-2">Pedir mais tempo
-                            para entregar um trabalho ou atividade.</span>
-                    </button>
-
-                    <button onclick="loadTemplate('review')"
-                        class="snap-center min-w-[260px] lg:min-w-0 text-left p-4 rounded-xl bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder hover:border-indigo-500 dark:hover:border-indigo-500 transition group shadow-sm active:scale-95">
-                        <div class="flex items-center justify-between mb-1">
-                            <span
-                                class="font-bold text-gray-700 dark:text-gray-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400">Revisão
-                                de Nota</span>
-                            <i class="fas fa-search text-gray-300 group-hover:text-indigo-500"></i>
-                        </div>
-                        <span class="text-xs text-gray-500 dark:text-gray-400 line-clamp-2">Solicitar vista de
-                            prova ou revisão de correção.</span>
-                    </button>
-
-                    <button onclick="loadTemplate('absence')"
-                        class="snap-center min-w-[260px] lg:min-w-0 text-left p-4 rounded-xl bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder hover:border-indigo-500 dark:hover:border-indigo-500 transition group shadow-sm active:scale-95">
-                        <div class="flex items-center justify-between mb-1">
-                            <span
-                                class="font-bold text-gray-700 dark:text-gray-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400">Justificar
-                                Falta</span>
-                            <i class="fas fa-user-injured text-gray-300 group-hover:text-indigo-500"></i>
-                        </div>
-                        <span class="text-xs text-gray-500 dark:text-gray-400 line-clamp-2">Enviar atestado ou
-                            explicar ausência por motivos de saúde.</span>
-                    </button>
-
-                    <button onclick="loadTemplate('tcc')"
-                        class="snap-center min-w-[260px] lg:min-w-0 text-left p-4 rounded-xl bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder hover:border-indigo-500 dark:hover:border-indigo-500 transition group shadow-sm active:scale-95">
-                        <div class="flex items-center justify-between mb-1">
-                            <span
-                                class="font-bold text-gray-700 dark:text-gray-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400">Orientador
-                                TCC</span>
-                            <i class="fas fa-graduation-cap text-gray-300 group-hover:text-indigo-500"></i>
-                        </div>
-                        <span class="text-xs text-gray-500 dark:text-gray-400 line-clamp-2">Convite formal para
-                            orientação de trabalho de conclusão.</span>
-                    </button>
-                </div>
-
-                <div
-                    class="flex-1 lg:col-span-2 flex flex-col bg-white dark:bg-darkcard rounded-xl border border-gray-200 dark:border-darkborder overflow-hidden shadow-sm min-h-[300px]">
-                    <div
-                        class="px-4 py-3 bg-gray-50 dark:bg-neutral-900 border-b border-gray-200 dark:border-darkborder flex justify-between items-center">
-                        <div class="flex items-center gap-2">
-                            <span class="text-xs font-bold uppercase text-gray-500 tracking-wider">Editor de
-                                Texto</span>
-                            <span id="template-status"
-                                class="hidden text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full animate-fade-in-up">Carregado</span>
-                        </div>
-                        <button onclick="copyEmail()"
-                            class="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-4 py-2 rounded-lg transition shadow-md active:scale-95">
-                            <i class="fas fa-copy"></i> Copiar
-                        </button>
-                    </div>
-
-                    <textarea id="email-content"
-                        class="flex-1 w-full p-5 bg-transparent outline-none resize-none font-mono text-sm leading-relaxed text-gray-700 dark:text-gray-300 placeholder-gray-300 dark:placeholder-neutral-700 focus:bg-indigo-50/10 transition-colors"
-                        placeholder="Toque em um modelo acima para começar..." spellcheck="false"></textarea>
-                </div>
-            </div>
-        </div>
-        <!-- NOVA VIEW DE CONFIGURAÇÕES -->
-        <div id="view-config" class="hidden fade-in w-full">
-            <div id="settings-content" class="w-full">
-            </div>
-        </div>
-
-        <div id="view-ocultos" class="hidden fade-in w-full"></div>
-
-        <div id="view-aulas" class="hidden fade-in"></div>
-
-        <div id="view-premium" class="hidden fade-in w-full"></div>
-
-        </main>
-    </div>
     </div>
 
     <!-- MODAIS -->

@@ -3701,37 +3701,40 @@ window.startCheckout = async function () {
     const btn = document.querySelector('button[onclick="startCheckout()"]');
     const originalHTML = btn.innerHTML;
 
-    // Efeito visual de carregamento
-    btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Gerando PIX...';
+    btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Processando...';
     btn.disabled = true;
     btn.classList.add('opacity-75', 'cursor-not-allowed');
 
     try {
+        // PEGAMOS OS DADOS DO USUÁRIO LOGADO
+        const payload = {
+            email: currentUser.email,
+            name: userProfile.displayName || "Estudante",
+            surname: userProfile.handle || ""
+        };
+
         const response = await fetch('/api/checkout', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload) // ENVIAMOS AQUI
         });
 
         const data = await response.json();
 
         if (data.init_point) {
-            // Redireciona o usuário para o checkout do Mercado Pago
             window.location.href = data.init_point;
         } else {
-            throw new Error('Link de pagamento não gerado');
+            throw new Error('Link não gerado');
         }
 
     } catch (error) {
         console.error("Erro no checkout:", error);
-        showModal("Erro", "Falha ao iniciar pagamento. Tente novamente.");
-
-        // Restaura o botão
+        showModal("Erro", "Tente novamente.");
         btn.innerHTML = originalHTML;
         btn.disabled = false;
         btn.classList.remove('opacity-75', 'cursor-not-allowed');
     }
 };
-
 // Verifica se o usuário voltou do Mercado Pago com sucesso
 // Isso roda automaticamente quando a página carrega
 document.addEventListener('DOMContentLoaded', async () => {

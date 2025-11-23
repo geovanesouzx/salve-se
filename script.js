@@ -89,6 +89,53 @@ let saveTimeout = null;
 let aiWidgetContent = localStorage.getItem('salvese_ai_widget') || "Olá! Sou sua IA. Vou postar dicas úteis aqui.";
 
 // ============================================================
+// --- SISTEMA PREMIUM (LÓGICA DE TRAVA) ---
+// ============================================================
+
+// Verifica se o usuário é Premium (baseado no perfil do Firebase)
+function isUserPremium() {
+    // Se o campo isPremium for true, retorna true.
+    return userProfile && userProfile.isPremium === true;
+}
+
+// Função Bloqueadora: Retorna true se passar, false se bloquear e mostra modal
+function requirePremium(featureName) {
+    if (isUserPremium()) return true;
+
+    // Se não for premium, mostra o aviso
+    showModal(
+        `Recurso Premium 👑`,
+        `A funcionalidade "${featureName}" é exclusiva para assinantes Pro.`
+    );
+
+    // Opcional: Levar para a página premium após 1.5s
+    setTimeout(() => switchPage('premium'), 1500);
+
+    return false;
+}
+
+// Função para simular assinatura (para testes)
+window.simulateSubscription = async function () {
+    if (!currentUser) return showLoginScreen();
+
+    const btn = document.querySelector('button[onclick="simulateSubscription()"]');
+    if (btn) btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Processando...';
+
+    try {
+        // Atualiza no Firebase
+        await setDoc(doc(db, "users", currentUser.uid), { isPremium: true }, { merge: true });
+        userProfile.isPremium = true;
+        localStorage.setItem('salvese_user_profile', JSON.stringify(userProfile));
+
+        showModal("Parabéns! 🌟", "Você agora é Premium! Todos os recursos foram desbloqueados.");
+        updateUserInterfaceInfo(); // Para atualizar ícones se houver
+        renderPremiumPage(); // Atualiza botão
+    } catch (e) {
+        showModal("Erro", "Falha na assinatura: " + e.message);
+    }
+}
+
+// ============================================================
 // --- ÍCONES SVG ---
 // ============================================================
 const svgs = {
@@ -402,12 +449,18 @@ function injectWidgetControls() {
 }
 
 window.openWidgetCustomizer = function (widgetId) {
+    // TRAVA PREMIUM
+    if (!requirePremium('Personalizar Cor do Widget')) return;
+
+    // ... resto do código original openWidgetCustomizer ...
     const modal = document.createElement('div');
+    // ... (criação do modal continua igual)
     modal.className = "fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm fade-in";
     modal.id = "customizer-modal";
 
     let optionsHtml = '';
     Object.entries(WIDGET_PRESETS).forEach(([key, preset]) => {
+        // ... (geração das opções)
         optionsHtml += `
             <button onclick="setWidgetStyle('${widgetId}', '${key}')" class="w-full text-left p-3 rounded-xl border border-gray-200 dark:border-neutral-700 mb-2 hover:scale-[1.02] transition flex items-center gap-3 overflow-hidden group">
                 <div class="w-8 h-8 rounded-full ${preset.class.split(' ').filter(c => c.startsWith('bg-') || c.startsWith('from-')).join(' ')} border border-gray-300 shadow-sm"></div>
@@ -416,7 +469,7 @@ window.openWidgetCustomizer = function (widgetId) {
             </button>
         `;
     });
-
+    // ... (finalização do modal)
     modal.innerHTML = `
         <div class="bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl w-full max-w-sm p-6 m-4 relative animate-scale-in border border-gray-200 dark:border-neutral-800">
             <button onclick="document.getElementById('customizer-modal').remove()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
@@ -429,7 +482,6 @@ window.openWidgetCustomizer = function (widgetId) {
             </div>
         </div>
     `;
-
     document.body.appendChild(modal);
 }
 
@@ -480,6 +532,15 @@ function applyAllWidgetStyles() {
 }
 
 window.toggleWidget = function (widgetId) {
+    // Se estiver tentando OCULTAR (adicionar à lista de hidden), precisa ser Premium
+    // Se for para MOSTRAR (restaurar), liberamos (para não prender o widget sumido se o plano expirar)
+    const isHiding = !hiddenWidgets.includes(widgetId);
+
+    if (isHiding) {
+        if (!requirePremium('Ocultar Widgets')) return;
+    }
+
+    // ... resto do código original toggleWidget ...
     const widget = document.getElementById(widgetId);
     if (!widget) return;
 
@@ -490,19 +551,17 @@ window.toggleWidget = function (widgetId) {
     } else {
         hiddenWidgets.push(widgetId);
         widget.classList.add('hidden');
-
+        // ... toast logic ...
         const toast = document.createElement('div');
         toast.className = "fixed bottom-20 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white px-4 py-2 rounded-full text-sm shadow-lg z-[60] animate-fade-in-up flex items-center gap-2";
         toast.innerHTML = `<span>Widget oculto.</span> <button onclick="switchPage('ocultos')" class="text-indigo-300 font-bold hover:underline">Desfazer</button>`;
         document.body.appendChild(toast);
         setTimeout(() => toast.remove(), 3000);
     }
-
     saveData();
     applyWidgetVisibility();
     if (currentViewContext === 'ocultos') renderHiddenWidgetsPage();
 }
-
 function applyWidgetVisibility() {
     const allWidgets = ['widget-bus', 'widget-tasks', 'widget-quick', 'widget-class', 'widget-reminders', 'widget-ai', 'widget-notes'];
     allWidgets.forEach(id => {
@@ -589,9 +648,22 @@ window.renderHiddenWidgetsPage = function () {
 // ============================================================
 
 window.setAIProvider = function (provider) {
+    // TRAVA PREMIUM: Se escolher Gemini e não for Pro, bloqueia.
+    if (provider === 'gemini' && !requirePremium('IA Gemini (Google)')) {
+        // Força o provedor a ser 'groq' (Llama) caso o bloqueio ative
+        provider = 'groq';
+        return; // Para a execução aqui, o Gemini NÃO será ativado
+    }
+
     currentAIProvider = provider;
     const feedback = provider === 'gemini' ? "Gemini (Google) ativado." : "Llama 3.3 (Groq) ativada.";
-    showModal("IA Alterada", feedback);
+
+    // Verifica se o modal de "Premium Bloqueado" já não está na tela
+    // Se estiver livre, mostra o aviso de "IA Alterada"
+    const genericModal = document.getElementById('generic-modal');
+    if (genericModal && genericModal.classList.contains('hidden')) {
+        showModal("IA Alterada", feedback);
+    }
     updateAISelectorUI();
 }
 
@@ -3041,10 +3113,16 @@ const templates = {
     tcc: `Prezado(a) Prof(a). [Nome],\n\nTenho interesse em sua área de pesquisa e gostaria de saber se há disponibilidade para orientação de TCC sobre [Tema].\n\nAtenciosamente,\n[Seu Nome]`
 };
 
-window.loadTemplate = function (k) { document.getElementById('email-content').value = templates[k]; }
+window.loadTemplate = function (k) {
+    // --- TRAVA PREMIUM (PARTE E) ---
+    if (!requirePremium('Templates de Email')) return;
+    // -------------------------------
+
+    document.getElementById('email-content').value = templates[k];
+}
+
 window.copyEmail = function () { const e = document.getElementById('email-content'); e.select(); document.execCommand('copy'); }
 window.openPortal = function () { window.open('https://sistemas.ufrb.edu.br/sigaa/verTelaLogin.do', '_blank'); }
-
 // ============================================================
 // --- TEMA E CORES ---
 // ============================================================
@@ -3091,23 +3169,52 @@ window.toggleColorMenu = function (device) {
     if (!menu) return;
     const isHidden = menu.classList.contains('hidden');
     document.querySelectorAll('.color-menu').forEach(m => m.classList.add('hidden'));
+
     if (isHidden) {
         menu.innerHTML = '';
+
+        // Lista de cores grátis (deve ser igual à usada em setThemeColor)
+        const freeColors = ['indigo', 'cyan', 'green'];
+
         Object.keys(colorPalettes).forEach(color => {
             const btn = document.createElement('button');
             const rgb = colorPalettes[color][500];
-            btn.className = `w-6 h-6 rounded-full border border-gray-200 dark:border-gray-700 hover:scale-110 transition transform focus:outline-none ring-2 ring-transparent focus:ring-offset-1 focus:ring-gray-400`;
+
+            // Verifica se esta cor deve estar bloqueada
+            const isLocked = !isUserPremium() && !freeColors.includes(color);
+
+            // Se bloqueado, adiciona o ícone de cadeado
+            let innerContent = isLocked ? '<i class="fas fa-lock text-white/70 text-[10px] drop-shadow-sm"></i>' : '';
+
+            // Adicionei 'flex items-center justify-center' para centralizar o cadeado
+            btn.className = `w-6 h-6 rounded-full border border-gray-200 dark:border-gray-700 hover:scale-110 transition transform focus:outline-none ring-2 ring-transparent focus:ring-offset-1 focus:ring-gray-400 flex items-center justify-center`;
             btn.style.backgroundColor = `rgb(${rgb})`;
-            btn.title = color.charAt(0).toUpperCase() + color.slice(1);
+
+            // Tooltip mostra se é Premium
+            btn.title = color.charAt(0).toUpperCase() + color.slice(1) + (isLocked ? " (Premium)" : "");
+            btn.innerHTML = innerContent;
+
             btn.onclick = () => setThemeColor(color);
             menu.appendChild(btn);
         });
+
         menu.classList.remove('hidden');
         menu.classList.add('visible');
     }
 }
 
 function setThemeColor(colorName) {
+    // --- TRAVA PREMIUM (PARTE B) ---
+    // Define quais cores são gratuitas
+    const freeColors = ['indigo', 'cyan', 'green'];
+
+    // Se a cor escolhida NÃO estiver na lista grátis...
+    if (!freeColors.includes(colorName)) {
+        // ...verifica se é premium. Se não for, exibe modal e para a execução.
+        if (!requirePremium('Temas Coloridos')) return;
+    }
+    // -------------------------------
+
     const palette = colorPalettes[colorName];
     if (!palette) return;
 

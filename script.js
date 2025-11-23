@@ -3261,7 +3261,7 @@ window.resetCalc = function () {
 }
 
 // ============================================================
-// --- FUNCIONALIDADE: POMODORO ---
+// --- FUNCIONALIDADE: POMODORO (COM TIMER CUSTOM) ---
 // ============================================================
 
 let timerInterval1, timeLeft1 = 25 * 60, isRunning1 = false, currentMode1 = 'pomodoro';
@@ -3273,41 +3273,139 @@ function updateTimerDisplay() {
     const circle = document.getElementById('timer-circle');
 
     if (display) display.innerText = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-    if (circle) circle.style.strokeDashoffset = 816 - (timeLeft1 / modes1[currentMode1]) * 816;
+
+    // Garante que usa o tempo total correto para o cálculo do círculo (inclusive custom)
+    const totalTime = modes1[currentMode1] || 25 * 60;
+    if (circle) circle.style.strokeDashoffset = 816 - (timeLeft1 / totalTime) * 816;
 }
 
 window.toggleTimer = function () {
     const btn = document.getElementById('btn-start');
     if (!btn) return;
     if (isRunning1) {
-        clearInterval(timerInterval1); isRunning1 = false; btn.innerHTML = '<i class="fas fa-play pl-1"></i>'; btn.classList.replace('bg-red-600', 'bg-indigo-600'); btn.classList.replace('hover:bg-red-700', 'hover:bg-indigo-700');
+        clearInterval(timerInterval1); isRunning1 = false;
+        btn.innerHTML = '<i class="fas fa-play pl-1"></i>';
+        btn.classList.replace('bg-red-600', 'bg-indigo-600');
+        btn.classList.replace('hover:bg-red-700', 'hover:bg-indigo-700');
     }
     else {
-        isRunning1 = true; btn.innerHTML = '<i class="fas fa-pause"></i>'; btn.classList.replace('bg-indigo-600', 'bg-red-600'); btn.classList.replace('hover:bg-indigo-700', 'hover:bg-red-700');
+        isRunning1 = true;
+        btn.innerHTML = '<i class="fas fa-pause"></i>';
+        btn.classList.replace('bg-indigo-600', 'bg-red-600');
+        btn.classList.replace('hover:bg-indigo-700', 'hover:bg-red-700');
+
         timerInterval1 = setInterval(() => {
-            timeLeft1--; if (timeLeft1 <= 0) {
-                clearInterval(timerInterval1); isRunning1 = false; showModal('Tempo', 'O tempo acabou!'); toggleTimer(); return;
-            } updateTimerDisplay();
+            timeLeft1--;
+            if (timeLeft1 <= 0) {
+                clearInterval(timerInterval1);
+                isRunning1 = false;
+                showModal('Tempo', 'O tempo acabou!');
+                toggleTimer(); // Reseta visual do botão
+                return;
+            }
+            updateTimerDisplay();
         }, 1000);
     }
 }
 
-window.resetTimer = function () { if (isRunning1) toggleTimer(); timeLeft1 = modes1[currentMode1]; updateTimerDisplay(); }
+window.resetTimer = function () {
+    if (isRunning1) toggleTimer();
+    timeLeft1 = modes1[currentMode1];
+    updateTimerDisplay();
+}
 
+// --- NOVA FUNÇÃO: TIMER PERSONALIZADO (PREMIUM) ---
+window.customTimer = function () {
+    // 1. Verifica se é Premium
+    if (!requirePremium('Timer Personalizado')) return;
+
+    // 2. Abre o input customizado (Modal)
+    openCustomInputModal(
+        "Tempo Personalizado",
+        "Digite os minutos (ex: 50)",
+        "",
+        (val) => {
+            const minutes = parseInt(val);
+
+            if (isNaN(minutes) || minutes <= 0) {
+                return showModal("Inválido", "Digite um número maior que zero.");
+            }
+            if (minutes > 180) {
+                return showModal("Limite", "Máximo de 180 minutos.");
+            }
+
+            // 3. Configura o Timer
+            stopTimerIfRunning();
+
+            currentMode1 = 'custom';
+            modes1['custom'] = minutes * 60; // Define a duração total dinamicamente
+            timeLeft1 = minutes * 60;
+
+            updateTimerDisplay();
+
+            const label = document.getElementById('timer-label');
+            if (label) label.innerText = `${minutes} min`;
+
+            // Desativa estilo dos botões padrão
+            ['pomodoro', 'short', 'long'].forEach(m => {
+                const btn = document.getElementById(`mode-${m}`);
+                if (btn) {
+                    btn.classList.remove('bg-white', 'dark:bg-neutral-700', 'text-indigo-600', 'dark:text-white', 'shadow-sm');
+                    btn.classList.add('text-gray-500', 'dark:text-gray-400');
+                }
+            });
+
+            // Ativa estilo do botão custom
+            const customBtn = document.getElementById('mode-custom');
+            if (customBtn) {
+                customBtn.classList.add('bg-white', 'dark:bg-neutral-700', 'text-indigo-600', 'dark:text-white', 'shadow-sm');
+                customBtn.classList.remove('text-gray-500', 'dark:text-gray-400');
+            }
+        }
+    );
+}
+
+// Helper para parar timer sem resetar UI bruscamente
+function stopTimerIfRunning() {
+    if (isRunning1) {
+        clearInterval(timerInterval1);
+        isRunning1 = false;
+        const btn = document.getElementById('btn-start');
+        if (btn) {
+            btn.innerHTML = '<i class="fas fa-play pl-1"></i>';
+            btn.classList.replace('bg-red-600', 'bg-indigo-600');
+            btn.classList.replace('hover:bg-red-700', 'hover:bg-indigo-700');
+        }
+    }
+}
+
+// --- SET TIMER MODE ATUALIZADO (Lida com o botão Custom) ---
 window.setTimerMode = function (m) {
     ['pomodoro', 'short', 'long'].forEach(mode => {
         const btn = document.getElementById(`mode-${mode}`);
         if (btn) {
-            if (mode === m) { btn.classList.add('bg-white', 'dark:bg-neutral-700', 'text-gray-800', 'dark:text-white', 'shadow-sm'); btn.classList.remove('text-gray-500', 'dark:text-gray-400'); }
-            else { btn.classList.remove('bg-white', 'dark:bg-neutral-700', 'text-gray-800', 'dark:text-white', 'shadow-sm'); btn.classList.add('text-gray-500', 'dark:text-gray-400'); }
+            if (mode === m) {
+                btn.classList.add('bg-white', 'dark:bg-neutral-700', 'text-indigo-600', 'dark:text-white', 'shadow-sm');
+                btn.classList.remove('text-gray-500', 'dark:text-gray-400');
+            } else {
+                btn.classList.remove('bg-white', 'dark:bg-neutral-700', 'text-indigo-600', 'dark:text-white', 'shadow-sm');
+                btn.classList.add('text-gray-500', 'dark:text-gray-400');
+            }
         }
     });
+
+    // Desativa o botão Custom visualmente se clicou num modo padrão
+    const customBtn = document.getElementById('mode-custom');
+    if (customBtn) {
+        customBtn.classList.remove('bg-white', 'dark:bg-neutral-700', 'text-indigo-600', 'dark:text-white', 'shadow-sm');
+        customBtn.classList.add('text-gray-500', 'dark:text-gray-400');
+    }
+
     currentMode1 = m;
     const label = document.getElementById('timer-label');
     if (label) label.innerText = m === 'pomodoro' ? 'Foco' : (m === 'short' ? 'Curta' : 'Longa');
     resetTimer();
 }
-
 // ============================================================
 // --- FUNCIONALIDADE: OUTROS ---
 // ============================================================
@@ -3914,7 +4012,7 @@ window.renderPremiumPage = function () {
 
     // Verifica status
     const isPremium = isUserPremium();
-    
+
     // --- CONTEÚDO SE JÁ FOR PREMIUM (CARTÃO BLACK/GOLD) ---
     if (isPremium) {
         const now = new Date();
@@ -4089,7 +4187,7 @@ window.renderPremiumPage = function () {
 
         </div>
     `;
-    
+
     // Adicionar animação keyframe para o brilho do botão se não existir
     if (!document.getElementById('shimmer-style')) {
         const style = document.createElement('style');

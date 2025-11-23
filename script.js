@@ -3767,149 +3767,228 @@ class PixPayload {
     }
 }
 
-// --- 2. CONFIGURAÇÃO (⚠️ EDITE AQUI SEUS DADOS) ---
+// ============================================================
+// --- SISTEMA DE PAGAMENTO: VISUAL SALVE-SE (CLEAN) ---
+// ============================================================
+
+// 1. CLASSE GERADORA DE PIX (Essencial para o botão funcionar)
+class PixPayload {
+    constructor(key, name, city, amount, txid = '***') {
+        this.key = key;
+        this.name = name;
+        this.city = city;
+        this.amount = amount;
+        this.txid = txid;
+        this.ID_PAYLOAD_FORMAT_INDICATOR = '00';
+        this.ID_MERCHANT_ACCOUNT_INFORMATION = '26';
+        this.ID_MERCHANT_ACCOUNT_INFORMATION_GUI = '00';
+        this.ID_MERCHANT_ACCOUNT_INFORMATION_KEY = '01';
+        this.ID_MERCHANT_ACCOUNT_INFORMATION_DESCRIPTION = '02';
+        this.ID_MERCHANT_CATEGORY_CODE = '52';
+        this.ID_TRANSACTION_CURRENCY = '53';
+        this.ID_TRANSACTION_AMOUNT = '54';
+        this.ID_COUNTRY_CODE = '58';
+        this.ID_MERCHANT_NAME = '59';
+        this.ID_MERCHANT_CITY = '60';
+        this.ID_ADDITIONAL_DATA_FIELD_TEMPLATE = '62';
+        this.ID_ADDITIONAL_DATA_FIELD_TEMPLATE_TXID = '05';
+        this.CRC16_LENGTH = '63';
+    }
+
+    _getValue(id, value) {
+        const size = String(value.length).padStart(2, '0');
+        return id + size + value;
+    }
+
+    _getMechantAccountInfo() {
+        const gui = this._getValue(this.ID_MERCHANT_ACCOUNT_INFORMATION_GUI, 'BR.GOV.BCB.PIX');
+        const key = this._getValue(this.ID_MERCHANT_ACCOUNT_INFORMATION_KEY, this.key);
+        const description = this._getValue(this.ID_MERCHANT_ACCOUNT_INFORMATION_DESCRIPTION, 'Salve-se Premium');
+        return this._getValue(this.ID_MERCHANT_ACCOUNT_INFORMATION, gui + key + description);
+    }
+
+    _getAdditionalDataFieldTemplate() {
+        const txid = this._getValue(this.ID_ADDITIONAL_DATA_FIELD_TEMPLATE_TXID, this.txid);
+        return this._getValue(this.ID_ADDITIONAL_DATA_FIELD_TEMPLATE, txid);
+    }
+
+    _getCRC16(payload) {
+        payload += this.CRC16_LENGTH + '04';
+        let polinomio = 0x1021;
+        let resultado = 0xFFFF;
+        for (let i = 0; i < payload.length; i++) {
+            resultado ^= (payload.charCodeAt(i) << 8);
+            for (let bitwise = 0; bitwise < 8; bitwise++) {
+                if ((resultado <<= 1) & 0x10000) resultado ^= polinomio;
+                resultado &= 0xFFFF;
+            }
+        }
+        return this.CRC16_LENGTH + '04' + result.toString(16).toUpperCase().padStart(4, '0');
+    }
+
+    generate() {
+        const amountStr = this.amount.toFixed(2);
+        let payload = this._getValue(this.ID_PAYLOAD_FORMAT_INDICATOR, '01') +
+            this._getMechantAccountInfo() +
+            this._getValue(this.ID_MERCHANT_CATEGORY_CODE, '0000') +
+            this._getValue(this.ID_TRANSACTION_CURRENCY, '986') +
+            this._getValue(this.ID_TRANSACTION_AMOUNT, amountStr) +
+            this._getValue(this.ID_COUNTRY_CODE, 'BR') +
+            this._getValue(this.ID_MERCHANT_NAME, this.name) +
+            this._getValue(this.ID_MERCHANT_CITY, this.city) +
+            this._getAdditionalDataFieldTemplate();
+        return payload + this._getCRC16(payload);
+    }
+}
+
+// --- 2. CONFIGURAÇÃO (PREENCHA AQUI) ---
 const PIX_CONFIG = {
-    chave: "49a8740c-c54b-4ae7-8cff-656552ba105f",   // <--- SUA CHAVE PIX (Email, CPF, etc)
-    nome: "Jeovane Sales De Souza",      // <--- SEU NOME (Sem acentos)
-    cidade: "CBA",       // <--- SUA CIDADE (Sem acentos)
+    chave: "49a8740c-c54b-4ae7-8cff-656552ba105f", // <--- SUA CHAVE PIX
+    nome: "Jeovane Sales De Souza",    // <--- SEU NOME
+    cidade: "CP",     // <--- SUA CIDADE
     valor: 4.90,
-    whatsapp: "557581767649"       // <--- SEU ZAP (Com DDD e 55)
+    whatsapp: "557581767649"     // <--- SEU ZAP
 };
 
-// --- 3. GATILHO DO BOTÃO ---
+// --- 3. FUNÇÃO INICIAL ---
 window.startCheckout = function () {
-    renderWooviForm();
+    renderPaymentModal();
 };
 
-// --- TELA 1: FORMULÁRIO BONITO (ESTILO WOOVI) ---
-function renderWooviForm() {
-    const existing = document.getElementById('woovi-modal');
+// --- TELA 1: FORMULÁRIO (Visual Azul/Indigo) ---
+function renderPaymentModal() {
+    // Remove modal anterior se existir
+    const existing = document.getElementById('payment-modal');
     if (existing) existing.remove();
 
     const modal = document.createElement('div');
-    modal.id = 'woovi-modal';
-    modal.className = "fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-sm fade-in p-4 font-sans";
+    modal.id = 'payment-modal';
+    modal.className = "fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm fade-in p-4 font-sans";
 
     const uName = userProfile ? userProfile.displayName : '';
     const uEmail = currentUser ? currentUser.email : '';
 
+    // Visual atualizado para combinar com o site (Indigo/Dark)
     modal.innerHTML = `
-        <div class="bg-[#0d1117] w-full max-w-4xl rounded-2xl overflow-hidden shadow-2xl border border-[#30363d] flex flex-col md:flex-row relative animate-scale-in text-white">
+        <div class="bg-white dark:bg-[#18181b] w-full max-w-4xl rounded-2xl overflow-hidden shadow-2xl border border-gray-200 dark:border-[#27272a] flex flex-col md:flex-row relative animate-scale-in">
             
-            <button onclick="document.getElementById('woovi-modal').remove()" class="absolute top-4 right-4 text-gray-500 hover:text-white z-10 transition">
+            <button onclick="document.getElementById('payment-modal').remove()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-800 dark:hover:text-white z-10 transition">
                 <i class="fas fa-times text-xl"></i>
             </button>
 
-            <div class="bg-[#010409] p-8 md:w-5/12 border-r border-[#30363d] flex flex-col">
-                <div class="flex items-center gap-2 mb-6">
-                    <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
-                        <i class="fas fa-graduation-cap text-white"></i>
-                    </div>
-                    <span class="font-bold text-white tracking-tight">Salve-se UFRB</span>
+            <div class="bg-gray-50 dark:bg-[#09090b] p-8 md:w-5/12 border-r border-gray-200 dark:border-[#27272a] flex flex-col justify-center">
+                <div class="mb-6">
+                    <span class="bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider">Plano Selecionado</span>
+                    <h2 class="text-2xl font-bold text-gray-900 dark:text-white mt-2">Premium Mensal</h2>
+                    <p class="text-3xl font-black text-indigo-600 dark:text-indigo-500 mt-1">R$ ${PIX_CONFIG.valor.toFixed(2).replace('.', ',')}</p>
                 </div>
 
-                <h2 class="text-xl font-bold text-white mb-2">Finalizar Pagamento</h2>
-                <p class="text-gray-400 text-sm mb-8">Plano: <span class="text-white font-semibold">Premium Mensal</span></p>
-
-                <div class="bg-[#0d1117] border-2 border-[#238636] p-4 rounded-xl relative mb-4 cursor-pointer shadow-lg shadow-[#238636]/10">
-                    <div class="absolute -top-3 right-4 bg-[#238636] text-white text-[10px] font-bold px-2 py-0.5 rounded-full">RECOMENDADO</div>
-                    <div class="flex items-center justify-between">
-                        <div class="flex items-center gap-3">
-                            <div class="w-4 h-4 rounded-full border-4 border-[#238636]"></div>
-                            <div>
-                                <p class="text-white text-sm font-bold">Pix Instantâneo</p>
-                                <p class="text-gray-500 text-xs">Liberação rápida</p>
-                            </div>
-                        </div>
-                        <i class="fab fa-pix text-[#32bcad] text-xl"></i>
+                <div class="space-y-3">
+                    <div class="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400">
+                        <i class="fas fa-check text-green-500"></i> IA Ilimitada
+                    </div>
+                    <div class="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400">
+                        <i class="fas fa-check text-green-500"></i> Temas Exclusivos
+                    </div>
+                    <div class="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400">
+                        <i class="fas fa-check text-green-500"></i> Backup na Nuvem
                     </div>
                 </div>
             </div>
 
-            <div class="p-8 md:w-7/12 bg-[#0d1117] flex flex-col justify-center">
-                <h3 class="text-white font-bold mb-6">Seus dados</h3>
+            <div class="p-8 md:w-7/12 bg-white dark:bg-[#18181b] flex flex-col justify-center">
+                <h3 class="text-xl font-bold text-gray-800 dark:text-white mb-6">Confirmar Dados</h3>
                 
                 <div class="space-y-5">
                     <div>
-                        <label class="block text-[11px] font-bold text-gray-400 uppercase mb-1.5">Nome completo</label>
-                        <input type="text" id="payer-name" value="${uName}" class="w-full bg-[#010409] border border-[#30363d] rounded-lg px-4 py-3 text-white text-sm outline-none focus:border-[#238636] focus:ring-1 focus:ring-[#238636] transition" placeholder="Seu nome">
+                        <label class="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1.5">Nome Completo</label>
+                        <input type="text" id="payer-name" value="${uName}" class="w-full bg-gray-50 dark:bg-[#09090b] border border-gray-200 dark:border-[#27272a] rounded-xl px-4 py-3 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500 transition" placeholder="Seu nome">
                     </div>
                     
                     <div>
-                        <label class="block text-[11px] font-bold text-gray-400 uppercase mb-1.5">E-mail</label>
-                        <input type="email" id="payer-email" value="${uEmail}" class="w-full bg-[#010409] border border-[#30363d] rounded-lg px-4 py-3 text-white text-sm outline-none focus:border-[#238636] focus:ring-1 focus:ring-[#238636] transition" placeholder="seu@email.com">
+                        <label class="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1.5">E-mail</label>
+                        <input type="email" id="payer-email" value="${uEmail}" class="w-full bg-gray-50 dark:bg-[#09090b] border border-gray-200 dark:border-[#27272a] rounded-xl px-4 py-3 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500 transition" placeholder="seu@email.com">
                     </div>
 
-                    <button onclick="renderWooviQR()" class="w-full bg-[#8257e5] hover:bg-[#734bd1] text-white font-bold py-4 rounded-xl transition transform active:scale-95 shadow-lg shadow-[#8257e5]/20 flex items-center justify-center gap-2 mt-2">
-                        <i class="fas fa-lock text-xs"></i>
-                        <span>Pagar R$ ${PIX_CONFIG.valor.toFixed(2).replace('.', ',')}</span>
+                    <button onclick="generateQRStep()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-indigo-500/20 transition transform active:scale-95 flex items-center justify-center gap-2 mt-4">
+                        <span>Gerar Pix de R$ ${PIX_CONFIG.valor.toFixed(2).replace('.', ',')}</span>
+                        <i class="fas fa-arrow-right"></i>
                     </button>
                     
-                    <p class="text-center text-[10px] text-gray-500 mt-2">
-                        <i class="fas fa-shield-alt mr-1"></i> Ambiente seguro criptografado
-                    </p>
+                    <div class="flex items-center justify-center gap-2 text-[10px] text-gray-400 mt-2">
+                        <i class="fas fa-lock"></i> Pagamento seguro via Banco Central
+                    </div>
                 </div>
             </div>
         </div>
     `;
+
     document.body.appendChild(modal);
 }
 
-// --- TELA 2: QR CODE GERADO ---
-function renderWooviQR() {
+// --- TELA 2: QR CODE (Visual Clean) ---
+function generateQRStep() {
     const name = document.getElementById('payer-name').value || PIX_CONFIG.nome;
-    const btn = document.querySelector('#woovi-modal button[onclick="renderWooviQR()"]');
+    const btn = document.querySelector('#payment-modal button[onclick="generateQRStep()"]');
 
+    // Feedback de carregamento no botão
     if (btn) {
-        btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Processando...';
+        btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Gerando...';
         btn.disabled = true;
     }
 
-    // 1. Gera Pix
-    const pix = new PixPayload(PIX_CONFIG.chave, PIX_CONFIG.nome, PIX_CONFIG.cidade, PIX_CONFIG.valor, 'SALVESEPREMIUM');
-    const copyPasteCode = pix.generate();
+    try {
+        // 1. Gera o Payload Pix
+        const pix = new PixPayload(PIX_CONFIG.chave, PIX_CONFIG.nome, PIX_CONFIG.cidade, PIX_CONFIG.valor, 'PREMIUM');
+        const copyPasteCode = pix.generate();
 
-    // 2. Gera Imagem
-    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&bgcolor=ffffff&data=${encodeURIComponent(copyPasteCode)}`;
+        // 2. URL do QR Code (Google Chart API - Rápido e Seguro)
+        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&bgcolor=ffffff&data=${encodeURIComponent(copyPasteCode)}`;
 
-    setTimeout(() => {
-        const modalContent = document.querySelector('#woovi-modal > div');
+        // Delay pequeno para simular processamento (UX)
+        setTimeout(() => {
+            const modalContent = document.querySelector('#payment-modal > div');
 
-        // Muda o layout para mostrar o QR
-        modalContent.className = "bg-[#0d1117] w-full max-w-md rounded-2xl overflow-hidden shadow-2xl border border-[#30363d] p-6 relative animate-scale-in flex flex-col items-center";
+            // Redimensiona o modal para foco no QR Code
+            modalContent.className = "bg-white dark:bg-[#18181b] w-full max-w-sm rounded-2xl overflow-hidden shadow-2xl border border-gray-200 dark:border-[#27272a] p-6 relative animate-scale-in flex flex-col items-center text-center";
 
-        modalContent.innerHTML = `
-            <button onclick="document.getElementById('woovi-modal').remove()" class="absolute top-4 right-4 text-gray-500 hover:text-white transition">
-                <i class="fas fa-times text-xl"></i>
-            </button>
+            modalContent.innerHTML = `
+                <button onclick="document.getElementById('payment-modal').remove()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-800 dark:hover:text-white transition">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
 
-            <div class="w-16 h-16 bg-[#238636]/10 rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse border border-[#238636]/30">
-                <i class="fab fa-pix text-[#32bcad] text-3xl"></i>
-            </div>
-
-            <h2 class="text-xl font-bold text-white mb-1">Escaneie para pagar</h2>
-            <p class="text-gray-400 text-xs mb-6">Abra o app do seu banco e pague via Pix</p>
-
-            <div class="bg-white p-2 rounded-xl border-4 border-[#32bcad] shadow-[0_0_15px_rgba(50,188,173,0.15)] mb-6">
-                <img src="${qrUrl}" class="w-48 h-48 object-contain">
-            </div>
-
-            <div class="w-full bg-[#161b22] border border-[#30363d] rounded-lg p-3 flex items-center gap-3 mb-4 group cursor-pointer hover:border-[#8257e5] transition" onclick="navigator.clipboard.writeText('${copyPasteCode}'); alert('Código Pix copiado!')">
-                <div class="bg-[#010409] p-2 rounded border border-[#30363d]">
-                    <i class="far fa-copy text-gray-400"></i>
+                <div class="w-16 h-16 bg-indigo-50 dark:bg-indigo-900/20 rounded-full flex items-center justify-center mb-4 text-indigo-600 dark:text-indigo-400">
+                    <i class="fas fa-qrcode text-3xl"></i>
                 </div>
-                <div class="flex-1 overflow-hidden text-left">
-                    <p class="text-[10px] text-gray-500 font-bold uppercase">Pix Copia e Cola</p>
-                    <p class="text-xs text-gray-300 truncate font-mono opacity-80">${copyPasteCode}</p>
-                </div>
-                <i class="fas fa-chevron-right text-gray-600"></i>
-            </div>
 
-            <a href="https://wa.me/${PIX_CONFIG.whatsapp}?text=Olá,%20acabei%20de%20fazer%20o%20pix%20do%20plano%20Premium.%20Nome:%20${name}" target="_blank" class="w-full bg-[#238636] hover:bg-[#2ea043] text-white font-bold py-3 rounded-xl transition flex items-center justify-center gap-2 shadow-lg mb-2 transform active:scale-95">
-                <i class="fab fa-whatsapp text-lg"></i> Enviar Comprovante
-            </a>
-            
-            <p class="text-[10px] text-gray-600 mt-4">Após enviar o comprovante, liberamos seu acesso.</p>
-        `;
-    }, 1000);
+                <h2 class="text-xl font-bold text-gray-900 dark:text-white mb-1">Pagamento via Pix</h2>
+                <p class="text-gray-500 text-xs mb-6">Abra o app do seu banco e escaneie</p>
+
+                <div class="bg-white p-2 rounded-xl border-2 border-indigo-100 dark:border-neutral-700 shadow-sm mb-6">
+                    <img src="${qrUrl}" class="w-48 h-48 object-contain">
+                </div>
+
+                <div class="w-full bg-gray-50 dark:bg-[#09090b] border border-gray-200 dark:border-[#27272a] rounded-lg p-3 flex items-center gap-3 mb-4 group cursor-pointer hover:border-indigo-500 transition" onclick="navigator.clipboard.writeText('${copyPasteCode}'); alert('Código copiado!')">
+                    <div class="flex-1 overflow-hidden text-left">
+                        <p class="text-[10px] text-gray-500 font-bold uppercase">Pix Copia e Cola</p>
+                        <p class="text-xs text-gray-400 truncate font-mono">${copyPasteCode}</p>
+                    </div>
+                    <div class="bg-white dark:bg-[#18181b] p-2 rounded border border-gray-200 dark:border-[#27272a] text-indigo-600">
+                        <i class="far fa-copy"></i>
+                    </div>
+                </div>
+
+                <a href="https://wa.me/${PIX_CONFIG.whatsapp}?text=Olá,%20fiz%20o%20pagamento%20do%20Premium.%20Nome:%20${name}" target="_blank" class="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-3 rounded-xl transition flex items-center justify-center gap-2 shadow-lg shadow-green-600/20">
+                    <i class="fab fa-whatsapp text-lg"></i> Enviar Comprovante
+                </a>
+                
+                <p class="text-[10px] text-gray-400 mt-4">Liberação imediata após o envio.</p>
+            `;
+        }, 800);
+
+    } catch (e) {
+        console.error(e);
+        alert("Erro ao gerar QR Code. Verifique o console.");
+        if (btn) { btn.innerHTML = 'Tentar Novamente'; btn.disabled = false; }
+    }
 }

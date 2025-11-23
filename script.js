@@ -4092,7 +4092,6 @@ window.renderPremiumPage = function () {
     }
 
     // --- CONTEÚDO DE VENDA (SE NÃO FOR PREMIUM) ---
-    // AQUI ESTÁ A MUDANÇA PRINCIPAL: O botão agora chama startPayment()
     container.innerHTML = `
         <div class="max-w-4xl mx-auto pb-12 px-4 md:px-0">
             

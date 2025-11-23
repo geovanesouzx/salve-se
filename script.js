@@ -3692,3 +3692,81 @@ window.renderPremiumPage = function () {
         </div>
     `;
 }
+
+// ============================================================
+// --- PAGAMENTO MERCADO PAGO ---
+// ============================================================
+
+window.startCheckout = async function () {
+    const btn = document.querySelector('button[onclick="startCheckout()"]');
+    const originalHTML = btn.innerHTML;
+
+    // Efeito visual de carregamento
+    btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Gerando PIX...';
+    btn.disabled = true;
+    btn.classList.add('opacity-75', 'cursor-not-allowed');
+
+    try {
+        const response = await fetch('/api/checkout', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+
+        const data = await response.json();
+
+        if (data.init_point) {
+            // Redireciona o usuário para o checkout do Mercado Pago
+            window.location.href = data.init_point;
+        } else {
+            throw new Error('Link de pagamento não gerado');
+        }
+
+    } catch (error) {
+        console.error("Erro no checkout:", error);
+        showModal("Erro", "Falha ao iniciar pagamento. Tente novamente.");
+
+        // Restaura o botão
+        btn.innerHTML = originalHTML;
+        btn.disabled = false;
+        btn.classList.remove('opacity-75', 'cursor-not-allowed');
+    }
+};
+
+// Verifica se o usuário voltou do Mercado Pago com sucesso
+// Isso roda automaticamente quando a página carrega
+document.addEventListener('DOMContentLoaded', async () => {
+    // Checa se tem "?status=success" na URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const status = urlParams.get('status');
+
+    if (status === 'success') {
+        // Limpa a URL para ficar bonita
+        window.history.replaceState({}, document.title, "/");
+
+        // Ativa o Premium no Firebase
+        if (currentUser) {
+            try {
+                // Atualiza no Banco de Dados
+                await setDoc(doc(db, "users", currentUser.uid), {
+                    isPremium: true,
+                    plan: 'pro_monthly',
+                    premiumSince: new Date().toISOString()
+                }, { merge: true });
+
+                // Atualiza na Memória Local
+                userProfile.isPremium = true;
+                localStorage.setItem('salvese_user_profile', JSON.stringify(userProfile));
+
+                // Mostra mensagem de festa 🎉
+                showModal("Pagamento Aprovado! 👑", "Parabéns! Sua conta Premium foi ativada com sucesso. Aproveite o Salve-se UFRB sem limites!");
+
+                // Atualiza a interface para refletir o Premium
+                refreshAllUI();
+
+            } catch (e) {
+                console.error("Erro ao salvar premium:", e);
+                showModal("Atenção", "Pagamento confirmado, mas houve um erro ao salvar. Tire um print e contate o suporte.");
+            }
+        }
+    }
+});

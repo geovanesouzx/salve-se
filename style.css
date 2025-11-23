@@ -348,14 +348,14 @@ body {
 }
 
 /* --- FORÇAR MODO ESCURO --- */
+/* Adicione no final do style.css */
+
 html.dark body {
     background-color: #09090b !important;
-    /* Força o fundo preto */
+    /* Preto absoluto */
     color: #f3f4f6 !important;
-    /* Força texto claro */
 }
 
-/* Garante que o container principal não tenha fundo branco herdado */
 html.dark .app-content-wrapper,
 html.dark main {
     background-color: #09090b !important;

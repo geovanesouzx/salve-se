@@ -617,27 +617,6 @@ function formatAIContent(text) {
 }
 
 window.sendIAMessage = async function () {
-    // --- TRAVA PREMIUM (LIMITE DIÁRIO DE 3 MENSAGENS) ---
-    if (!isPremium()) {
-        const today = new Date().toLocaleDateString();
-        let usage = JSON.parse(localStorage.getItem('ai_usage_limit') || '{}');
-
-        // Se mudou o dia, reseta o contador
-        if (usage.date !== today) usage = { date: today, count: 0 };
-
-        // Se já usou 3 vezes, bloqueia e para a função
-        if (usage.count >= 3) {
-            showPremiumLock("IA Ilimitada");
-            document.getElementById('chat-input').value = ''; // Limpa o input
-            return;
-        }
-
-        // Se ainda tem cota, conta +1 e deixa passar
-        usage.count++;
-        localStorage.setItem('ai_usage_limit', JSON.stringify(usage));
-    }
-    // ----------------------------------------------------
-
     const input = document.getElementById('chat-input');
     const message = input.value.trim();
     const sendBtn = document.getElementById('chat-send-btn');
@@ -654,10 +633,10 @@ window.sendIAMessage = async function () {
     showTypingIndicator();
 
     try {
-        // 2. Contexto do sistema
-        const statusCircular = typeof getBusStatusForAI === 'function' ? getBusStatusForAI() : "Não verificado";
+        // 2. Contexto
+        const statusCircular = getBusStatusForAI();
 
-        // 3. Prompt do Sistema
+        // 3. PROMPT DO SISTEMA (SUPER ATUALIZADO)
         let systemInstructionText = `
 VOCÊ É A "SALVE-SE IA", ASSISTENTE ACADÊMICA DA UFRB.
 Sua missão é organizar a vida do estudante, reduzir estresse e potencializar os estudos.
@@ -670,23 +649,37 @@ CONTEXTO ATUAL:
 - Ônibus: ${statusCircular}
 
 SUAS SUPER HABILIDADES:
-1. 📧 Redator de Emails: Use o comando "generate_template".
+1. 📧 Redator de Emails (NOVO):
+   - Crie emails formais e acadêmicos para professores, colegiado ou reitoria.
+   - Use linguagem culta e polida.
+   - Use [Colchetes] para indicar onde o aluno deve preencher (ex: [Seu Nome], [Matrícula]).
+   - AÇÃO: Use o comando "generate_template".
+
 2. ✍️ Redator de Notas: Use HTML (<b>, <ul>, <h2>) para formatar.
 3. 🎨 Designer: Mudar cores.
 4. 📅 Organizador: Criar tarefas e lembretes.
 
 AÇÕES (Retorne APENAS JSON):
 { "message": "texto curto pro chat", "commands": [ { "action": "...", "params": {...} } ] }
+
+Comandos Disponíveis:
+- "generate_template": { "content": "Assunto: ...\n\nPrezado..." }  <-- NOVO
+- "create_note": { "title": "...", "content": "HTML..." }
+- "create_task": { "text": "...", "priority": "normal|high" }
+- "create_reminder": { "desc": "...", "date": "YYYY-MM-DD" }
+- "set_global_color": { "color": "..." }
+- "navigate": { "page": "..." }
 `;
 
+        // 4. Histórico (Correção do bug de duplicidade incluída)
         let historyPayload = [{ role: 'system', text: systemInstructionText }];
-        const recentHistory = chatHistory.slice(0, -1).slice(-6);
+        const recentHistory = chatHistory.slice(0, -1).slice(-6); // Pega as últimas 6 interações
 
         recentHistory.forEach(msg => {
             historyPayload.push({ role: msg.role, text: msg.text });
         });
 
-        // 4. Envio para API
+        // 5. Envio para API
         const response = await fetch('/api/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -700,7 +693,7 @@ AÇÕES (Retorne APENAS JSON):
         const data = await response.json();
         if (data.error) throw new Error(data.error);
 
-        // 5. Tratamento da Resposta
+        // 6. Tratamento da Resposta
         let aiResponseText = data.text;
         let cleanText = aiResponseText.replace(/```json/g, '').replace(/```/g, '').trim();
         const first = cleanText.indexOf('{');
@@ -712,11 +705,11 @@ AÇÕES (Retorne APENAS JSON):
         if (responseJson.message) appendMessage('ai', responseJson.message);
         else appendMessage('ai', "Feito!");
 
-        // Executa os comandos da IA
+        // Executa os comandos
         if (responseJson.commands && Array.isArray(responseJson.commands)) {
             for (const cmd of responseJson.commands) {
                 await executeAICommand(cmd);
-                await new Promise(r => setTimeout(r, 500));
+                await new Promise(r => setTimeout(r, 500)); // Delay para dar tempo de ver a ação
             }
         }
 
@@ -731,6 +724,60 @@ AÇÕES (Retorne APENAS JSON):
         scrollToBottom();
     }
 };
+
+function hideTypingIndicator() {
+    const existing = document.getElementById('dynamic-typing-indicator');
+    if (existing) existing.remove();
+}
+
+function appendMessage(sender, text) {
+    const container = document.getElementById('chat-messages-container');
+    if (!container) return;
+
+    chatHistory.push({ role: sender === 'user' ? 'user' : 'assistant', text: text });
+    if (chatHistory.length > 30) chatHistory.shift();
+
+    const div = document.createElement('div');
+    div.className = `flex w-full ${sender === 'user' ? 'justify-end' : 'justify-start'} mb-4 animate-scale-in group`;
+
+    const time = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+    const formattedText = text
+        .replace(/\n/g, '<br>')
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/`([^`]+)`/g, '<code class="bg-gray-200 dark:bg-neutral-700 px-1 rounded text-xs font-mono">$1</code>');
+
+    if (sender === 'user') {
+        div.innerHTML = `
+            <div class="flex flex-col items-end max-w-[85%]">
+                <div class="bg-indigo-600 text-white rounded-2xl rounded-br-sm px-4 py-3 shadow-md text-sm leading-relaxed relative">
+                    ${formattedText}
+                </div>
+                <span class="text-[10px] text-gray-400 mt-1 mr-1 opacity-0 group-hover:opacity-100 transition-opacity">${time}</span>
+            </div>
+        `;
+    } else {
+        const providerLabel = currentAIProvider === 'gemini' ? 'Gemini' : 'Llama';
+        div.innerHTML = `
+            <div class="flex gap-3 max-w-[90%]">
+                <div class="flex-shrink-0 flex flex-col justify-end">
+                    <div class="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-xs shadow-sm">
+                        <i class="fas fa-robot"></i>
+                    </div>
+                </div>
+                <div class="flex flex-col items-start">
+                    <div class="bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder text-gray-800 dark:text-gray-200 rounded-2xl rounded-bl-sm px-4 py-3 shadow-sm text-sm leading-relaxed">
+                        ${formattedText}
+                    </div>
+                    <span class="text-[10px] text-gray-400 mt-1 ml-1 opacity-0 group-hover:opacity-100 transition-opacity">${providerLabel} • ${time}</span>
+                </div>
+            </div>
+        `;
+    }
+    container.appendChild(div);
+    scrollToBottom();
+}
+
 // ============================================================
 // --- EXECUTOR DE COMANDOS DA IA ---
 // ============================================================
@@ -1089,10 +1136,8 @@ function refreshAllUI() {
     if (window.renderNotes && currentViewContext === 'notas') window.renderNotes(false);
 
     injectWidgetControls();
-
-    // --- ATUALIZA AS COROAS (MOSTRA/ESCONDE) ---
-    updatePremiumVisuals();
 }
+
 async function saveData() {
     localStorage.setItem('salvese_schedule', JSON.stringify(scheduleData));
     localStorage.setItem('salvese_tasks', JSON.stringify(tasksData));
@@ -1124,32 +1169,22 @@ async function saveData() {
 }
 
 window.manualBackup = async function () {
-    // --- TRAVA PREMIUM (BLOQUEIO) ---
-    if (!isPremium()) {
-        showPremiumLock("Backup Prioritário");
-        return;
-    }
-    // --------------------------------
-
     const btn = document.getElementById('btn-manual-backup');
     if (btn) {
-        // Salva o texto original para restaurar depois
         const originalText = btn.innerHTML;
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando...';
         btn.disabled = true;
+    }
 
-        await saveData();
+    await saveData();
 
-        setTimeout(() => {
-            showModal('Backup', 'Seus dados foram sincronizados com a nuvem com sucesso!');
+    setTimeout(() => {
+        showModal('Backup', 'Seus dados foram sincronizados com a nuvem com sucesso!');
+        if (btn) {
             btn.innerHTML = originalText;
             btn.disabled = false;
-        }, 800);
-    } else {
-        // Fallback caso o botão não exista na tela atual (ex: chamado pela IA)
-        await saveData();
-        showModal('Backup', 'Seus dados foram sincronizados com a nuvem com sucesso!');
-    }
+        }
+    }, 800);
 }
 
 window.renderNotes = function (forceRender = true) {
@@ -1193,7 +1228,6 @@ function renderNotesList(container) {
             </div>
         `;
     } else {
-        // Continua a renderização dos cards...
         // Ordena: Primeiro a fixada, depois as recentes
         const sortedNotes = [...notesData].sort((a, b) => {
             if (a.pinned) return -1;
@@ -1208,12 +1242,14 @@ function renderNotesList(container) {
             const snippet = textContent.substring(0, 100) + (textContent.length > 100 ? "..." : "");
             const dateStr = new Date(note.updatedAt || Date.now()).toLocaleDateString('pt-BR');
 
+            // Define a cor do alfinete
             const pinColor = note.pinned ? "text-indigo-600 dark:text-indigo-400 scale-110" : "text-gray-300 dark:text-neutral-700 hover:text-gray-500";
             const borderClass = note.pinned ? "border-indigo-500 ring-1 ring-indigo-500" : "border-gray-200 dark:border-darkborder";
 
             const card = document.createElement('div');
             card.className = `bg-white dark:bg-darkcard border ${borderClass} rounded-xl p-5 hover:shadow-lg transition cursor-pointer group flex flex-col h-48 relative`;
 
+            // Clique no card abre a nota
             card.onclick = (e) => {
                 if (!e.target.closest('button')) openNote(note.id);
             };
@@ -1242,6 +1278,7 @@ function renderNotesList(container) {
             grid.appendChild(card);
         });
     }
+
     wrapper.appendChild(grid);
     container.appendChild(wrapper);
 }
@@ -1809,13 +1846,11 @@ window.renderSettings = function () {
 
     const photoUrl = userProfile.photoURL || "https://files.catbox.moe/pmdtq6.png";
 
-    // --- LÓGICA ADICIONADA AQUI ---
     // Detecta se é vídeo para renderizar o HTML correto no template string
     const isVideo = photoUrl.match(/\.(mp4|webm)$/i);
     const mediaHtml = isVideo
         ? `<video src="${photoUrl}" class="w-full h-full object-cover" autoplay loop muted playsinline></video>`
         : `<img src="${photoUrl}" class="w-full h-full object-cover" onerror="this.src='https://files.catbox.moe/pmdtq6.png'">`;
-    // -----------------------------
 
     const createActionCard = (onclick, svgIcon, title, subtitle, colorClass = "text-gray-500 group-hover:text-indigo-500") => `
         <button onclick="${onclick}" class="group w-full bg-white dark:bg-darkcard border border-gray-100 dark:border-darkborder p-4 rounded-2xl flex items-center justify-between hover:border-indigo-500 dark:hover:border-indigo-500 hover:shadow-md transition-all duration-200 mb-3 text-left">
@@ -3006,31 +3041,8 @@ const templates = {
     tcc: `Prezado(a) Prof(a). [Nome],\n\nTenho interesse em sua área de pesquisa e gostaria de saber se há disponibilidade para orientação de TCC sobre [Tema].\n\nAtenciosamente,\n[Seu Nome]`
 };
 
-window.loadTemplate = function (k) {
-    // --- TRAVA PREMIUM ---
-    // O template 'absence' (Justificar Falta) é grátis para teste.
-    // Todos os outros (TCC, Prazo, Revisão) exigem Premium.
-    if (k !== 'absence' && !isPremium()) {
-        showPremiumLock("Templates Avançados");
-        return;
-    }
-    // ---------------------
-
-    document.getElementById('email-content').value = templates[k];
-}
-
-window.copyEmail = function () {
-    const e = document.getElementById('email-content');
-    e.select();
-    document.execCommand('copy');
-
-    // Feedback visual
-    const btn = document.querySelector('button[onclick="copyEmail()"]');
-    const original = btn.innerHTML;
-    btn.innerHTML = '<i class="fas fa-check"></i> Copiado!';
-    setTimeout(() => btn.innerHTML = original, 1500);
-}
-
+window.loadTemplate = function (k) { document.getElementById('email-content').value = templates[k]; }
+window.copyEmail = function () { const e = document.getElementById('email-content'); e.select(); document.execCommand('copy'); }
 window.openPortal = function () { window.open('https://sistemas.ufrb.edu.br/sigaa/verTelaLogin.do', '_blank'); }
 
 // ============================================================
@@ -3079,44 +3091,25 @@ window.toggleColorMenu = function (device) {
     if (!menu) return;
     const isHidden = menu.classList.contains('hidden');
     document.querySelectorAll('.color-menu').forEach(m => m.classList.add('hidden'));
-
     if (isHidden) {
         menu.innerHTML = '';
         Object.keys(colorPalettes).forEach(color => {
             const btn = document.createElement('button');
             const rgb = colorPalettes[color][500];
-            // Adicionei 'relative' aqui para posicionar a coroa
-            btn.className = `w-6 h-6 rounded-full border border-gray-200 dark:border-gray-700 hover:scale-110 transition transform focus:outline-none ring-2 ring-transparent focus:ring-offset-1 focus:ring-gray-400 relative`;
+            btn.className = `w-6 h-6 rounded-full border border-gray-200 dark:border-gray-700 hover:scale-110 transition transform focus:outline-none ring-2 ring-transparent focus:ring-offset-1 focus:ring-gray-400`;
             btn.style.backgroundColor = `rgb(${rgb})`;
             btn.title = color.charAt(0).toUpperCase() + color.slice(1);
             btn.onclick = () => setThemeColor(color);
-
-            // --- CÓDIGO NOVO: ADICIONA COROA SE NÃO FOR INDIGO ---
-            if (color !== 'indigo') {
-                const crown = document.createElement('i');
-                // A classe 'premium-icon' é importante para o script esconder depois
-                crown.className = "fas fa-crown text-amber-400 text-[8px] absolute -top-1 -right-1 drop-shadow-md premium-icon";
-                btn.appendChild(crown);
-            }
-            // -----------------------------------------------------
-
             menu.appendChild(btn);
         });
-
-        // Chama a função para esconder as coroas se o usuário já for premium
-        updatePremiumVisuals();
-
         menu.classList.remove('hidden');
         menu.classList.add('visible');
     }
 }
 
 function setThemeColor(colorName) {
-    // --- NOVO BLOCO: TRAVA PREMIUM ---
-    if (colorName !== 'indigo' && !isPremium()) {
-        showPremiumLock("Cores Personalizadas");
-        return;
-    }
+    const palette = colorPalettes[colorName];
+    if (!palette) return;
 
     const iconColor = colorName === 'black' ? `rgb(${palette[900]})` : `rgb(${palette[600]})`;
 
@@ -3238,46 +3231,7 @@ if ('serviceWorker' in navigator) {
     window.addEventListener('offline', updateNetworkStatus);
 }
 
-// ============================================================
-// --- CONTROLE PREMIUM (BLOQUEIOS) ---
-// ============================================================
-
-function isPremium() {
-    // Verifica se o usuário existe e tem a flag isPremium
-    return currentUser && userProfile && userProfile.isPremium === true;
-}
-
-function showPremiumLock(recurso) {
-    // Mostra um modal bonito vendendo o peixe
-    showModal(
-        `Recurso Premium 👑`,
-        `O recurso "${recurso}" é exclusivo para assinantes.\n\nDesbloqueie agora por apenas R$ 5,00!`
-    );
-
-    // Quando fechar o modal, leva pra tela de compra
-    setTimeout(() => switchPage('premium'), 2000);
-}
-
-function updatePremiumVisuals() {
-    const userIsPremium = isPremium();
-
-    // Pega todas as coroas do site
-    const icons = document.querySelectorAll('.premium-icon');
-
-    icons.forEach(icon => {
-        if (userIsPremium) {
-            // Se pagou, esconde a coroa
-            icon.style.display = 'none';
-        } else {
-            // Se é grátis, mostra a coroa
-            icon.style.display = 'inline-block';
-        }
-    });
-}
-
-// ============================================================
-// --- INICIALIZAÇÃO DOM ---
-// ============================================================
+// Inicialização DOM
 document.addEventListener('DOMContentLoaded', () => {
     window.renderTasks();
     window.renderReminders();
@@ -3298,14 +3252,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     setInterval(window.updateNextClassWidget, 60000);
 
-    // Inicializa calculadora se existir
-    if (typeof addGradeRow === 'function') {
-        addGradeRow();
-        addGradeRow();
-    }
-    if (document.getElementById('passing-grade')) {
-        document.getElementById('passing-grade').addEventListener('input', calculateAverage);
-    }
+    addGradeRow(); addGradeRow();
+    if (document.getElementById('passing-grade')) document.getElementById('passing-grade').addEventListener('input', calculateAverage);
 });
 
 // --- NOVA FUNÇÃO AUXILIAR PARA A IA (COM REGRAS DE FIM DE SEMANA) ---
@@ -3709,7 +3657,7 @@ window.renderPremiumPage = function () {
                     <div class="mb-6">
                         <h3 class="text-lg font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">Pro</h3>
                         <div class="mt-4 flex items-baseline gap-2">
-                            <span class="text-4xl font-black text-gray-900 dark:text-white">R$ 5,00</span>
+                            <span class="text-4xl font-black text-gray-900 dark:text-white">R$ 4,90</span>
                             <span class="text-gray-500 dark:text-gray-400">/mês</span>
                         </div>
                         <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">Para quem quer dominar a universidade.</p>
@@ -3744,65 +3692,3 @@ window.renderPremiumPage = function () {
         </div>
     `;
 }
-
-// ============================================================
-// --- PAGAMENTO ASAAS (COM CPF) ---
-// ============================================================
-
-window.startCheckout = async function () {
-    const btn = document.querySelector('button[onclick="startCheckout()"]');
-    const originalHTML = btn.innerHTML;
-
-    // 1. Pede o CPF (Obrigatório para PIX)
-    // Usamos um prompt simples para não ter que criar telas novas agora
-    let userCpf = prompt("Para gerar o PIX, informe seu CPF (apenas números):");
-
-    if (!userCpf) return; // Se cancelar, para tudo
-
-    // Limpa o CPF (deixa só números)
-    userCpf = userCpf.replace(/\D/g, '');
-
-    if (userCpf.length !== 11) {
-        alert("CPF inválido. Digite os 11 números.");
-        return;
-    }
-
-    // Feedback visual
-    btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Gerando PIX...';
-    btn.disabled = true;
-    btn.classList.add('opacity-75', 'cursor-not-allowed');
-
-    try {
-        const payload = {
-            email: currentUser.email,
-            name: userProfile.displayName || "Estudante Salve-se",
-            cpf: userCpf // Agora enviamos o CPF!
-        };
-
-        const response = await fetch('/api/checkout', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-
-        const data = await response.json();
-
-        // Se der erro no backend, lançamos para o catch
-        if (data.error) throw new Error(data.error);
-
-        if (data.init_point) {
-            window.location.href = data.init_point;
-        } else {
-            throw new Error('O Asaas não retornou o link.');
-        }
-
-    } catch (error) {
-        console.error("Erro detalhado:", error);
-        // Agora mostramos o erro REAL na tela
-        showModal("Atenção", "Erro: " + error.message);
-
-        btn.innerHTML = originalHTML;
-        btn.disabled = false;
-        btn.classList.remove('opacity-75', 'cursor-not-allowed');
-    }
-};

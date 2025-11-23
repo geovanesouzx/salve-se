@@ -1,5 +1,11 @@
-body { font-family: 'Inter', sans-serif; transition: background-color 0.3s, color 0.3s; }
-.theme-transition { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+body {
+    font-family: 'Inter', sans-serif;
+    transition: background-color 0.3s, color 0.3s;
+}
+
+.theme-transition {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
 
 :root {
     --theme-50: 238 242 255;
@@ -15,82 +21,266 @@ body { font-family: 'Inter', sans-serif; transition: background-color 0.3s, colo
 }
 
 /* Scrollbar */
-::-webkit-scrollbar { width: 8px; height: 8px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-.dark ::-webkit-scrollbar-thumb { background: #333; }
-.dark ::-webkit-scrollbar-thumb:hover { background: #555; }
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+    background: #333;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
 
 /* Utility to hide scrollbar for horizontal tabs */
 .no-scrollbar::-webkit-scrollbar {
     display: none;
 }
+
 .no-scrollbar {
     -ms-overflow-style: none;
     scrollbar-width: none;
 }
 
 /* Nav Active State */
-.nav-item.active { background-color: rgb(var(--theme-100)); color: rgb(var(--theme-700)); border-right: 3px solid rgb(var(--theme-600)); }
-.dark .nav-item.active { background-color: #27272a; color: rgb(var(--theme-400)); border-right: 3px solid rgb(var(--theme-500)); }
+.nav-item.active {
+    background-color: rgb(var(--theme-100));
+    color: rgb(var(--theme-700));
+    border-right: 3px solid rgb(var(--theme-600));
+}
+
+.dark .nav-item.active {
+    background-color: #27272a;
+    color: rgb(var(--theme-400));
+    border-right: 3px solid rgb(var(--theme-500));
+}
 
 /* Animations */
-.fade-in { animation: fadeIn 0.4s ease-out; }
-@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+.fade-in {
+    animation: fadeIn 0.4s ease-out;
+}
 
-.animate-scale-in { animation: scaleIn 0.3s ease-out forwards; }
-@keyframes scaleIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
 
-.animate-fade-in-up { animation: fadeInUp 0.5s ease-out forwards; }
-@keyframes fadeInUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
 
-.color-menu { transform-origin: top left; transition: transform 0.2s ease-out, opacity 0.2s ease-out; }
-.color-menu.hidden { transform: scale(0.95); opacity: 0; pointer-events: none; }
-.color-menu.visible { transform: scale(1); opacity: 1; pointer-events: auto; }
+.animate-scale-in {
+    animation: scaleIn 0.3s ease-out forwards;
+}
 
-.route-item { transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
+@keyframes scaleIn {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.animate-fade-in-up {
+    animation: fadeInUp 0.5s ease-out forwards;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.color-menu {
+    transform-origin: top left;
+    transition: transform 0.2s ease-out, opacity 0.2s ease-out;
+}
+
+.color-menu.hidden {
+    transform: scale(0.95);
+    opacity: 0;
+    pointer-events: none;
+}
+
+.color-menu.visible {
+    transform: scale(1);
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.route-item {
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
 
 /* Table Styles */
-.schedule-table { border-collapse: separate; border-spacing: 0; width: 100%; }
-.schedule-table th { position: sticky; top: 0; z-index: 20; background-color: inherit; }
-.schedule-table td, .schedule-table th { border-bottom: 1px solid; border-right: 1px solid; border-color: #e5e7eb; }
-.dark .schedule-table td, .dark .schedule-table th { border-color: #27272a; }
-.schedule-table td:last-child, .schedule-table th:last-child { border-right: none; }
-.schedule-cell { height: 80px; vertical-align: top; text-align: center; padding: 0; transition: background-color 0.2s; position: relative; }
-.schedule-cell:hover { background-color: rgba(0,0,0,0.02); }
-.dark .schedule-cell:hover { background-color: rgba(255,255,255,0.03); }
-.add-btn-minimal { color: #a1a1aa; transition: all 0.2s; font-size: 1.2rem; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; opacity: 0; }
-.schedule-cell:hover .add-btn-minimal { opacity: 0.3; color: rgb(var(--theme-500)); transform: scale(1.2); }
+.schedule-table {
+    border-collapse: separate;
+    border-spacing: 0;
+    width: 100%;
+}
+
+.schedule-table th {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background-color: inherit;
+}
+
+.schedule-table td,
+.schedule-table th {
+    border-bottom: 1px solid;
+    border-right: 1px solid;
+    border-color: #e5e7eb;
+}
+
+.dark .schedule-table td,
+.dark .schedule-table th {
+    border-color: #27272a;
+}
+
+.schedule-table td:last-child,
+.schedule-table th:last-child {
+    border-right: none;
+}
+
+.schedule-cell {
+    height: 80px;
+    vertical-align: top;
+    text-align: center;
+    padding: 0;
+    transition: background-color 0.2s;
+    position: relative;
+}
+
+.schedule-cell:hover {
+    background-color: rgba(0, 0, 0, 0.02);
+}
+
+.dark .schedule-cell:hover {
+    background-color: rgba(255, 255, 255, 0.03);
+}
+
+.add-btn-minimal {
+    color: #a1a1aa;
+    transition: all 0.2s;
+    font-size: 1.2rem;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+}
+
+.schedule-cell:hover .add-btn-minimal {
+    opacity: 0.3;
+    color: rgb(var(--theme-500));
+    transform: scale(1.2);
+}
 
 /* Editor Styles */
 #editor-content {
     min-height: 200px;
     line-height: 1.6;
 }
-#editor-content p { margin-bottom: 1em; } /* Adiciona espaço entre parágrafos */
-#editor-content ul { list-style-type: disc; padding-left: 1.5em; margin-bottom: 1em; }
-#editor-content ol { list-style-type: decimal; padding-left: 1.5em; margin-bottom: 1em; }
-#editor-content b { font-weight: 800; }
-#editor-content i { font-style: italic; }
-#editor-content u { text-decoration: underline; }
+
+#editor-content p {
+    margin-bottom: 1em;
+}
+
+/* Adiciona espaço entre parágrafos */
+#editor-content ul {
+    list-style-type: disc;
+    padding-left: 1.5em;
+    margin-bottom: 1em;
+}
+
+#editor-content ol {
+    list-style-type: decimal;
+    padding-left: 1.5em;
+    margin-bottom: 1em;
+}
+
+#editor-content b {
+    font-weight: 800;
+}
+
+#editor-content i {
+    font-style: italic;
+}
+
+#editor-content u {
+    text-decoration: underline;
+}
 
 /* Network Status Indicator */
 .network-status {
-    position: fixed; bottom: 20px; right: 20px; z-index: 100;
-    padding: 8px 16px; border-radius: 99px; font-size: 0.75rem; font-weight: bold;
-    display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    transition: transform 0.3s, opacity 0.3s; pointer-events: none;
-    opacity: 0; transform: translateY(20px);
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 100;
+    padding: 8px 16px;
+    border-radius: 99px;
+    font-size: 0.75rem;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    transition: transform 0.3s, opacity 0.3s;
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(20px);
 }
-.network-status.show { opacity: 1; transform: translateY(0); }
-.network-status.offline { background-color: #ef4444; color: white; }
-.network-status.online { background-color: #21c85e; color: white; }
+
+.network-status.show {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.network-status.offline {
+    background-color: #ef4444;
+    color: white;
+}
+
+.network-status.online {
+    background-color: #21c85e;
+    color: white;
+}
 
 /* Glass effect for modal backdrops */
-.backdrop-blur-sm { backdrop-filter: blur(4px); }
+.backdrop-blur-sm {
+    backdrop-filter: blur(4px);
+}
 
 /* Smooth scrolling */
-.scroll-smooth { scroll-behavior: smooth; }
+.scroll-smooth {
+    scroll-behavior: smooth;
+}
 
 /* =========================================
    FIX DE PERSONALIZAÇÃO DE WIDGETS (TEMA ESCURO)
@@ -102,22 +292,22 @@ body { font-family: 'Inter', sans-serif; transition: background-color 0.3s, colo
 }
 
 /* Força ícones e textos de nível superior a serem brancos */
-.widget-custom-dark > div > div > h3,
-.widget-custom-dark > div > div > p,
-.widget-custom-dark > div > h3,
-.widget-custom-dark > h3 {
+.widget-custom-dark>div>div>h3,
+.widget-custom-dark>div>div>p,
+.widget-custom-dark>div>h3,
+.widget-custom-dark>h3 {
     color: rgba(255, 255, 255, 0.95) !important;
 }
 
 /* Ícones soltos no topo do widget */
-.widget-custom-dark > div > div > i,
-.widget-custom-dark > div > i {
+.widget-custom-dark>div>div>i,
+.widget-custom-dark>div>i {
     color: white !important;
 }
 
 /* SVG's no topo do widget */
-.widget-custom-dark > div > div > svg,
-.widget-custom-dark > div > svg {
+.widget-custom-dark>div>div>svg,
+.widget-custom-dark>div>svg {
     stroke: white !important;
 }
 
@@ -127,7 +317,8 @@ body { font-family: 'Inter', sans-serif; transition: background-color 0.3s, colo
 .widget-custom-dark .bg-white,
 .widget-custom-dark .bg-gray-50,
 .widget-custom-dark .bg-gray-100 {
-    color: #1f2937 !important; /* gray-800 */
+    color: #1f2937 !important;
+    /* gray-800 */
 }
 
 /* Garante que títulos e textos dentro desses cartões brancos fiquem visíveis (escuros) */
@@ -137,14 +328,15 @@ body { font-family: 'Inter', sans-serif; transition: background-color 0.3s, colo
 .widget-custom-dark .bg-white div,
 .widget-custom-dark .bg-gray-50 p,
 .widget-custom-dark .bg-gray-100 span {
-    color: #1f2937 !important; 
+    color: #1f2937 !important;
 }
 
 /* Textos secundários dentro de cartões brancos */
 .widget-custom-dark .bg-white .text-gray-500,
 .widget-custom-dark .bg-gray-50 .text-gray-500,
 .widget-custom-dark .bg-white .text-gray-400 {
-    color: #6b7280 !important; /* gray-500 */
+    color: #6b7280 !important;
+    /* gray-500 */
 }
 
 /* Inputs dentro de widgets escuros (ex: calculadora se fosse widget) */
@@ -153,4 +345,18 @@ body { font-family: 'Inter', sans-serif; transition: background-color 0.3s, colo
 .widget-custom-dark textarea {
     color: #1f2937 !important;
     background-color: rgba(255, 255, 255, 0.9) !important;
+}
+
+/* --- FORÇAR MODO ESCURO --- */
+html.dark body {
+    background-color: #09090b !important;
+    /* Força o fundo preto */
+    color: #f3f4f6 !important;
+    /* Força texto claro */
+}
+
+/* Garante que o container principal não tenha fundo branco herdado */
+html.dark .app-content-wrapper,
+html.dark main {
+    background-color: #09090b !important;
 }

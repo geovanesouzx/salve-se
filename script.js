@@ -812,18 +812,14 @@ window.sendIAMessage = async function () {
 VOCÊ É A "SALVE-SE IA", ASSISTENTE ACADÊMICA DA UFRB.
 Sua missão é organizar a vida do estudante, reduzir estresse e potencializar os estudos.
 Fale sempre em Português do Brasil (pt-BR).
-Responda de forma curta e direta (máximo 3 parágrafos), a menos que peçam um texto longo.
+Responda de forma curta e direta.
 
-CONTEXTO ATUAL:
-- Tela: ${currentViewContext}
-- Hora: ${new Date().toLocaleTimeString('pt-BR')}
-- Ônibus: ${statusCircular}
-
-SUAS HABILIDADES:
-1. 📧 Emails: Use o comando "generate_template".
+SUAS HABILIDADES (USE OS COMANDOS):
+1. 📧 Emails: Use "generate_template".
 2. ✍️ Notas: Use HTML básico.
 3. 📅 Organizador: Use "create_task" ou "create_reminder".
-4. 🎨 Cores: Use "set_global_color".
+4. 🎨 Cores: Use "set_global_color" (param: color).
+5. 🌗 Tema: Use "toggle_theme" (param: mode 'dark' ou 'light').
 
 AÇÕES (Retorne JSON): { "message": "...", "commands": [] }
 `;
@@ -978,6 +974,14 @@ async function executeAICommand(cmd) {
         case 'set_global_color':
             let rawColor = p.color ? p.color.toLowerCase().trim() : 'indigo';
 
+            // --- NOVO: INTERCEPTADOR DE MODO ESCURO ---
+            // Se a IA mandar "preto", "dark" ou "escuro", ela quer mudar o TEMA, não a cor de destaque.
+            if (['escuro', 'dark', 'noite', 'preto', 'black', 'tema escuro'].includes(rawColor)) {
+                toggleTheme(); // Chama a função de mudar o fundo para preto/branco
+                return; // Encerra aqui para não validar se a cor é Premium
+            }
+            // ------------------------------------------
+
             const colorMap = {
                 'verde': 'green', 'vermelho': 'red', 'azul': 'indigo', 'roxo': 'purple',
                 'rosa': 'pink', 'laranja': 'orange', 'amarelo': 'yellow', 'preto': 'black',
@@ -999,11 +1003,11 @@ async function executeAICommand(cmd) {
             }
 
             // 🔒 TRAVA PREMIUM: Se a cor NÃO for grátis E o usuário NÃO for Premium
+            // As cores grátis são Indigo, Ciano e Verde.
             if (!freeColors.includes(finalColor) && !isUserPremium()) {
-                // Mostra modal de aviso e PARA a execução (return)
                 showModal(
                     "Recurso Premium 👑",
-                    `A cor "${finalColor.toUpperCase()}" é exclusiva para assinantes. Cores liberadas: Indigo, Ciano e Verde.`
+                    `A cor "${finalColor.toUpperCase()}" é exclusiva para assinantes.\nCores liberadas: Indigo, Ciano e Verde.`
                 );
                 return;
             }
@@ -3263,36 +3267,53 @@ function initTheme() {
 initTheme();
 
 window.toggleTheme = function () {
-    if (document.documentElement.classList.contains('dark')) {
-        document.documentElement.classList.remove('dark');
+    const html = document.documentElement;
+    const isDark = html.classList.contains('dark');
+
+    if (isDark) {
+        html.classList.remove('dark');
         localStorage.setItem('theme', 'light');
+        // FORÇA VISUAL: Garante que o fundo fique claro na hora
+        document.body.style.backgroundColor = '#f9fafb'; // gray-50
     } else {
-        document.documentElement.classList.add('dark');
+        html.classList.add('dark');
         localStorage.setItem('theme', 'dark');
+        // FORÇA VISUAL: Garante que o fundo fique preto na hora
+        document.body.style.backgroundColor = '#09090b'; // darkbg
     }
+
+    // Atualiza ícones na barra superior (Sol/Lua) se a função existir
+    if (typeof updateThemeIconUI === 'function') updateThemeIconUI();
 }
 
 window.toggleColorMenu = function (device) {
     const menu = document.getElementById(`color-menu-${device}`);
     if (!menu) return;
+
     const isHidden = menu.classList.contains('hidden');
+    // Fecha outros menus abertos
     document.querySelectorAll('.color-menu').forEach(m => m.classList.add('hidden'));
 
     if (isHidden) {
         menu.innerHTML = '';
-        const freeColors = ['indigo', 'cyan', 'green'];
+        const freeColors = ['indigo', 'cyan', 'green']; // Cores Grátis
 
         Object.keys(colorPalettes).forEach(color => {
             const btn = document.createElement('button');
             const rgb = colorPalettes[color][500];
+
+            // Lógica Premium: Se não for grátis E usuário não for premium = Bloqueado
             const isLocked = !isUserPremium() && !freeColors.includes(color);
 
-            // --- PASSO 3: Ícone de Coroa Dourada ---
-            let innerContent = isLocked ? '<i class="fas fa-crown text-amber-500 text-[10px] drop-shadow-sm" style="text-shadow: 0 1px 2px rgba(0,0,0,0.3);"></i>' : '';
-            // ---------------------------------------
+            // Ícone da Coroa Dourada para itens bloqueados
+            let innerContent = isLocked
+                ? '<i class="fas fa-crown text-amber-500 text-[10px] drop-shadow-sm" style="text-shadow: 0 1px 2px rgba(0,0,0,0.3);"></i>'
+                : '';
 
             btn.className = `w-6 h-6 rounded-full border border-gray-200 dark:border-gray-700 hover:scale-110 transition transform focus:outline-none ring-2 ring-transparent focus:ring-offset-1 focus:ring-gray-400 flex items-center justify-center`;
             btn.style.backgroundColor = `rgb(${rgb})`;
+
+            // Tooltip indicando se é premium
             btn.title = color.charAt(0).toUpperCase() + color.slice(1) + (isLocked ? " (Premium)" : "");
             btn.innerHTML = innerContent;
 

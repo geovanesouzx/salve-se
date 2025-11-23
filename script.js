@@ -3258,7 +3258,6 @@ function showPremiumLock(recurso) {
     setTimeout(() => switchPage('premium'), 2000);
 }
 
-// ESTA FUNÇÃO ESTAVA DENTRO DA DE CIMA. AGORA ESTÁ FORA (CORRETO):
 function updatePremiumVisuals() {
     const userIsPremium = isPremium();
 
@@ -3276,7 +3275,9 @@ function updatePremiumVisuals() {
     });
 }
 
-// Inicialização DOM
+// ============================================================
+// --- INICIALIZAÇÃO DOM ---
+// ============================================================
 document.addEventListener('DOMContentLoaded', () => {
     window.renderTasks();
     window.renderReminders();
@@ -3297,8 +3298,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     setInterval(window.updateNextClassWidget, 60000);
 
-    addGradeRow(); addGradeRow();
-    if (document.getElementById('passing-grade')) document.getElementById('passing-grade').addEventListener('input', calculateAverage);
+    // Inicializa calculadora se existir
+    if (typeof addGradeRow === 'function') {
+        addGradeRow();
+        addGradeRow();
+    }
+    if (document.getElementById('passing-grade')) {
+        document.getElementById('passing-grade').addEventListener('input', calculateAverage);
+    }
 });
 
 // --- NOVA FUNÇÃO AUXILIAR PARA A IA (COM REGRAS DE FIM DE SEMANA) ---

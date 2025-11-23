@@ -617,6 +617,27 @@ function formatAIContent(text) {
 }
 
 window.sendIAMessage = async function () {
+    // --- TRAVA PREMIUM (LIMITE DIÁRIO DE 3 MENSAGENS) ---
+    if (!isPremium()) {
+        const today = new Date().toLocaleDateString();
+        let usage = JSON.parse(localStorage.getItem('ai_usage_limit') || '{}');
+
+        // Se mudou o dia, reseta o contador
+        if (usage.date !== today) usage = { date: today, count: 0 };
+
+        // Se já usou 3 vezes, bloqueia e para a função
+        if (usage.count >= 3) {
+            showPremiumLock("IA Ilimitada");
+            document.getElementById('chat-input').value = ''; // Limpa o input
+            return;
+        }
+
+        // Se ainda tem cota, conta +1 e deixa passar
+        usage.count++;
+        localStorage.setItem('ai_usage_limit', JSON.stringify(usage));
+    }
+    // ----------------------------------------------------
+
     const input = document.getElementById('chat-input');
     const message = input.value.trim();
     const sendBtn = document.getElementById('chat-send-btn');
@@ -633,10 +654,10 @@ window.sendIAMessage = async function () {
     showTypingIndicator();
 
     try {
-        // 2. Contexto
-        const statusCircular = getBusStatusForAI();
+        // 2. Contexto do sistema
+        const statusCircular = typeof getBusStatusForAI === 'function' ? getBusStatusForAI() : "Não verificado";
 
-        // 3. PROMPT DO SISTEMA (SUPER ATUALIZADO)
+        // 3. Prompt do Sistema
         let systemInstructionText = `
 VOCÊ É A "SALVE-SE IA", ASSISTENTE ACADÊMICA DA UFRB.
 Sua missão é organizar a vida do estudante, reduzir estresse e potencializar os estudos.
@@ -649,37 +670,23 @@ CONTEXTO ATUAL:
 - Ônibus: ${statusCircular}
 
 SUAS SUPER HABILIDADES:
-1. 📧 Redator de Emails (NOVO):
-   - Crie emails formais e acadêmicos para professores, colegiado ou reitoria.
-   - Use linguagem culta e polida.
-   - Use [Colchetes] para indicar onde o aluno deve preencher (ex: [Seu Nome], [Matrícula]).
-   - AÇÃO: Use o comando "generate_template".
-
+1. 📧 Redator de Emails: Use o comando "generate_template".
 2. ✍️ Redator de Notas: Use HTML (<b>, <ul>, <h2>) para formatar.
 3. 🎨 Designer: Mudar cores.
 4. 📅 Organizador: Criar tarefas e lembretes.
 
 AÇÕES (Retorne APENAS JSON):
 { "message": "texto curto pro chat", "commands": [ { "action": "...", "params": {...} } ] }
-
-Comandos Disponíveis:
-- "generate_template": { "content": "Assunto: ...\n\nPrezado..." }  <-- NOVO
-- "create_note": { "title": "...", "content": "HTML..." }
-- "create_task": { "text": "...", "priority": "normal|high" }
-- "create_reminder": { "desc": "...", "date": "YYYY-MM-DD" }
-- "set_global_color": { "color": "..." }
-- "navigate": { "page": "..." }
 `;
 
-        // 4. Histórico (Correção do bug de duplicidade incluída)
         let historyPayload = [{ role: 'system', text: systemInstructionText }];
-        const recentHistory = chatHistory.slice(0, -1).slice(-6); // Pega as últimas 6 interações
+        const recentHistory = chatHistory.slice(0, -1).slice(-6);
 
         recentHistory.forEach(msg => {
             historyPayload.push({ role: msg.role, text: msg.text });
         });
 
-        // 5. Envio para API
+        // 4. Envio para API
         const response = await fetch('/api/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -693,7 +700,7 @@ Comandos Disponíveis:
         const data = await response.json();
         if (data.error) throw new Error(data.error);
 
-        // 6. Tratamento da Resposta
+        // 5. Tratamento da Resposta
         let aiResponseText = data.text;
         let cleanText = aiResponseText.replace(/```json/g, '').replace(/```/g, '').trim();
         const first = cleanText.indexOf('{');
@@ -705,11 +712,11 @@ Comandos Disponíveis:
         if (responseJson.message) appendMessage('ai', responseJson.message);
         else appendMessage('ai', "Feito!");
 
-        // Executa os comandos
+        // Executa os comandos da IA
         if (responseJson.commands && Array.isArray(responseJson.commands)) {
             for (const cmd of responseJson.commands) {
                 await executeAICommand(cmd);
-                await new Promise(r => setTimeout(r, 500)); // Delay para dar tempo de ver a ação
+                await new Promise(r => setTimeout(r, 500));
             }
         }
 
@@ -724,60 +731,6 @@ Comandos Disponíveis:
         scrollToBottom();
     }
 };
-
-function hideTypingIndicator() {
-    const existing = document.getElementById('dynamic-typing-indicator');
-    if (existing) existing.remove();
-}
-
-function appendMessage(sender, text) {
-    const container = document.getElementById('chat-messages-container');
-    if (!container) return;
-
-    chatHistory.push({ role: sender === 'user' ? 'user' : 'assistant', text: text });
-    if (chatHistory.length > 30) chatHistory.shift();
-
-    const div = document.createElement('div');
-    div.className = `flex w-full ${sender === 'user' ? 'justify-end' : 'justify-start'} mb-4 animate-scale-in group`;
-
-    const time = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-
-    const formattedText = text
-        .replace(/\n/g, '<br>')
-        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-        .replace(/`([^`]+)`/g, '<code class="bg-gray-200 dark:bg-neutral-700 px-1 rounded text-xs font-mono">$1</code>');
-
-    if (sender === 'user') {
-        div.innerHTML = `
-            <div class="flex flex-col items-end max-w-[85%]">
-                <div class="bg-indigo-600 text-white rounded-2xl rounded-br-sm px-4 py-3 shadow-md text-sm leading-relaxed relative">
-                    ${formattedText}
-                </div>
-                <span class="text-[10px] text-gray-400 mt-1 mr-1 opacity-0 group-hover:opacity-100 transition-opacity">${time}</span>
-            </div>
-        `;
-    } else {
-        const providerLabel = currentAIProvider === 'gemini' ? 'Gemini' : 'Llama';
-        div.innerHTML = `
-            <div class="flex gap-3 max-w-[90%]">
-                <div class="flex-shrink-0 flex flex-col justify-end">
-                    <div class="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-xs shadow-sm">
-                        <i class="fas fa-robot"></i>
-                    </div>
-                </div>
-                <div class="flex flex-col items-start">
-                    <div class="bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder text-gray-800 dark:text-gray-200 rounded-2xl rounded-bl-sm px-4 py-3 shadow-sm text-sm leading-relaxed">
-                        ${formattedText}
-                    </div>
-                    <span class="text-[10px] text-gray-400 mt-1 ml-1 opacity-0 group-hover:opacity-100 transition-opacity">${providerLabel} • ${time}</span>
-                </div>
-            </div>
-        `;
-    }
-    container.appendChild(div);
-    scrollToBottom();
-}
-
 // ============================================================
 // --- EXECUTOR DE COMANDOS DA IA ---
 // ============================================================
@@ -1169,22 +1122,32 @@ async function saveData() {
 }
 
 window.manualBackup = async function () {
+    // --- TRAVA PREMIUM (BLOQUEIO) ---
+    if (!isPremium()) {
+        showPremiumLock("Backup Prioritário");
+        return;
+    }
+    // --------------------------------
+
     const btn = document.getElementById('btn-manual-backup');
     if (btn) {
+        // Salva o texto original para restaurar depois
         const originalText = btn.innerHTML;
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando...';
         btn.disabled = true;
-    }
 
-    await saveData();
+        await saveData();
 
-    setTimeout(() => {
-        showModal('Backup', 'Seus dados foram sincronizados com a nuvem com sucesso!');
-        if (btn) {
+        setTimeout(() => {
+            showModal('Backup', 'Seus dados foram sincronizados com a nuvem com sucesso!');
             btn.innerHTML = originalText;
             btn.disabled = false;
-        }
-    }, 800);
+        }, 800);
+    } else {
+        // Fallback caso o botão não exista na tela atual (ex: chamado pela IA)
+        await saveData();
+        showModal('Backup', 'Seus dados foram sincronizados com a nuvem com sucesso!');
+    }
 }
 
 window.renderNotes = function (forceRender = true) {
@@ -1228,6 +1191,7 @@ function renderNotesList(container) {
             </div>
         `;
     } else {
+        // Continua a renderização dos cards...
         // Ordena: Primeiro a fixada, depois as recentes
         const sortedNotes = [...notesData].sort((a, b) => {
             if (a.pinned) return -1;
@@ -1242,14 +1206,12 @@ function renderNotesList(container) {
             const snippet = textContent.substring(0, 100) + (textContent.length > 100 ? "..." : "");
             const dateStr = new Date(note.updatedAt || Date.now()).toLocaleDateString('pt-BR');
 
-            // Define a cor do alfinete
             const pinColor = note.pinned ? "text-indigo-600 dark:text-indigo-400 scale-110" : "text-gray-300 dark:text-neutral-700 hover:text-gray-500";
             const borderClass = note.pinned ? "border-indigo-500 ring-1 ring-indigo-500" : "border-gray-200 dark:border-darkborder";
 
             const card = document.createElement('div');
             card.className = `bg-white dark:bg-darkcard border ${borderClass} rounded-xl p-5 hover:shadow-lg transition cursor-pointer group flex flex-col h-48 relative`;
 
-            // Clique no card abre a nota
             card.onclick = (e) => {
                 if (!e.target.closest('button')) openNote(note.id);
             };
@@ -1278,7 +1240,6 @@ function renderNotesList(container) {
             grid.appendChild(card);
         });
     }
-
     wrapper.appendChild(grid);
     container.appendChild(wrapper);
 }
@@ -3041,8 +3002,31 @@ const templates = {
     tcc: `Prezado(a) Prof(a). [Nome],\n\nTenho interesse em sua área de pesquisa e gostaria de saber se há disponibilidade para orientação de TCC sobre [Tema].\n\nAtenciosamente,\n[Seu Nome]`
 };
 
-window.loadTemplate = function (k) { document.getElementById('email-content').value = templates[k]; }
-window.copyEmail = function () { const e = document.getElementById('email-content'); e.select(); document.execCommand('copy'); }
+window.loadTemplate = function (k) {
+    // --- TRAVA PREMIUM ---
+    // O template 'absence' (Justificar Falta) é grátis para teste.
+    // Todos os outros (TCC, Prazo, Revisão) exigem Premium.
+    if (k !== 'absence' && !isPremium()) {
+        showPremiumLock("Templates Avançados");
+        return;
+    }
+    // ---------------------
+
+    document.getElementById('email-content').value = templates[k];
+}
+
+window.copyEmail = function () { 
+    const e = document.getElementById('email-content'); 
+    e.select(); 
+    document.execCommand('copy'); 
+    
+    // Feedback visual
+    const btn = document.querySelector('button[onclick="copyEmail()"]');
+    const original = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-check"></i> Copiado!';
+    setTimeout(() => btn.innerHTML = original, 1500);
+}
+
 window.openPortal = function () { window.open('https://sistemas.ufrb.edu.br/sigaa/verTelaLogin.do', '_blank'); }
 
 // ============================================================
@@ -3108,8 +3092,11 @@ window.toggleColorMenu = function (device) {
 }
 
 function setThemeColor(colorName) {
-    const palette = colorPalettes[colorName];
-    if (!palette) return;
+    // --- NOVO BLOCO: TRAVA PREMIUM ---
+    if (colorName !== 'indigo' && !isPremium()) {
+        showPremiumLock("Cores Personalizadas");
+        return;
+    }
 
     const iconColor = colorName === 'black' ? `rgb(${palette[900]})` : `rgb(${palette[600]})`;
 
@@ -3229,6 +3216,26 @@ if ('serviceWorker' in navigator) {
     }
     window.addEventListener('online', updateNetworkStatus);
     window.addEventListener('offline', updateNetworkStatus);
+}
+
+// ============================================================
+// --- CONTROLE PREMIUM (BLOQUEIOS) ---
+// ============================================================
+
+function isPremium() {
+    // Verifica se o usuário existe e tem a flag isPremium
+    return currentUser && userProfile && userProfile.isPremium === true;
+}
+
+function showPremiumLock(recurso) {
+    // Mostra um modal bonito vendendo o peixe
+    showModal(
+        `Recurso Premium 👑`,
+        `O recurso "${recurso}" é exclusivo para assinantes.\n\nDesbloqueie agora por apenas R$ 5,00!`
+    );
+
+    // Quando fechar o modal, leva pra tela de compra
+    setTimeout(() => switchPage('premium'), 2000);
 }
 
 // Inicialização DOM

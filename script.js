@@ -119,22 +119,37 @@ window.simulateSubscription = async function () {
     if (!currentUser) return showLoginScreen();
 
     const btn = document.querySelector('button[onclick="simulateSubscription()"]');
-    if (btn) btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Processando...';
+    if (btn) btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Processando pagamento...';
 
     try {
+        const now = new Date();
+        const endDate = new Date();
+        endDate.setDate(now.getDate() + 30); // Adiciona 30 dias
+
+        const subscriptionData = {
+            isPremium: true,
+            subscriptionStartDate: now.toISOString(),
+            subscriptionEndDate: endDate.toISOString() // Salva data final
+        };
+
         // Atualiza no Firebase
-        await setDoc(doc(db, "users", currentUser.uid), { isPremium: true }, { merge: true });
-        userProfile.isPremium = true;
+        await setDoc(doc(db, "users", currentUser.uid), subscriptionData, { merge: true });
+
+        // Atualiza localmente
+        Object.assign(userProfile, subscriptionData);
         localStorage.setItem('salvese_user_profile', JSON.stringify(userProfile));
 
-        showModal("Parabéns! 🌟", "Você agora é Premium! Todos os recursos foram desbloqueados.");
-        updateUserInterfaceInfo(); // Para atualizar ícones se houver
-        renderPremiumPage(); // Atualiza botão
+        showModal("Parabéns! 🌟", "Assinatura mensal ativada com sucesso! Você tem 30 dias de acesso.");
+        updateUserInterfaceInfo();
+        renderPremiumPage();
+
+        // Se estiver na tela de config, recarrega para mostrar o timer
+        if (document.getElementById('settings-content')) renderSettings();
+
     } catch (e) {
         showModal("Erro", "Falha na assinatura: " + e.message);
     }
 }
-
 // ============================================================
 // --- ÍCONES SVG ---
 // ============================================================
@@ -1198,7 +1213,49 @@ window.saveUserProfile = async () => {
     }
 };
 
+// ============================================================
+// FUNÇÃO DE VERIFICAÇÃO DE PREMIUM (Time-bomb)
+// ============================================================
+async function checkPremiumStatus() {
+    // Se não tiver perfil ou não for premium, não faz nada
+    if (!userProfile || !userProfile.isPremium || !userProfile.subscriptionEndDate) return;
+
+    const now = new Date();
+    const end = new Date(userProfile.subscriptionEndDate);
+
+    // Se a data de hoje for MAIOR que a data final, venceu
+    if (now > end) {
+        console.log("🚫 Assinatura expirada. Removendo privilégios...");
+
+        try {
+            // 1. Remove do Firebase
+            await setDoc(doc(db, "users", currentUser.uid), {
+                isPremium: false,
+                subscriptionEndDate: null
+            }, { merge: true });
+
+            // 2. Remove localmente
+            userProfile.isPremium = false;
+            userProfile.subscriptionEndDate = null;
+            localStorage.setItem('salvese_user_profile', JSON.stringify(userProfile));
+
+            // 3. Atualiza a tela para bloquear o usuário
+            updateUserInterfaceInfo();
+            refreshAllUI();
+
+            showModal("Assinatura Expirada", "Seu período Premium acabou. Renove para continuar aproveitando os benefícios.");
+
+        } catch (e) {
+            console.error("Erro ao processar expiração:", e);
+        }
+    }
+}
+
+// ============================================================
+// FUNÇÃO DE SINCRONIZAÇÃO (Atualizada)
+// ============================================================
 function initRealtimeSync(uid) {
+    // 1. Sincroniza Dados do App (Notas, Tarefas, etc)
     const dataRef = doc(db, "users", uid, "data", "appData");
     unsubscribeData = onSnapshot(dataRef, (doc) => {
         if (doc.exists()) {
@@ -1223,11 +1280,19 @@ function initRealtimeSync(uid) {
         }
     }, (error) => console.log("Modo offline ou erro de sync:", error.code));
 
+    // 2. Sincroniza Perfil do Usuário (Premium, Nome, Foto)
     onSnapshot(doc(db, "users", uid), (docSnap) => {
         if (docSnap.exists()) {
             userProfile = docSnap.data();
+
+            // ---> AQUI ESTÁ A MUDANÇA QUE VOCÊ PEDIU <---
+            checkPremiumStatus();
+            // --------------------------------------------
+
             localStorage.setItem('salvese_user_profile', JSON.stringify(userProfile));
             updateUserInterfaceInfo();
+
+            // Se estiver na tela de configurações, atualiza o timer da assinatura
             if (document.getElementById('view-config') && !document.getElementById('view-config').classList.contains('hidden')) {
                 window.renderSettings();
             }
@@ -1984,16 +2049,77 @@ window.renderSettings = function () {
     }
 
     const photoUrl = userProfile.photoURL || "https://files.catbox.moe/pmdtq6.png";
-
     const isVideo = photoUrl.match(/\.(mp4|webm)$/i);
     const mediaHtml = isVideo
         ? `<video src="${photoUrl}" class="w-full h-full object-cover" autoplay loop muted playsinline></video>`
         : `<img src="${photoUrl}" class="w-full h-full object-cover" onerror="this.src='https://files.catbox.moe/pmdtq6.png'">`;
 
-    // ÍCONE DE COROA NA CONFIGURAÇÃO
     const verifiedBadgeSettings = isUserPremium()
         ? `<i class="fas fa-crown text-amber-500 ml-2 text-2xl drop-shadow-md animate-pulse" title="Membro Premium"></i>`
         : ``;
+
+    // --- LÓGICA DO CARTÃO DE ASSINATURA ---
+    let subscriptionCardHtml = '';
+
+    if (isUserPremium() && userProfile.subscriptionEndDate) {
+        const now = new Date();
+        const start = new Date(userProfile.subscriptionStartDate || now);
+        const end = new Date(userProfile.subscriptionEndDate);
+
+        // Cálculos de tempo
+        const totalTime = end - start;
+        const remainingTime = end - now;
+        const daysLeft = Math.ceil(remainingTime / (1000 * 60 * 60 * 24));
+
+        // Porcentagem para barra de progresso (quanto tempo passou)
+        let percentageUsed = 100 - ((remainingTime / totalTime) * 100);
+        percentageUsed = Math.max(0, Math.min(100, percentageUsed)); // Limita entre 0 e 100
+
+        // Formatação das datas
+        const endFormatted = end.toLocaleDateString('pt-BR');
+
+        // Define cor da barra baseada na urgência
+        let barColor = "bg-indigo-500";
+        if (daysLeft <= 5) barColor = "bg-red-500";
+        else if (daysLeft <= 10) barColor = "bg-orange-500";
+
+        subscriptionCardHtml = `
+            <div class="bg-gradient-to-br from-gray-900 to-gray-800 dark:from-black dark:to-neutral-900 rounded-2xl p-5 text-white shadow-lg relative overflow-hidden border border-gray-700">
+                <div class="absolute top-0 right-0 p-3 opacity-20"><i class="fas fa-crown text-6xl"></i></div>
+                
+                <div class="relative z-10">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="font-bold text-lg text-amber-400 flex items-center gap-2"><i class="fas fa-star"></i> Premium Ativo</h3>
+                        <span class="text-xs font-mono bg-white/10 px-2 py-1 rounded">Vence: ${endFormatted}</span>
+                    </div>
+
+                    <div class="flex justify-between items-end mb-2">
+                        <span class="text-3xl font-bold">${daysLeft} <span class="text-sm font-normal text-gray-400">dias restantes</span></span>
+                    </div>
+
+                    <div class="w-full bg-gray-700 rounded-full h-2.5 mb-2 overflow-hidden">
+                        <div class="${barColor} h-2.5 rounded-full transition-all duration-1000" style="width: ${percentageUsed}%"></div>
+                    </div>
+                    <p class="text-xs text-gray-400 text-right">Renovação manual necessária</p>
+                </div>
+            </div>
+        `;
+    } else {
+        // Se não for premium, mostra convite
+        subscriptionCardHtml = `
+            <div onclick="switchPage('premium')" class="cursor-pointer bg-white dark:bg-darkcard border border-indigo-200 dark:border-indigo-900/50 rounded-2xl p-5 shadow-sm relative overflow-hidden group">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 class="font-bold text-gray-900 dark:text-white text-lg">Plano Grátis</h3>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">Faça o upgrade para desbloquear tudo.</p>
+                    </div>
+                    <div class="w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition">
+                        <i class="fas fa-arrow-right"></i>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
 
     // Helper de cards
     const createActionCard = (onclick, svgIcon, title, subtitle, colorClass = "text-gray-500 group-hover:text-indigo-500") => `
@@ -2052,6 +2178,11 @@ window.renderSettings = function () {
             </div>
 
             <div>
+                <h3 class="px-4 text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Sua Assinatura</h3>
+                ${subscriptionCardHtml}
+            </div>
+
+            <div>
                 <h3 class="px-4 text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Gerenciar Conta</h3>
                 ${createActionCard('changePhoto()', svgs.photo, 'Foto de Perfil', 'Atualize sua imagem ou vídeo')}
                 ${createActionCard('editName()', svgs.user, 'Nome de Exibição', 'Como seu nome aparece no app')}
@@ -2066,7 +2197,6 @@ window.renderSettings = function () {
 
             <div>
                 <h3 class="px-4 text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Segurança & Dados</h3>
-                
                 ${createActionCard('changePassword()', svgs.lock, 'Redefinir Senha', 'Receba um e-mail para trocar a senha')}
                 ${createActionCard('manualBackup()', svgs.cloud, 'Backup Manual', 'Forçar sincronização com a nuvem')}
                 
@@ -2088,7 +2218,7 @@ window.renderSettings = function () {
 
             <div class="text-center pt-4 pb-8">
                  <p class="text-xs text-gray-300 dark:text-gray-600 font-mono">ID: ${currentUser.uid.substring(0, 8)}...</p>
-                 <p class="text-xs text-gray-300 dark:text-gray-600 mt-1">Salve-se UFRB v3.5 (Premium Update)</p>
+                 <p class="text-xs text-gray-300 dark:text-gray-600 mt-1">Salve-se UFRB v3.6 (Subscription Timer)</p>
             </div>
         </div>
     `;

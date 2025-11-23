@@ -2073,22 +2073,20 @@ window.renderSettings = function () {
         ? `<i class="fas fa-crown text-amber-500 ml-2 text-2xl drop-shadow-md animate-pulse" title="Membro Premium"></i>`
         : ``;
 
-    // --- LÓGICA DO CARTÃO DE ASSINATURA ---
+    // --- LÓGICA DO CARTÃO DE ASSINATURA (CORRIGIDA) ---
     let subscriptionCardHtml = '';
 
     if (isUserPremium() && userProfile.subscriptionEndDate) {
         const now = new Date();
-        const start = new Date(userProfile.subscriptionStartDate || now);
         const end = new Date(userProfile.subscriptionEndDate);
 
-        // Cálculos de tempo
-        const totalTime = end - start;
+        // 1. Calcula dias restantes
         const remainingTime = end - now;
         const daysLeft = Math.ceil(remainingTime / (1000 * 60 * 60 * 24));
 
-        // Porcentagem para barra de progresso (quanto tempo passou)
-        let percentageUsed = 100 - ((remainingTime / totalTime) * 100);
-        percentageUsed = Math.max(0, Math.min(100, percentageUsed)); // Limita entre 0 e 100
+        // 2. CORREÇÃO: Calcula porcentagem visual baseada em 30 dias (igual ao painel Premium)
+        // Se tiver 30 dias ou mais, barra cheia (100%). Se tiver 15, 50%.
+        let percent = Math.min(100, Math.max(0, (daysLeft / 30) * 100));
 
         // Formatação das datas
         const endFormatted = end.toLocaleDateString('pt-BR');
@@ -2113,9 +2111,9 @@ window.renderSettings = function () {
                     </div>
 
                     <div class="w-full bg-gray-700 rounded-full h-2.5 mb-2 overflow-hidden">
-                        <div class="${barColor} h-2.5 rounded-full transition-all duration-1000" style="width: ${percentageUsed}%"></div>
+                        <div class="${barColor} h-2.5 rounded-full transition-all duration-1000 shadow-[0_0_10px_rgba(255,255,255,0.3)]" style="width: ${percent}%"></div>
                     </div>
-                    <p class="text-xs text-gray-400 text-right">Renovação manual necessária</p>
+                    <p class="text-xs text-gray-400 text-right">Renovação necessária ao fim do prazo</p>
                 </div>
             </div>
         `;
@@ -2233,7 +2231,7 @@ window.renderSettings = function () {
 
             <div class="text-center pt-4 pb-8">
                  <p class="text-xs text-gray-300 dark:text-gray-600 font-mono">ID: ${currentUser.uid.substring(0, 8)}...</p>
-                 <p class="text-xs text-gray-300 dark:text-gray-600 mt-1">Salve-se UFRB v3.6 (Subscription Timer)</p>
+                 <p class="text-xs text-gray-300 dark:text-gray-600 mt-1">Salve-se UFRB v4.0 (Final)</p>
             </div>
         </div>
     `;

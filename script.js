@@ -695,22 +695,14 @@ window.sendIAMessage = async function () {
 
     if (!message) return;
 
-    // =================================================================
-    // 🔒 TRAVA DE SEGURANÇA (NOVA)
-    // Verifica se está tentando usar Gemini sem ser Premium antes de enviar
-    // =================================================================
+    // 🔒 TRAVA DE SEGURANÇA PREMIUM (Mantida)
     if (currentAIProvider === 'gemini' && !isUserPremium()) {
-        requirePremium('IA Gemini (Google)'); // Mostra o modal de venda
-
-        // Opcional: Já muda o seletor visualmente para o Llama (que é grátis)
-        // para facilitar a vida do usuário na próxima tentativa
+        requirePremium('IA Gemini (Google)');
         updateAISelectorUI();
         const btnGroq = document.getElementById('btn-ai-groq');
-        if (btnGroq) btnGroq.click(); // Simula clique no Llama
-
-        return; // ⛔ PARE AQUI. Não envia nada para a API.
+        if (btnGroq) btnGroq.click();
+        return;
     }
-    // =================================================================
 
     // 1. Exibe a mensagem do usuário
     appendMessage('user', message);
@@ -725,7 +717,8 @@ window.sendIAMessage = async function () {
         // 2. Contexto
         const statusCircular = getBusStatusForAI();
 
-        // 3. PROMPT DO SISTEMA
+        // 3. PROMPT DO SISTEMA (ATUALIZADO E CORRIGIDO)
+        // AQUI ESTAVA O ERRO: Adicionamos a lista técnica de comandos
         let systemInstructionText = `
 VOCÊ É A "SALVE-SE IA", ASSISTENTE ACADÊMICA DA UFRB.
 Sua missão é organizar a vida do estudante, reduzir estresse e potencializar os estudos.
@@ -734,17 +727,38 @@ Fale sempre em Português do Brasil (pt-BR).
 CONTEXTO ATUAL:
 - Tela: ${currentViewContext}
 - Hora: ${new Date().toLocaleTimeString('pt-BR')}
-- Data: ${new Date().toLocaleDateString('pt-BR')}
 - Ônibus: ${statusCircular}
 
-SUAS SUPER HABILIDADES:
-1. 📧 Redator de Emails: Crie emails formais. Use o comando "generate_template".
-2. ✍️ Redator de Notas: Use HTML (<b>, <ul>, <h2>).
-3. 🎨 Designer: Mudar cores.
-4. 📅 Organizador: Criar tarefas e lembretes.
+⚠️ IMPORTANTE - LISTA DE COMANDOS TÉCNICOS:
+Para realizar ações no site, você DEVE usar o campo "commands" no JSON com as actions exatas abaixo:
 
-AÇÕES (Retorne APENAS JSON):
-{ "message": "texto curto pro chat", "commands": [ { "action": "...", "params": {...} } ] }
+1. MUDAR COR DO TEMA:
+   action: "set_global_color"
+   params: { "color": "nome_da_cor" }
+   Cores aceitas: indigo, cyan, green, purple, pink, red, orange, yellow, teal, lime, violet, rose, black.
+   (Se o usuário pedir "azul", use "indigo". Se "roxo", use "purple").
+
+2. MUDAR MODO CLARO/ESCURO:
+   action: "toggle_theme"
+   params: { "mode": "dark" } ou { "mode": "light" }
+
+3. CRIAR TAREFA:
+   action: "create_task"
+   params: { "text": "descrição", "priority": "high/medium/normal" }
+
+4. CRIAR NOTA:
+   action: "create_note"
+   params: { "title": "Título", "content": "HTML permitido" }
+
+5. GERAR EMAIL:
+   action: "generate_template"
+   params: { "content": "texto do email" }
+
+AÇÕES (Retorne APENAS JSON VÁLIDO):
+{ 
+  "message": "texto curto e simpático pro chat", 
+  "commands": [ { "action": "nome_da_action", "params": {...} } ] 
+}
 `;
 
         // 4. Histórico
@@ -791,7 +805,7 @@ AÇÕES (Retorne APENAS JSON):
 
     } catch (error) {
         console.error("Erro IA:", error);
-        appendMessage('ai', `Desculpe, tive um erro: ${error.message}`);
+        appendMessage('ai', `Desculpe, tive um erro ao processar: ${error.message}`);
     } finally {
         hideTypingIndicator();
         input.disabled = false;

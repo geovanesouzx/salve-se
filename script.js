@@ -719,7 +719,7 @@ window.sendIAMessage = async function () {
 
     if (!message) return;
 
-    // 🔒 TRAVA DE SEGURANÇA PREMIUM
+    // 🔒 TRAVA PREMIUM
     if (currentAIProvider === 'gemini' && !isUserPremium()) {
         requirePremium('IA Gemini (Google)');
         updateAISelectorUI();
@@ -728,88 +728,68 @@ window.sendIAMessage = async function () {
         return;
     }
 
-    // 1. Exibe a mensagem do usuário
     appendMessage('user', message);
     input.value = '';
     input.disabled = true;
     sendBtn.disabled = true;
-
     scrollToBottom();
     showTypingIndicator();
 
     try {
-        // 2. COLETA O CONTEXTO ATUALIZADO (AQUI É A MÁGICA)
-        const statusCircularAgora = getBusStatusForAI(); // Status instantâneo (onde tá o onibus agora)
-        const tabelaCircular = getFullBusScheduleForAI(); // Tabela completa
-        const gradeHoraria = getClassContextForAI(); // Aulas do aluno
-        const isPremium = isUserPremium();
-        const diaSemana = new Date().toLocaleDateString('pt-BR', { weekday: 'long' });
-        const dataHoje = new Date().toLocaleDateString('pt-BR');
+        // Contexto
+        const now = new Date();
+        const diaSemana = now.toLocaleDateString('pt-BR', { weekday: 'long' });
+        const dataHoje = now.toLocaleDateString('pt-BR');
+        const horaAtual = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
-        // --- LÓGICA DE RESTRIÇÃO DA IA ---
-        let permissionInstructions = "";
+        const statusCircular = getBusStatusForAI();
+        const gradeContext = getClassContextForAI();
+        const userLevel = isUserPremium() ? "PREMIUM" : "GRÁTIS";
 
-        if (isPremium) {
-            permissionInstructions = `
-STATUS DA CONTA: PREMIUM 👑
-- O usuário tem acesso total.
-- Pode executar qualquer comando.
-            `;
-        } else {
-            permissionInstructions = `
-STATUS DA CONTA: GRÁTIS (LIMITED) 🔒
-REGRAS DE BLOQUEIO:
-1. CORES: Apenas 'Indigo', 'Cyan' e 'Green'. Recuse outras.
-2. EMAIL: Action "generate_template" é PROIBIDA.
-3. LEMBRETE: Lembre que o modelo Gemini é Premium se ele perguntar.
-            `;
-        }
-
-        // 3. PROMPT DO SISTEMA (COM DADOS INJETADOS)
+        // PROMPT SISTÊMICO ATUALIZADO
         let systemInstructionText = `
-VOCÊ É A "SALVE-SE IA", ASSISTENTE ACADÊMICA DA UFRB.
-Sua missão é organizar a vida do estudante.
-Fale sempre em Português do Brasil (pt-BR). Seja concisa e direta.
+VOCÊ É A "SALVE-SE IA". Responda APENAS com JSON válido.
 
---- DADOS EM TEMPO REAL ---
-📅 Hoje é: ${diaSemana}, ${dataHoje}.
-🕒 Hora atual: ${new Date().toLocaleTimeString('pt-BR')}.
+--- CONTEXTO ---
+Data: ${diaSemana}, ${dataHoje} às ${horaAtual}.
+Usuário: ${userLevel}.
 
-🎓 GRADE HORÁRIA DO ALUNO:
-${gradeHoraria}
+--- LISTA DE COMANDOS DISPONÍVEIS ---
+Analise a intenção e use o comando certo:
 
-🚌 STATUS DO TRANSPORTE (CIRCULAR):
-${statusCircularAgora}
+1. **TAREFAS (Todo)**:
+   - Criar: "create_task" | params: { "text": "...", "priority": "high/medium/normal" }
+   - Excluir Uma: "delete_task" | params: { "text": "trecho do texto da tarefa" }
+   - Excluir TODAS: "delete_all_tasks" | params: {}
 
-📋 TABELA DE HORÁRIOS DO ÔNIBUS:
-${tabelaCircular}
----------------------------
+2. **LEMBRETES (Agenda)**:
+   - Criar: "create_reminder" | params: { "desc": "...", "date": "YYYY-MM-DD", "prio": "high/medium" }
+   - Excluir Um: "delete_reminder" | params: { "desc": "trecho da descrição" }
+   - Excluir TODOS: "delete_all_reminders" | params: {}
 
-${permissionInstructions}
+3. **NOTAS (Texto/Resumo)**:
+   - Criar: "create_note" | params: { "title": "...", "content": "..." }
+   - Fixar/Desfixar: "pin_note" | params: { "title": "titulo da nota" }
+   - Excluir Uma: "delete_note" | params: { "title": "titulo da nota" }
+   - Excluir TODAS: "delete_all_notes" | params: {}
 
-⚠️ LISTA TÉCNICA DE COMANDOS (Use "commands" no JSON para agir):
-1. MUDAR COR: action: "set_global_color", params: { "color": "nome" }
-2. MUDAR TEMA: action: "toggle_theme", params: { "mode": "dark/light" }
-3. CRIAR TAREFA: action: "create_task", params: { "text": "...", "priority": "high/medium/normal" }
-4. CRIAR NOTA: action: "create_note", params: { "title": "...", "content": "..." }
-5. GERAR EMAIL: action: "generate_template", params: { "content": "..." }
+4. **TEMPLATES (Email)**:
+   - Gerar Texto: "generate_template" | params: { "content": "Texto do email..." }
 
-RESPOSTA (JSON):
-{ 
-  "message": "Sua resposta textual aqui (use os dados acima para responder perguntas sobre aulas ou onibus)", 
-  "commands": [] 
+5. **NAVEGAÇÃO**:
+   - "navigate" | params: { "page": "home/todo/notas/aulas/onibus/ia/config" }
+
+--- RESPOSTA JSON ---
+{
+  "message": "Texto curto de confirmação.",
+  "commands": [ { "action": "...", "params": { ... } } ]
 }
 `;
 
-        // 4. Histórico
         let historyPayload = [{ role: 'system', text: systemInstructionText }];
         const recentHistory = chatHistory.slice(0, -1).slice(-6);
+        recentHistory.forEach(msg => { historyPayload.push({ role: msg.role, text: msg.text }); });
 
-        recentHistory.forEach(msg => {
-            historyPayload.push({ role: msg.role, text: msg.text });
-        });
-
-        // 5. Envio para API
         const response = await fetch('/api/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -823,17 +803,14 @@ RESPOSTA (JSON):
         const data = await response.json();
         if (data.error) throw new Error(data.error);
 
-        // 6. Tratamento da Resposta
-        let aiResponseText = data.text;
-        let cleanText = aiResponseText.replace(/```json/g, '').replace(/```/g, '').trim();
+        let cleanText = data.text.replace(/```json/g, '').replace(/```/g, '').trim();
         const first = cleanText.indexOf('{');
         const last = cleanText.lastIndexOf('}');
         if (first !== -1 && last !== -1) cleanText = cleanText.substring(first, last + 1);
 
-        const responseJson = JSON.parse(cleanText);
+        let responseJson = JSON.parse(cleanText);
 
         if (responseJson.message) appendMessage('ai', responseJson.message);
-        else appendMessage('ai', "Feito!");
 
         if (responseJson.commands && Array.isArray(responseJson.commands)) {
             for (const cmd of responseJson.commands) {
@@ -844,7 +821,7 @@ RESPOSTA (JSON):
 
     } catch (error) {
         console.error("Erro IA:", error);
-        appendMessage('ai', `Desculpe, tive um erro ao processar: ${error.message}`);
+        appendMessage('ai', `Erro ao processar: ${error.message}`);
     } finally {
         hideTypingIndicator();
         input.disabled = false;
@@ -908,7 +885,7 @@ function appendMessage(sender, text) {
 }
 
 // ============================================================
-// --- EXECUTOR DE COMANDOS DA IA ---
+// --- EXECUTOR DE COMANDOS DA IA (COMPLETO) ---
 // ============================================================
 
 async function executeAICommand(cmd) {
@@ -916,7 +893,181 @@ async function executeAICommand(cmd) {
     const p = cmd.params || {};
 
     switch (cmd.action) {
-        // --- TEMA E CORES (CORRIGIDO) ---
+
+        // --- TAREFAS (TODO) ---
+        case 'create_task':
+            tasksData.push({
+                id: Date.now().toString(),
+                text: p.text,
+                done: false,
+                priority: p.priority || 'normal',
+                category: 'geral',
+                createdAt: Date.now()
+            });
+            saveData();
+            if (currentViewContext === 'todo' || currentViewContext === 'home') refreshAllUI();
+            break;
+
+        case 'delete_task':
+            if (p.text) {
+                const textToFind = p.text.toLowerCase();
+                const initialLength = tasksData.length;
+                // Encontra e remove tarefas que contenham o texto
+                tasksData = tasksData.filter(t => !t.text.toLowerCase().includes(textToFind));
+
+                if (tasksData.length < initialLength) {
+                    saveData();
+                    showModal("Sucesso", "Tarefa(s) removida(s).");
+                } else {
+                    appendMessage('ai', "Não encontrei nenhuma tarefa com esse nome.");
+                }
+            }
+            break;
+
+        case 'delete_all_tasks':
+            tasksData = [];
+            saveData();
+            showModal("Limpeza", "Todas as tarefas foram apagadas.");
+            break;
+
+        // --- LEMBRETES ---
+        case 'create_reminder':
+            remindersData.push({
+                id: Date.now().toString(),
+                desc: p.desc,
+                date: p.date,
+                prio: p.prio || 'medium',
+                createdAt: Date.now()
+            });
+            saveData();
+            break;
+
+        case 'delete_reminder':
+            if (p.desc) {
+                const descToFind = p.desc.toLowerCase();
+                remindersData = remindersData.filter(r => !r.desc.toLowerCase().includes(descToFind));
+                saveData();
+                showModal("Sucesso", "Lembrete removido.");
+            }
+            break;
+
+        case 'delete_all_reminders':
+            remindersData = [];
+            saveData();
+            showModal("Limpeza", "Todos os lembretes foram apagados.");
+            break;
+
+        // --- NOTAS (CRIAR, FIXAR, EXCLUIR) ---
+        case 'create_note':
+            const newId = Date.now().toString();
+            notesData.push({
+                id: newId,
+                title: p.title || "Nota da IA",
+                content: p.content || "",
+                updatedAt: Date.now(),
+                pinned: false
+            });
+            saveData();
+
+            // Vai para tela de notas e abre a nota nova
+            if (currentViewContext !== 'notas') {
+                switchPage('notas');
+            }
+            setTimeout(() => {
+                renderNotes(); // Atualiza a lista
+                openNote(newId); // Abre o editor
+                showModal("Nota Criada 🤖", "A IA gerou uma nova anotação para você.");
+            }, 300);
+            break;
+
+        case 'pin_note':
+            if (p.title) {
+                // Procura a nota pelo título
+                const target = notesData.find(n => n.title && n.title.toLowerCase().includes(p.title.toLowerCase()));
+                if (target) {
+                    togglePin(target.id); // Usa a função existente de fixar
+                } else {
+                    appendMessage('ai', `Não encontrei a nota "${p.title}" para fixar.`);
+                }
+            }
+            break;
+
+        case 'delete_note':
+            if (p.title) {
+                const initialLen = notesData.length;
+                // Remove notas que contenham o texto no título
+                notesData = notesData.filter(n => !n.title || !n.title.toLowerCase().includes(p.title.toLowerCase()));
+
+                if (notesData.length < initialLen) {
+                    saveData();
+                    if (currentViewContext === 'notas') renderNotes(true);
+                    showModal("Nota Apagada", `A nota "${p.title}" foi removida.`);
+                } else {
+                    appendMessage('ai', `Não encontrei a nota "${p.title}" para excluir.`);
+                }
+            }
+            break;
+
+        case 'delete_all_notes':
+            if (confirm("A IA quer apagar TODAS as suas notas. Confirmar?")) {
+                notesData = [];
+                saveData();
+                if (currentViewContext === 'notas') renderNotes(true);
+                showModal("Limpeza", "Todas as anotações foram excluídas.");
+            }
+            break;
+
+        // --- TEMPLATES / EMAIL ---
+        case 'generate_template':
+            switchPage('email');
+            setTimeout(() => {
+                const area = document.getElementById('email-content');
+                const statusLabel = document.getElementById('template-status');
+
+                if (area) {
+                    area.value = p.content;
+                    // Efeito visual de preenchimento
+                    area.classList.add('bg-indigo-50', 'dark:bg-indigo-900/20');
+                    setTimeout(() => area.classList.remove('bg-indigo-50', 'dark:bg-indigo-900/20'), 500);
+
+                    if (statusLabel) {
+                        statusLabel.innerText = "✨ Criado pela IA";
+                        statusLabel.classList.remove('hidden');
+                    }
+                }
+            }, 200);
+            break;
+
+        // --- AULAS ---
+        case 'create_class':
+            scheduleData.push({
+                id: Date.now().toString(),
+                name: p.name,
+                prof: p.prof || 'N/A',
+                room: p.room || 'N/A',
+                day: p.day,
+                start: p.start,
+                end: p.end,
+                color: 'indigo'
+            });
+            saveData();
+            break;
+
+        // --- NAVEGAÇÃO ---
+        case 'navigate':
+            if (p.page && p.page !== currentViewContext) switchPage(p.page);
+            break;
+
+        // --- WIDGETS ---
+        case 'hide_widget':
+            if (p.id && !hiddenWidgets.includes(p.id)) toggleWidget(p.id);
+            break;
+
+        case 'show_widget':
+            if (p.id && hiddenWidgets.includes(p.id)) toggleWidget(p.id);
+            break;
+
+        // --- TEMA E CORES ---
         case 'toggle_theme':
             if (p.mode === 'dark' || p.mode === 'escuro') {
                 document.documentElement.classList.add('dark');
@@ -930,153 +1081,28 @@ async function executeAICommand(cmd) {
             break;
 
         case 'set_global_color':
-            // 1. Limpa a entrada da IA
+            // Limpeza básica do input
             let rawColor = p.color ? p.color.toLowerCase().trim() : 'indigo';
 
-            // 2. TRADUTOR COMPLETO
+            // Tradução de cores
             const colorMap = {
-                // Masculino
                 'verde': 'green', 'vermelho': 'red', 'azul': 'indigo',
                 'roxo': 'purple', 'rosa': 'pink', 'laranja': 'orange',
                 'amarelo': 'yellow', 'preto': 'black', 'ciano': 'cyan',
                 'violeta': 'violet', 'lima': 'lime', 'petroleo': 'teal',
-
-                // Feminino e variações
                 'preta': 'black', 'vermelha': 'red', 'amarela': 'yellow',
-                'roxa': 'purple', 'branca': 'black',
-
-                // Inglês
-                'indigo': 'indigo', 'green': 'green', 'red': 'red',
-                'purple': 'purple', 'pink': 'pink', 'orange': 'orange',
-                'yellow': 'yellow', 'black': 'black', 'cyan': 'cyan',
-                'violet': 'violet', 'lime': 'lime', 'teal': 'teal',
-                'rose': 'rose', 'blue': 'indigo'
+                'roxa': 'purple', 'branca': 'black'
             };
 
-            // 3. Traduz a cor
             const finalColor = colorMap[rawColor] || rawColor;
 
-            // 4. SEGURANÇA CORRIGIDA: Removemos o 'window.' para acessar a variável localmente
-            // Verifica se a paleta de cores existe antes de aplicar
             if (typeof colorPalettes !== 'undefined' && colorPalettes[finalColor]) {
-                setThemeColor(finalColor);
+                if (window.setThemeColor) window.setThemeColor(finalColor);
             } else {
                 console.warn(`Cor não encontrada: ${finalColor}. Usando Indigo.`);
-                setThemeColor('indigo');
+                if (window.setThemeColor) window.setThemeColor('indigo');
             }
             break;
-
-        // --- TAREFAS ---
-        case 'create_task':
-            tasksData.push({ id: Date.now().toString(), text: p.text, done: false, priority: p.priority || 'normal', category: p.category || 'geral', createdAt: Date.now() });
-            saveData();
-            break;
-
-        case 'delete_task':
-            if (p.text) {
-                tasksData = tasksData.filter(t => !t.text.toLowerCase().includes(p.text.toLowerCase()));
-                saveData();
-            }
-            break;
-
-        case 'delete_all_tasks':
-            tasksData = [];
-            saveData();
-            break;
-
-        // --- LEMBRETES ---
-        case 'create_reminder':
-            remindersData.push({ id: Date.now().toString(), desc: p.desc, date: p.date, prio: p.prio || 'medium', createdAt: Date.now() });
-            saveData();
-            break;
-
-        case 'delete_reminder':
-            if (p.desc) {
-                remindersData = remindersData.filter(r => !r.desc.toLowerCase().includes(p.desc.toLowerCase()));
-                saveData();
-            }
-            break;
-
-        case 'delete_all_reminders':
-            remindersData = [];
-            saveData();
-            break;
-
-        // --- AULAS ---
-        case 'create_class':
-            scheduleData.push({ id: Date.now().toString(), name: p.name, prof: p.prof || 'N/A', room: p.room || 'N/A', day: p.day, start: p.start, end: p.end, color: 'indigo' });
-            saveData();
-            break;
-
-        // --- NAVEGAÇÃO ---
-        case 'navigate':
-            if (p.page !== currentViewContext) switchPage(p.page);
-            break;
-
-        // --- NOTAS (Melhorado para IA) ---
-        case 'create_note':
-            const newNoteId = Date.now().toString();
-
-            // Garante que o conteúdo venha formatado ou vazio
-            let noteContent = p.content || "";
-
-            notesData.push({
-                id: newNoteId,
-                title: p.title || "Nota da IA",
-                content: noteContent,
-                updatedAt: Date.now()
-            });
-
-            saveData();
-
-            // Se não estiver na tela de notas, vai pra lá
-            if (currentViewContext !== 'notas') {
-                switchPage('notas');
-            }
-
-            // Renderiza e abre a nota criada
-            setTimeout(() => {
-                renderNotes();
-                openNote(newNoteId);
-                showModal("Nota Criada 🤖", "A IA gerou uma nova anotação para você.");
-            }, 300);
-            break;
-
-        // --- WIDGETS ---
-        case 'hide_widget':
-            if (p.id && !hiddenWidgets.includes(p.id)) toggleWidget(p.id);
-            break;
-
-        case 'show_widget':
-            if (p.id && hiddenWidgets.includes(p.id)) toggleWidget(p.id);
-            break;
-
-        case 'generate_template':
-            const emailContent = p.content || "";
-
-            // 1. Muda para a tela de templates se não estiver nela
-            if (currentViewContext !== 'email') {
-                switchPage('email');
-            }
-
-            // 2. Aguarda a tela carregar (caso tenha trocado) e preenche
-            setTimeout(() => {
-                const emailArea = document.getElementById('email-content');
-                const statusLabel = document.getElementById('template-status');
-
-                if (emailArea) {
-                    // Efeito de "digitação" instantânea
-                    emailArea.value = emailContent;
-                    emailArea.classList.add('bg-indigo-50', 'dark:bg-indigo-900/20');
-                    setTimeout(() => emailArea.classList.remove('bg-indigo-50', 'dark:bg-indigo-900/20'), 500);
-
-                    // Mostra etiqueta "Gerado por IA"
-                    if (statusLabel) {
-                        statusLabel.innerText = "✨ Criado pela IA";
-                        statusLabel.classList.remove('hidden');
-                    }
-                }
-            }, 100);
 
         default:
             console.warn("⚠️ Comando IA não reconhecido:", cmd.action);

@@ -1089,8 +1089,10 @@ function refreshAllUI() {
     if (window.renderNotes && currentViewContext === 'notas') window.renderNotes(false);
 
     injectWidgetControls();
-}
 
+    // --- ATUALIZA AS COROAS (MOSTRA/ESCONDE) ---
+    updatePremiumVisuals();
+}
 async function saveData() {
     localStorage.setItem('salvese_schedule', JSON.stringify(scheduleData));
     localStorage.setItem('salvese_tasks', JSON.stringify(tasksData));
@@ -1807,11 +1809,13 @@ window.renderSettings = function () {
 
     const photoUrl = userProfile.photoURL || "https://files.catbox.moe/pmdtq6.png";
 
+    // --- LÓGICA ADICIONADA AQUI ---
     // Detecta se é vídeo para renderizar o HTML correto no template string
     const isVideo = photoUrl.match(/\.(mp4|webm)$/i);
     const mediaHtml = isVideo
         ? `<video src="${photoUrl}" class="w-full h-full object-cover" autoplay loop muted playsinline></video>`
         : `<img src="${photoUrl}" class="w-full h-full object-cover" onerror="this.src='https://files.catbox.moe/pmdtq6.png'">`;
+    // -----------------------------
 
     const createActionCard = (onclick, svgIcon, title, subtitle, colorClass = "text-gray-500 group-hover:text-indigo-500") => `
         <button onclick="${onclick}" class="group w-full bg-white dark:bg-darkcard border border-gray-100 dark:border-darkborder p-4 rounded-2xl flex items-center justify-between hover:border-indigo-500 dark:hover:border-indigo-500 hover:shadow-md transition-all duration-200 mb-3 text-left">
@@ -3015,11 +3019,11 @@ window.loadTemplate = function (k) {
     document.getElementById('email-content').value = templates[k];
 }
 
-window.copyEmail = function () { 
-    const e = document.getElementById('email-content'); 
-    e.select(); 
-    document.execCommand('copy'); 
-    
+window.copyEmail = function () {
+    const e = document.getElementById('email-content');
+    e.select();
+    document.execCommand('copy');
+
     // Feedback visual
     const btn = document.querySelector('button[onclick="copyEmail()"]');
     const original = btn.innerHTML;
@@ -3075,17 +3079,33 @@ window.toggleColorMenu = function (device) {
     if (!menu) return;
     const isHidden = menu.classList.contains('hidden');
     document.querySelectorAll('.color-menu').forEach(m => m.classList.add('hidden'));
+
     if (isHidden) {
         menu.innerHTML = '';
         Object.keys(colorPalettes).forEach(color => {
             const btn = document.createElement('button');
             const rgb = colorPalettes[color][500];
-            btn.className = `w-6 h-6 rounded-full border border-gray-200 dark:border-gray-700 hover:scale-110 transition transform focus:outline-none ring-2 ring-transparent focus:ring-offset-1 focus:ring-gray-400`;
+            // Adicionei 'relative' aqui para posicionar a coroa
+            btn.className = `w-6 h-6 rounded-full border border-gray-200 dark:border-gray-700 hover:scale-110 transition transform focus:outline-none ring-2 ring-transparent focus:ring-offset-1 focus:ring-gray-400 relative`;
             btn.style.backgroundColor = `rgb(${rgb})`;
             btn.title = color.charAt(0).toUpperCase() + color.slice(1);
             btn.onclick = () => setThemeColor(color);
+
+            // --- CÓDIGO NOVO: ADICIONA COROA SE NÃO FOR INDIGO ---
+            if (color !== 'indigo') {
+                const crown = document.createElement('i');
+                // A classe 'premium-icon' é importante para o script esconder depois
+                crown.className = "fas fa-crown text-amber-400 text-[8px] absolute -top-1 -right-1 drop-shadow-md premium-icon";
+                btn.appendChild(crown);
+            }
+            // -----------------------------------------------------
+
             menu.appendChild(btn);
         });
+
+        // Chama a função para esconder as coroas se o usuário já for premium
+        updatePremiumVisuals();
+
         menu.classList.remove('hidden');
         menu.classList.add('visible');
     }
@@ -3233,7 +3253,22 @@ function showPremiumLock(recurso) {
         `Recurso Premium 👑`,
         `O recurso "${recurso}" é exclusivo para assinantes.\n\nDesbloqueie agora por apenas R$ 5,00!`
     );
+    function updatePremiumVisuals() {
+        const userIsPremium = isPremium();
 
+        // Pega todas as coroas do site
+        const icons = document.querySelectorAll('.premium-icon');
+
+        icons.forEach(icon => {
+            if (userIsPremium) {
+                // Se pagou, esconde a coroa
+                icon.style.display = 'none';
+            } else {
+                // Se é grátis, mostra a coroa
+                icon.style.display = 'inline-block';
+            }
+        });
+    }
     // Quando fechar o modal, leva pra tela de compra
     setTimeout(() => switchPage('premium'), 2000);
 }

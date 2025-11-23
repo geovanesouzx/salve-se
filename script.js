@@ -1241,12 +1241,11 @@ function updateUserInterfaceInfo() {
     const container = document.getElementById('sidebar-avatar-container');
 
     if (userProfile) {
-        // Atualiza Nome + Selo Verificado
+        // Atualiza Nome + Coroa
         if (nameDisplay) {
-            // HTML do selo
-            const verifiedBadge = `<img src="https://files.catbox.moe/ssxyjh.png" class="w-4 h-4 inline-block ml-1 align-text-bottom" title="Membro Premium">`;
+            // Ícone de Coroa Dourada
+            const verifiedBadge = `<i class="fas fa-crown text-amber-500 ml-2 drop-shadow-sm text-xs" title="Membro Premium"></i>`;
 
-            // Se for Premium, adiciona o selo. Se não, apenas o nome.
             if (isUserPremium()) {
                 nameDisplay.innerHTML = `${userProfile.displayName} ${verifiedBadge}`;
             } else {
@@ -1256,7 +1255,7 @@ function updateUserInterfaceInfo() {
 
         if (handleDisplay) handleDisplay.innerText = "@" + userProfile.handle;
 
-        // Atualiza Mídia (Foto/GIF/Vídeo)
+        // Atualiza Mídia
         if (container && userProfile.photoURL) {
             renderMediaInContainer("sidebar-avatar-container", userProfile.photoURL);
         }
@@ -1986,18 +1985,17 @@ window.renderSettings = function () {
 
     const photoUrl = userProfile.photoURL || "https://files.catbox.moe/pmdtq6.png";
 
-    // Detecta se é vídeo
     const isVideo = photoUrl.match(/\.(mp4|webm)$/i);
     const mediaHtml = isVideo
         ? `<video src="${photoUrl}" class="w-full h-full object-cover" autoplay loop muted playsinline></video>`
         : `<img src="${photoUrl}" class="w-full h-full object-cover" onerror="this.src='https://files.catbox.moe/pmdtq6.png'">`;
 
-    // LÓGICA DO SELO VERIFICADO NA CONFIGURAÇÃO
+    // ÍCONE DE COROA NA CONFIGURAÇÃO
     const verifiedBadgeSettings = isUserPremium()
-        ? `<img src="https://files.catbox.moe/ssxyjh.png" class="w-6 h-6 inline-block ml-1 align-middle drop-shadow-sm" title="Membro Verificado">`
+        ? `<i class="fas fa-crown text-amber-500 ml-2 text-2xl drop-shadow-md animate-pulse" title="Membro Premium"></i>`
         : ``;
 
-    // Função auxiliar para cards
+    // Helper de cards
     const createActionCard = (onclick, svgIcon, title, subtitle, colorClass = "text-gray-500 group-hover:text-indigo-500") => `
         <button onclick="${onclick}" class="group w-full bg-white dark:bg-darkcard border border-gray-100 dark:border-darkborder p-4 rounded-2xl flex items-center justify-between hover:border-indigo-500 dark:hover:border-indigo-500 hover:shadow-md transition-all duration-200 mb-3 text-left">
             <div class="flex items-center gap-4">
@@ -2032,9 +2030,12 @@ window.renderSettings = function () {
                     </div>
                 </div>
 
-                <h2 class="text-2xl font-black text-gray-900 dark:text-white mb-0.5 tracking-tight flex items-center justify-center gap-1">
-                    ${userProfile.displayName} ${verifiedBadgeSettings}
-                </h2>
+                <div class="flex items-center justify-center gap-2 mb-0.5">
+                    <h2 class="text-2xl font-black text-gray-900 dark:text-white tracking-tight">
+                        ${userProfile.displayName}
+                    </h2>
+                    ${verifiedBadgeSettings}
+                </div>
 
                 <p class="text-indigo-600 dark:text-indigo-400 font-bold text-sm mb-4 bg-indigo-50 dark:bg-indigo-900/20 px-3 py-1 rounded-full">@${userProfile.handle}</p>
                 

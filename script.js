@@ -424,21 +424,15 @@ function injectWidgetControls() {
         const existingControls = widget.querySelector('.widget-controls');
         if (existingControls) existingControls.remove();
 
-        // Verifica se o usuário é Premium para decidir se mostra a coroa
-        const premiumIcon = !isUserPremium() ? '<i class="fas fa-crown text-[8px] text-amber-500 absolute -top-1 -right-1 bg-white dark:bg-darkcard rounded-full px-0.5 shadow-sm"></i>' : '';
-
         const controlsDiv = document.createElement('div');
-        // Ajustei o z-index e posicionamento
-        controlsDiv.className = "widget-controls absolute top-3 right-3 flex gap-2 z-30 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 dark:bg-black/60 backdrop-blur-sm rounded-lg p-1.5 shadow-sm border border-gray-100 dark:border-neutral-800";
+        controlsDiv.className = "widget-controls absolute top-3 right-3 flex gap-2 z-20 opacity-0 group-hover:opacity-100 transition-opacity bg-white/80 dark:bg-black/50 backdrop-blur-sm rounded-lg p-1 shadow-sm";
 
         controlsDiv.innerHTML = `
-            <button onclick="openWidgetCustomizer('${id}')" class="relative w-6 h-6 flex items-center justify-center text-gray-500 hover:text-indigo-500 dark:text-gray-300 dark:hover:text-indigo-400 transition" title="Personalizar Estilo">
+            <button onclick="openWidgetCustomizer('${id}')" class="w-6 h-6 flex items-center justify-center text-gray-500 hover:text-indigo-500 dark:text-gray-300 dark:hover:text-indigo-400 transition" title="Personalizar Estilo">
                 <i class="fas fa-palette text-xs"></i>
-                ${premiumIcon}
             </button>
-            <button onclick="toggleWidget('${id}')" class="relative w-6 h-6 flex items-center justify-center text-gray-500 hover:text-red-500 dark:text-gray-300 dark:hover:text-red-400 transition" title="Ocultar Widget">
+            <button onclick="toggleWidget('${id}')" class="w-6 h-6 flex items-center justify-center text-gray-500 hover:text-red-500 dark:text-gray-300 dark:hover:text-red-400 transition" title="Ocultar Widget">
                 <i class="fas fa-eye-slash text-xs"></i>
-                ${premiumIcon}
             </button>
         `;
 
@@ -455,40 +449,27 @@ function injectWidgetControls() {
 }
 
 window.openWidgetCustomizer = function (widgetId) {
-    // TRAVA PREMIUM (Mantenha a trava se quiser bloquear o acesso total, 
-    // ou remova essa linha se quiser deixar abrir o menu mas mostrar as coroas dentro)
+    // TRAVA PREMIUM
     if (!requirePremium('Personalizar Cor do Widget')) return;
 
+    // ... resto do código original openWidgetCustomizer ...
     const modal = document.createElement('div');
+    // ... (criação do modal continua igual)
     modal.className = "fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm fade-in";
     modal.id = "customizer-modal";
 
     let optionsHtml = '';
-
-    // Verifica se usuário é premium para decidir se mostra a coroa
-    const showCrown = !isUserPremium();
-
     Object.entries(WIDGET_PRESETS).forEach(([key, preset]) => {
-        // Define se o estilo é premium (todos menos o default)
-        const isPremiumStyle = key !== 'default';
-
-        // HTML da coroa
-        const crownIcon = (isPremiumStyle && showCrown)
-            ? '<i class="fas fa-crown text-amber-500 text-xs ml-2 animate-pulse"></i>'
-            : '';
-
+        // ... (geração das opções)
         optionsHtml += `
             <button onclick="setWidgetStyle('${widgetId}', '${key}')" class="w-full text-left p-3 rounded-xl border border-gray-200 dark:border-neutral-700 mb-2 hover:scale-[1.02] transition flex items-center gap-3 overflow-hidden group">
                 <div class="w-8 h-8 rounded-full ${preset.class.split(' ').filter(c => c.startsWith('bg-') || c.startsWith('from-')).join(' ')} border border-gray-300 shadow-sm"></div>
-                <span class="font-medium text-gray-700 dark:text-gray-200 flex items-center">
-                    ${preset.label}
-                    ${crownIcon}
-                </span>
+                <span class="font-medium text-gray-700 dark:text-gray-200">${preset.label}</span>
                 ${widgetStyles[widgetId] === key ? '<i class="fas fa-check text-green-500 ml-auto"></i>' : ''}
             </button>
         `;
     });
-
+    // ... (finalização do modal)
     modal.innerHTML = `
         <div class="bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl w-full max-w-sm p-6 m-4 relative animate-scale-in border border-gray-200 dark:border-neutral-800">
             <button onclick="document.getElementById('customizer-modal').remove()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
@@ -707,10 +688,6 @@ function formatAIContent(text) {
     return text.split('\n').filter(line => line.trim() !== '').map(line => `<p>${line}</p>`).join('');
 }
 
-// Configuração do Limite Grátis
-const FREE_DAILY_CREDITS = 20; // Créditos iniciais por dia
-const AD_REWARD = 20;          // Créditos ganhos ao ver anúncio
-
 window.sendIAMessage = async function () {
     const input = document.getElementById('chat-input');
     const message = input.value.trim();
@@ -719,80 +696,19 @@ window.sendIAMessage = async function () {
     if (!message) return;
 
     // =================================================================
-    // 🔒 TRAVA 1: GEMINI (Apenas Premium)
+    // 🔒 TRAVA DE SEGURANÇA (NOVA)
+    // Verifica se está tentando usar Gemini sem ser Premium antes de enviar
     // =================================================================
     if (currentAIProvider === 'gemini' && !isUserPremium()) {
-        requirePremium('IA Gemini (Google)');
+        requirePremium('IA Gemini (Google)'); // Mostra o modal de venda
+
+        // Opcional: Já muda o seletor visualmente para o Llama (que é grátis)
+        // para facilitar a vida do usuário na próxima tentativa
         updateAISelectorUI();
         const btnGroq = document.getElementById('btn-ai-groq');
-        if (btnGroq) btnGroq.click();
-        return;
-    }
+        if (btnGroq) btnGroq.click(); // Simula clique no Llama
 
-    // =================================================================
-    // 🔒 TRAVA 2: LLAMA (Sistema de Créditos com Anúncio)
-    // =================================================================
-    if (!isUserPremium()) {
-        // Recupera dados de créditos do LocalStorage
-        const today = new Date().toLocaleDateString('pt-BR');
-        let creditData = JSON.parse(localStorage.getItem('salvese_ai_credits')) || { date: today, value: FREE_DAILY_CREDITS };
-
-        // Se virou o dia, reseta para o pacote diário gratuito (20)
-        if (creditData.date !== today) {
-            creditData = { date: today, value: FREE_DAILY_CREDITS };
-            localStorage.setItem('salvese_ai_credits', JSON.stringify(creditData));
-        }
-
-        // Verifica se acabaram os créditos
-        if (creditData.value <= 0) {
-            // Abre modal de "Assistir Anúncio"
-            openCustomConfirmModal(
-                "Acabaram seus créditos 🔋",
-                `Você usou todas as suas mensagens.\n\nAssista a um anúncio rapidinho para recarregar +${AD_REWARD} mensagens agora mesmo!`,
-                () => {
-                    // Simula assistir anúncio (Delay de 3s)
-                    const btnYes = document.querySelector('#custom-confirm-yes');
-                    const btnNo = document.querySelector('#custom-confirm-no');
-
-                    if (btnYes) {
-                        const originalText = btnYes.innerText;
-                        btnYes.innerHTML = '<i class="fas fa-play"></i> Assistindo...';
-                        btnYes.disabled = true;
-                        if (btnNo) btnNo.style.display = 'none'; // Esconde o botão "Não" durante o anúncio
-
-                        setTimeout(() => {
-                            // === RECOMPENSA ===
-                            creditData.value += AD_REWARD;
-                            localStorage.setItem('salvese_ai_credits', JSON.stringify(creditData));
-
-                            // Fecha modal e avisa
-                            document.getElementById('custom-confirm-modal').classList.add('hidden');
-                            showModal("Recarga Sucesso! ⚡", `Você ganhou +${AD_REWARD} mensagens. Aproveite!`);
-
-                            // Restaura botões para a próxima vez
-                            btnYes.innerText = "Assistir Anúncio";
-                            btnYes.disabled = false;
-                            if (btnNo) btnNo.style.display = 'inline-block';
-
-                        }, 3000); // 3 segundos de duração do "anúncio"
-                    }
-                }
-            );
-
-            // Ajusta textos dos botões do modal
-            setTimeout(() => {
-                const btnYes = document.getElementById('custom-confirm-yes');
-                const btnNo = document.getElementById('custom-confirm-no');
-                if (btnYes) btnYes.innerText = "Assistir Anúncio (+20)";
-                if (btnNo) btnNo.innerText = "Agora não";
-            }, 50);
-
-            return; // Bloqueia o envio da mensagem atual
-        }
-
-        // Se tem créditos, desconta 1 e salva
-        creditData.value--;
-        localStorage.setItem('salvese_ai_credits', JSON.stringify(creditData));
+        return; // ⛔ PARE AQUI. Não envia nada para a API.
     }
     // =================================================================
 
@@ -806,29 +722,40 @@ window.sendIAMessage = async function () {
     showTypingIndicator();
 
     try {
+        // 2. Contexto
         const statusCircular = getBusStatusForAI();
 
+        // 3. PROMPT DO SISTEMA
         let systemInstructionText = `
 VOCÊ É A "SALVE-SE IA", ASSISTENTE ACADÊMICA DA UFRB.
+Sua missão é organizar a vida do estudante, reduzir estresse e potencializar os estudos.
 Fale sempre em Português do Brasil (pt-BR).
-Responda de forma curta e direta.
 
-SUAS HABILIDADES (USE OS COMANDOS JSON):
-1. 🌗 Mudar Tema: Use o comando "toggle_theme" (params: { "mode": "dark" } ou "light").
-2. 🎨 Mudar Cor: Use "set_global_color" (params: { "color": "nome_da_cor" }).
-3. 📧 Emails: Use "generate_template".
-4. 📅 Agenda: Use "create_task" ou "create_reminder".
+CONTEXTO ATUAL:
+- Tela: ${currentViewContext}
+- Hora: ${new Date().toLocaleTimeString('pt-BR')}
+- Data: ${new Date().toLocaleDateString('pt-BR')}
+- Ônibus: ${statusCircular}
 
-IMPORTANTE:
-- Se o usuário pedir "modo escuro", "tema preto", "apagar a luz", use "toggle_theme".
-- Se o usuário pedir "mude para azul", "fique rosa", use "set_global_color".
+SUAS SUPER HABILIDADES:
+1. 📧 Redator de Emails: Crie emails formais. Use o comando "generate_template".
+2. ✍️ Redator de Notas: Use HTML (<b>, <ul>, <h2>).
+3. 🎨 Designer: Mudar cores.
+4. 📅 Organizador: Criar tarefas e lembretes.
 
-AÇÕES (Retorne APENAS JSON): { "message": "...", "commands": [] }
+AÇÕES (Retorne APENAS JSON):
+{ "message": "texto curto pro chat", "commands": [ { "action": "...", "params": {...} } ] }
 `;
+
+        // 4. Histórico
         let historyPayload = [{ role: 'system', text: systemInstructionText }];
         const recentHistory = chatHistory.slice(0, -1).slice(-6);
-        recentHistory.forEach(msg => historyPayload.push({ role: msg.role, text: msg.text }));
 
+        recentHistory.forEach(msg => {
+            historyPayload.push({ role: msg.role, text: msg.text });
+        });
+
+        // 5. Envio para API
         const response = await fetch('/api/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -842,7 +769,9 @@ AÇÕES (Retorne APENAS JSON): { "message": "...", "commands": [] }
         const data = await response.json();
         if (data.error) throw new Error(data.error);
 
-        let cleanText = data.text.replace(/```json/g, '').replace(/```/g, '').trim();
+        // 6. Tratamento da Resposta
+        let aiResponseText = data.text;
+        let cleanText = aiResponseText.replace(/```json/g, '').replace(/```/g, '').trim();
         const first = cleanText.indexOf('{');
         const last = cleanText.lastIndexOf('}');
         if (first !== -1 && last !== -1) cleanText = cleanText.substring(first, last + 1);
@@ -852,6 +781,7 @@ AÇÕES (Retorne APENAS JSON): { "message": "...", "commands": [] }
         if (responseJson.message) appendMessage('ai', responseJson.message);
         else appendMessage('ai', "Feito!");
 
+        // Executa os comandos
         if (responseJson.commands && Array.isArray(responseJson.commands)) {
             for (const cmd of responseJson.commands) {
                 await executeAICommand(cmd);
@@ -861,15 +791,7 @@ AÇÕES (Retorne APENAS JSON): { "message": "...", "commands": [] }
 
     } catch (error) {
         console.error("Erro IA:", error);
-        // Se deu erro na API, devolve o crédito gasto (opcional, mas justo)
-        if (!isUserPremium()) {
-            let creditData = JSON.parse(localStorage.getItem('salvese_ai_credits'));
-            if (creditData) {
-                creditData.value++;
-                localStorage.setItem('salvese_ai_credits', JSON.stringify(creditData));
-            }
-        }
-        appendMessage('ai', `Desculpe, tive um erro de conexão. Tente novamente.`);
+        appendMessage('ai', `Desculpe, tive um erro: ${error.message}`);
     } finally {
         hideTypingIndicator();
         input.disabled = false;
@@ -940,81 +862,55 @@ async function executeAICommand(cmd) {
     console.log("🤖 Comando IA recebido:", cmd);
     const p = cmd.params || {};
 
-    // Define quais cores são gratuitas para validar a IA
-    const freeColors = ['indigo', 'cyan', 'green'];
-
     switch (cmd.action) {
-        // --- TEMA (CLARO/ESCURO) - CORRIGIDO ---
+        // --- TEMA E CORES (CORRIGIDO) ---
         case 'toggle_theme':
-            let targetTheme;
-
-            // 1. Descobre qual tema aplicar
             if (p.mode === 'dark' || p.mode === 'escuro') {
-                targetTheme = 'dark';
-            } else if (p.mode === 'light' || p.mode === 'claro') {
-                targetTheme = 'light';
-            } else {
-                // Se não especificou, inverte o atual
-                targetTheme = document.documentElement.classList.contains('dark') ? 'light' : 'dark';
-            }
-
-            // 2. Aplica a classe e salva na memória do navegador
-            if (targetTheme === 'dark') {
                 document.documentElement.classList.add('dark');
                 localStorage.setItem('theme', 'dark');
-            } else {
+            } else if (p.mode === 'light' || p.mode === 'claro') {
                 document.documentElement.classList.remove('dark');
                 localStorage.setItem('theme', 'light');
+            } else {
+                toggleTheme();
             }
-
-            // 3. Atualiza os ícones de sol/lua no topo da página
-            if (typeof updateThemeIconUI === 'function') updateThemeIconUI();
             break;
 
-        // --- MUDAR COR (COM TRAVA PREMIUM) ---
         case 'set_global_color':
+            // 1. Limpa a entrada da IA
             let rawColor = p.color ? p.color.toLowerCase().trim() : 'indigo';
 
-            // --- NOVO: INTERCEPTADOR DE MODO ESCURO ---
-            // Se a IA mandar "preto", "dark" ou "escuro", ela quer mudar o TEMA, não a cor de destaque.
-            if (['escuro', 'dark', 'noite', 'preto', 'black', 'tema escuro'].includes(rawColor)) {
-                toggleTheme(); // Chama a função de mudar o fundo para preto/branco
-                return; // Encerra aqui para não validar se a cor é Premium
-            }
-            // ------------------------------------------
-
+            // 2. TRADUTOR COMPLETO
             const colorMap = {
-                'verde': 'green', 'vermelho': 'red', 'azul': 'indigo', 'roxo': 'purple',
-                'rosa': 'pink', 'laranja': 'orange', 'amarelo': 'yellow', 'preto': 'black',
-                'ciano': 'cyan', 'violeta': 'violet', 'lima': 'lime', 'petroleo': 'teal',
-                'preta': 'black', 'vermelha': 'red', 'amarela': 'yellow', 'roxa': 'purple',
-                'branca': 'black', 'cinza': 'black', 'indigo': 'indigo', 'green': 'green',
-                'red': 'red', 'purple': 'purple', 'pink': 'pink', 'orange': 'orange',
-                'yellow': 'yellow', 'black': 'black', 'cyan': 'cyan', 'violet': 'violet',
-                'lime': 'lime', 'teal': 'teal', 'rose': 'rose', 'blue': 'indigo'
+                // Masculino
+                'verde': 'green', 'vermelho': 'red', 'azul': 'indigo',
+                'roxo': 'purple', 'rosa': 'pink', 'laranja': 'orange',
+                'amarelo': 'yellow', 'preto': 'black', 'ciano': 'cyan',
+                'violeta': 'violet', 'lima': 'lime', 'petroleo': 'teal',
+
+                // Feminino e variações
+                'preta': 'black', 'vermelha': 'red', 'amarela': 'yellow',
+                'roxa': 'purple', 'branca': 'black',
+
+                // Inglês
+                'indigo': 'indigo', 'green': 'green', 'red': 'red',
+                'purple': 'purple', 'pink': 'pink', 'orange': 'orange',
+                'yellow': 'yellow', 'black': 'black', 'cyan': 'cyan',
+                'violet': 'violet', 'lime': 'lime', 'teal': 'teal',
+                'rose': 'rose', 'blue': 'indigo'
             };
 
+            // 3. Traduz a cor
             const finalColor = colorMap[rawColor] || rawColor;
 
-            // Verifica se a cor existe no sistema
-            if (typeof colorPalettes === 'undefined' || !colorPalettes[finalColor]) {
+            // 4. SEGURANÇA CORRIGIDA: Removemos o 'window.' para acessar a variável localmente
+            // Verifica se a paleta de cores existe antes de aplicar
+            if (typeof colorPalettes !== 'undefined' && colorPalettes[finalColor]) {
+                setThemeColor(finalColor);
+            } else {
                 console.warn(`Cor não encontrada: ${finalColor}. Usando Indigo.`);
                 setThemeColor('indigo');
-                return;
             }
-
-            // 🔒 TRAVA PREMIUM: Se a cor NÃO for grátis E o usuário NÃO for Premium
-            // As cores grátis são Indigo, Ciano e Verde.
-            if (!freeColors.includes(finalColor) && !isUserPremium()) {
-                showModal(
-                    "Recurso Premium 👑",
-                    `A cor "${finalColor.toUpperCase()}" é exclusiva para assinantes.\nCores liberadas: Indigo, Ciano e Verde.`
-                );
-                return;
-            }
-
-            // Se passou pela trava, aplica a cor
-            setThemeColor(finalColor);
             break;
 
         // --- TAREFAS ---
@@ -1064,12 +960,28 @@ async function executeAICommand(cmd) {
             if (p.page !== currentViewContext) switchPage(p.page);
             break;
 
-        // --- NOTAS ---
+        // --- NOTAS (Melhorado para IA) ---
         case 'create_note':
             const newNoteId = Date.now().toString();
-            notesData.push({ id: newNoteId, title: p.title || "Nota da IA", content: p.content || "", updatedAt: Date.now() });
+
+            // Garante que o conteúdo venha formatado ou vazio
+            let noteContent = p.content || "";
+
+            notesData.push({
+                id: newNoteId,
+                title: p.title || "Nota da IA",
+                content: noteContent,
+                updatedAt: Date.now()
+            });
+
             saveData();
-            if (currentViewContext !== 'notas') { switchPage('notas'); }
+
+            // Se não estiver na tela de notas, vai pra lá
+            if (currentViewContext !== 'notas') {
+                switchPage('notas');
+            }
+
+            // Renderiza e abre a nota criada
             setTimeout(() => {
                 renderNotes();
                 openNote(newNoteId);
@@ -1077,12 +989,8 @@ async function executeAICommand(cmd) {
             }, 300);
             break;
 
-        // --- OCULTAR WIDGETS (COM TRAVA PREMIUM) ---
+        // --- WIDGETS ---
         case 'hide_widget':
-            if (!isUserPremium()) {
-                showModal("Recurso Premium 👑", "Ocultar widgets é exclusivo para assinantes.");
-                return;
-            }
             if (p.id && !hiddenWidgets.includes(p.id)) toggleWidget(p.id);
             break;
 
@@ -1090,51 +998,38 @@ async function executeAICommand(cmd) {
             if (p.id && hiddenWidgets.includes(p.id)) toggleWidget(p.id);
             break;
 
-        // --- TEMPLATES DE EMAIL (COM TRAVA PREMIUM) ---
         case 'generate_template':
-            if (!isUserPremium()) {
-                showModal("Recurso Premium 👑", "Gerar templates de e-mail é exclusivo para assinantes.");
-                return;
+            const emailContent = p.content || "";
+
+            // 1. Muda para a tela de templates se não estiver nela
+            if (currentViewContext !== 'email') {
+                switchPage('email');
             }
 
-            if (currentViewContext !== 'email') { switchPage('email'); }
+            // 2. Aguarda a tela carregar (caso tenha trocado) e preenche
             setTimeout(() => {
                 const emailArea = document.getElementById('email-content');
                 const statusLabel = document.getElementById('template-status');
+
                 if (emailArea) {
-                    emailArea.value = p.content || "";
+                    // Efeito de "digitação" instantânea
+                    emailArea.value = emailContent;
                     emailArea.classList.add('bg-indigo-50', 'dark:bg-indigo-900/20');
                     setTimeout(() => emailArea.classList.remove('bg-indigo-50', 'dark:bg-indigo-900/20'), 500);
+
+                    // Mostra etiqueta "Gerado por IA"
                     if (statusLabel) {
                         statusLabel.innerText = "✨ Criado pela IA";
                         statusLabel.classList.remove('hidden');
                     }
                 }
             }, 100);
-            break;
 
         default:
             console.warn("⚠️ Comando IA não reconhecido:", cmd.action);
     }
 }
-// Adicione esta função auxiliar logo abaixo, caso não exista, para garantir que os ícones atualizem
-function updateThemeIconUI() {
-    const isDark = document.documentElement.classList.contains('dark');
-    const btn = document.querySelector('button[onclick="toggleTheme()"]');
-    if (btn) {
-        // Força a re-renderização dos SVGs baseada na classe dark
-        const svgs = btn.querySelectorAll('svg');
-        if (svgs.length >= 2) {
-            if (isDark) {
-                svgs[0].classList.remove('hidden'); // Lua
-                svgs[1].classList.add('hidden');    // Sol
-            } else {
-                svgs[0].classList.add('hidden');    // Lua
-                svgs[1].classList.remove('hidden'); // Sol
-            }
-        }
-    }
-}
+
 function updateAIWidget(content) {
     aiWidgetContent = content;
     localStorage.setItem('salvese_ai_widget', content);
@@ -2019,10 +1914,6 @@ window.renderSettings = function () {
     const container = document.getElementById('settings-content');
     if (!container || !userProfile) return;
 
-    // --- 1. ADICIONE ISTO AQUI (Define a coroa se não for Premium) ---
-    const hiddenWidgetCrown = !isUserPremium() ? ' <i class="fas fa-crown text-amber-500 text-[10px] ml-1"></i>' : '';
-    // -----------------------------------------------------------------
-
     let dateStr = "N/A";
     if (userProfile.createdAt) {
         const date = new Date(userProfile.createdAt);
@@ -2044,7 +1935,7 @@ window.renderSettings = function () {
                     ${svgIcon}
                 </div>
                 <div>
-                    <p class="font-bold text-gray-800 dark:text-gray-200 text-sm flex items-center">${title}</p>
+                    <p class="font-bold text-gray-800 dark:text-gray-200 text-sm">${title}</p>
                     <p class="text-xs text-gray-400 dark:text-gray-500">${subtitle}</p>
                 </div>
             </div>
@@ -3268,53 +3159,42 @@ function initTheme() {
 initTheme();
 
 window.toggleTheme = function () {
-    const html = document.documentElement;
-    const isDark = html.classList.contains('dark');
-
-    if (isDark) {
-        html.classList.remove('dark');
+    if (document.documentElement.classList.contains('dark')) {
+        document.documentElement.classList.remove('dark');
         localStorage.setItem('theme', 'light');
-        // FORÇA VISUAL: Garante que o fundo fique claro na hora
-        document.body.style.backgroundColor = '#f9fafb'; // gray-50
     } else {
-        html.classList.add('dark');
+        document.documentElement.classList.add('dark');
         localStorage.setItem('theme', 'dark');
-        // FORÇA VISUAL: Garante que o fundo fique preto na hora
-        document.body.style.backgroundColor = '#09090b'; // darkbg
     }
-
-    // Atualiza ícones na barra superior (Sol/Lua) se a função existir
-    if (typeof updateThemeIconUI === 'function') updateThemeIconUI();
 }
 
 window.toggleColorMenu = function (device) {
     const menu = document.getElementById(`color-menu-${device}`);
     if (!menu) return;
-
     const isHidden = menu.classList.contains('hidden');
-    // Fecha outros menus abertos
     document.querySelectorAll('.color-menu').forEach(m => m.classList.add('hidden'));
 
     if (isHidden) {
         menu.innerHTML = '';
-        const freeColors = ['indigo', 'cyan', 'green']; // Cores Grátis
+
+        // Lista de cores grátis (deve ser igual à usada em setThemeColor)
+        const freeColors = ['indigo', 'cyan', 'green'];
 
         Object.keys(colorPalettes).forEach(color => {
             const btn = document.createElement('button');
             const rgb = colorPalettes[color][500];
 
-            // Lógica Premium: Se não for grátis E usuário não for premium = Bloqueado
+            // Verifica se esta cor deve estar bloqueada
             const isLocked = !isUserPremium() && !freeColors.includes(color);
 
-            // Ícone da Coroa Dourada para itens bloqueados
-            let innerContent = isLocked
-                ? '<i class="fas fa-crown text-amber-500 text-[10px] drop-shadow-sm" style="text-shadow: 0 1px 2px rgba(0,0,0,0.3);"></i>'
-                : '';
+            // Se bloqueado, adiciona o ícone de cadeado
+            let innerContent = isLocked ? '<i class="fas fa-lock text-white/70 text-[10px] drop-shadow-sm"></i>' : '';
 
+            // Adicionei 'flex items-center justify-center' para centralizar o cadeado
             btn.className = `w-6 h-6 rounded-full border border-gray-200 dark:border-gray-700 hover:scale-110 transition transform focus:outline-none ring-2 ring-transparent focus:ring-offset-1 focus:ring-gray-400 flex items-center justify-center`;
             btn.style.backgroundColor = `rgb(${rgb})`;
 
-            // Tooltip indicando se é premium
+            // Tooltip mostra se é Premium
             btn.title = color.charAt(0).toUpperCase() + color.slice(1) + (isLocked ? " (Premium)" : "");
             btn.innerHTML = innerContent;
 

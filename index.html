@@ -374,25 +374,22 @@
                     <span class="font-bold text-lg md:hidden hidden sm:block">Salve-se UFRB</span>
 
                     <!-- Mobile Palette -->
-                    <div class="relative md:hidden">
-                        <button onclick="toggleColorMenu('mobile')"
-                            class="w-8 h-8 rounded-full bg-gray-100 dark:bg-neutral-800 hover:bg-gray-200 text-gray-500 flex items-center justify-center transition relative">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
-                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                stroke-linejoin="round" class="text-indigo-600" id="mobile-palette-icon">
-                                <circle cx="13.5" cy="6.5" r=".5" />
-                                <circle cx="17.5" cy="10.5" r=".5" />
-                                <circle cx="8.5" cy="7.5" r=".5" />
-                                <circle cx="6.5" cy="12.5" r=".5" />
-                                <path
-                                    d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z" />
-                            </svg>
-                        </button>
+                    <button onclick="toggleColorMenu('mobile')"
+                        class="md:hidden w-8 h-8 rounded-full bg-gray-100 dark:bg-neutral-800 hover:bg-gray-200 text-gray-500 flex items-center justify-center transition relative">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                            class="text-indigo-600" id="mobile-palette-icon">
+                            <circle cx="13.5" cy="6.5" r=".5" />
+                            <circle cx="17.5" cy="10.5" r=".5" />
+                            <circle cx="8.5" cy="7.5" r=".5" />
+                            <circle cx="6.5" cy="12.5" r=".5" />
+                            <path
+                                d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z" />
+                        </svg>
                         <div id="color-menu-mobile"
                             class="color-menu hidden absolute top-10 left-0 bg-white dark:bg-neutral-900 border border-gray-200 dark:border-darkborder shadow-xl rounded-xl p-3 z-50 w-48 grid grid-cols-5 gap-2">
                         </div>
-                    </div>
-
+                    </button>
                     <h2 id="page-title" class="hidden md:block text-lg font-semibold text-gray-700 dark:text-gray-200">
                         Página Principal</h2>
                 </div>
@@ -783,7 +780,7 @@
 
                         <!-- CARD IA FEED -->
                         <div id="widget-ai"
-                            class="bg-white dark:bg-darkcard rounded-xl border border-gray-200 dark:border-darkborder shadow-sm p-6 flex flex-col justify-center min-h-[200px] relative overflow-hidden group">
+                            class="bg-whiidte dark:bg-darkcard rounded-xl border border-gray-200 dark:border-darkborder shadow-sm p-6 flex flex-col justify-center min-h-[200px] relative overflow-hidden group">
                             <div
                                 class="absolute top-0 right-0 p-4 opacity-10 text-6xl transform translate-x-2 -translate-y-2 rotate-12">
                                 <i class="fas fa-clipboard-list"></i>
@@ -875,8 +872,8 @@
                                 <path d="M8 2v4"></path>
                                 <path d="M16 2v4"></path>
                                 <rect width="18" height="18" x="3" y="4" rx="2">
-                                </rect>
-                                <path d="M3 10h18"></path>
+                                    </path>
+                                    <path d="M3 10h18"></path>
                             </svg>
                             <p class="font-bold text-gray-700 dark:text-gray-200">Aulas</p>
                         </button>
@@ -890,12 +887,12 @@
                                 <path d="M10 6h4"></path>
                                 <path d="m22 7-2-1"></path>
                                 <rect width="16" height="16" x="4" y="3" rx="2">
-                                </rect>
-                                <path d="M4 11h16"></path>
-                                <path d="M8 15h.01"></path>
-                                <path d="M16 15h.01"></path>
-                                <path d="M6 19v2"></path>
-                                <path d="M18 21v-2"></path>
+                                    </path>
+                                    <path d="M4 11h16"></path>
+                                    <path d="M8 15h.01"></path>
+                                    <path d="M16 15h.01"></path>
+                                    <path d="M6 19v2"></path>
+                                    <path d="M18 21v-2"></path>
                             </svg>
                             <p class="font-bold text-gray-700 dark:text-gray-200">Circular</p>
                         </button>
@@ -916,14 +913,10 @@
                         <!-- AI Selector -->
                         <div class="flex justify-center gap-3 mt-2">
                             <button id="btn-ai-gemini" onclick="setAIProvider('gemini')"
-                                class="relative text-[10px] font-bold px-3 py-1 rounded-full ... flex items-center gap-1">
-                                Gemini
-                                <i class="fas fa-crown text-amber-500 text-[9px]"></i>
-                            </button>
+                                class="text-[10px] font-bold px-3 py-1 rounded-full bg-white dark:bg-darkcard border border-indigo-500 ring-2 ring-indigo-500 text-indigo-600 dark:text-indigo-400 shadow-sm transition">Gemini</button>
                             <button id="btn-ai-groq" onclick="setAIProvider('groq')"
-                                class="text-[10px] font-bold px-3 py-1 rounded-full bg-white dark:bg-darkcard border border-gray-300 dark:border-gray-700 text-gray-500 dark:text-gray-400 shadow-sm transition">
-                                Llama 3.3
-                            </button>
+                                class="text-[10px] font-bold px-3 py-1 rounded-full bg-white dark:bg-darkcard border border-gray-300 dark:border-gray-700 text-gray-500 dark:text-gray-400 shadow-sm transition">Llama
+                                3.3</button>
                         </div>
                     </div>
 
@@ -940,8 +933,7 @@
                             <div class="flex flex-col items-start">
                                 <div
                                     class="bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder text-gray-800 dark:text-gray-200 rounded-2xl rounded-bl-sm px-4 py-3 shadow-sm text-sm leading-relaxed">
-                                    <p>Olá! Sou sua assistente virtual. Posso ajudar com resumos, dúvidas sobre a
-                                        UFRB
+                                    <p>Olá! Sou sua assistente virtual. Posso ajudar com resumos, dúvidas sobre a UFRB
                                         ou organizar sua rotina. Em que posso ajudar?</p>
                                 </div>
                                 <span class="text-[10px] text-gray-400 mt-1 ml-1">Salve-se IA</span>
@@ -1053,8 +1045,7 @@
                                     --</h3>
                                 <div id="result-feedback"
                                     class="min-h-[200px] flex flex-col items-center justify-center transition-all duration-500">
-                                    <p class="text-gray-400 text-sm italic">Adicione notas para ver o resultado...
-                                    </p>
+                                    <p class="text-gray-400 text-sm italic">Adicione notas para ver o resultado...</p>
                                 </div>
                             </div>
                         </div>
@@ -1184,17 +1175,11 @@
                             class="flex lg:flex-col gap-3 overflow-x-auto lg:overflow-y-auto no-scrollbar pb-2 lg:pb-0 shrink-0 lg:pr-2 snap-x snap-mandatory">
 
                             <button onclick="loadTemplate('deadline')"
-                                class="snap-center min-w-[260px] lg:min-w-0 text-left p-4 rounded-xl bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder hover:border-indigo-500 dark:hover:border-indigo-500 transition group shadow-sm active:scale-95 relative overflow-hidden">
-
-                                <div
-                                    class="absolute top-0 right-0 w-8 h-8 bg-gradient-to-bl from-amber-100 to-transparent dark:from-amber-900/20 pointer-events-none">
-                                </div>
-
+                                class="snap-center min-w-[260px] lg:min-w-0 text-left p-4 rounded-xl bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder hover:border-indigo-500 dark:hover:border-indigo-500 transition group shadow-sm active:scale-95">
                                 <div class="flex items-center justify-between mb-1">
                                     <span
-                                        class="font-bold text-gray-700 dark:text-gray-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 flex items-center gap-2">
-                                        Extensão de Prazo
-                                        <i class="fas fa-crown text-amber-500 text-xs"></i> </span>
+                                        class="font-bold text-gray-700 dark:text-gray-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400">Extensão
+                                        de Prazo</span>
                                     <i class="fas fa-hourglass-half text-gray-300 group-hover:text-indigo-500"></i>
                                 </div>
                                 <span class="text-xs text-gray-500 dark:text-gray-400 line-clamp-2">Pedir mais tempo
@@ -1202,47 +1187,40 @@
                             </button>
 
                             <button onclick="loadTemplate('review')"
-                                class="snap-center min-w-[260px] lg:min-w-0 text-left p-4 rounded-xl bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder hover:border-indigo-500 dark:hover:border-indigo-500 transition group shadow-sm active:scale-95 relative overflow-hidden">
+                                class="snap-center min-w-[260px] lg:min-w-0 text-left p-4 rounded-xl bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder hover:border-indigo-500 dark:hover:border-indigo-500 transition group shadow-sm active:scale-95">
                                 <div class="flex items-center justify-between mb-1">
                                     <span
-                                        class="font-bold text-gray-700 dark:text-gray-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 flex items-center gap-2">
-                                        Revisão de Nota
-                                        <i class="fas fa-crown text-amber-500 text-xs"></i> </span>
+                                        class="font-bold text-gray-700 dark:text-gray-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400">Revisão
+                                        de Nota</span>
                                     <i class="fas fa-search text-gray-300 group-hover:text-indigo-500"></i>
                                 </div>
-                                <span class="text-xs text-gray-500 dark:text-gray-400 line-clamp-2">Solicitar vista
-                                    de
+                                <span class="text-xs text-gray-500 dark:text-gray-400 line-clamp-2">Solicitar vista de
                                     prova ou revisão de correção.</span>
                             </button>
 
                             <button onclick="loadTemplate('absence')"
-                                class="snap-center min-w-[260px] lg:min-w-0 text-left p-4 rounded-xl bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder hover:border-indigo-500 dark:hover:border-indigo-500 transition group shadow-sm active:scale-95 relative overflow-hidden">
+                                class="snap-center min-w-[260px] lg:min-w-0 text-left p-4 rounded-xl bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder hover:border-indigo-500 dark:hover:border-indigo-500 transition group shadow-sm active:scale-95">
                                 <div class="flex items-center justify-between mb-1">
                                     <span
-                                        class="font-bold text-gray-700 dark:text-gray-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 flex items-center gap-2">
-                                        Justificar Falta
-                                        <i class="fas fa-crown text-amber-500 text-xs"></i> </span>
+                                        class="font-bold text-gray-700 dark:text-gray-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400">Justificar
+                                        Falta</span>
                                     <i class="fas fa-user-injured text-gray-300 group-hover:text-indigo-500"></i>
                                 </div>
-                                <span class="text-xs text-gray-500 dark:text-gray-400 line-clamp-2">Enviar atestado
-                                    ou
+                                <span class="text-xs text-gray-500 dark:text-gray-400 line-clamp-2">Enviar atestado ou
                                     explicar ausência por motivos de saúde.</span>
                             </button>
 
                             <button onclick="loadTemplate('tcc')"
-                                class="snap-center min-w-[260px] lg:min-w-0 text-left p-4 rounded-xl bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder hover:border-indigo-500 dark:hover:border-indigo-500 transition group shadow-sm active:scale-95 relative overflow-hidden">
+                                class="snap-center min-w-[260px] lg:min-w-0 text-left p-4 rounded-xl bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder hover:border-indigo-500 dark:hover:border-indigo-500 transition group shadow-sm active:scale-95">
                                 <div class="flex items-center justify-between mb-1">
                                     <span
-                                        class="font-bold text-gray-700 dark:text-gray-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 flex items-center gap-2">
-                                        Orientador TCC
-                                        <i class="fas fa-crown text-amber-500 text-xs"></i> </span>
+                                        class="font-bold text-gray-700 dark:text-gray-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400">Orientador
+                                        TCC</span>
                                     <i class="fas fa-graduation-cap text-gray-300 group-hover:text-indigo-500"></i>
                                 </div>
-                                <span class="text-xs text-gray-500 dark:text-gray-400 line-clamp-2">Convite formal
-                                    para
+                                <span class="text-xs text-gray-500 dark:text-gray-400 line-clamp-2">Convite formal para
                                     orientação de trabalho de conclusão.</span>
                             </button>
-
                         </div>
 
                         <div

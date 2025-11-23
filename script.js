@@ -704,7 +704,7 @@ window.sendIAMessage = async function () {
 
     if (!message) return;
 
-    // 🔒 TRAVA DE SEGURANÇA PREMIUM (Mantida)
+    // 🔒 TRAVA DE SEGURANÇA PREMIUM (Mantida - UI Check)
     if (currentAIProvider === 'gemini' && !isUserPremium()) {
         requirePremium('IA Gemini (Google)');
         updateAISelectorUI();
@@ -725,9 +725,39 @@ window.sendIAMessage = async function () {
     try {
         // 2. Contexto
         const statusCircular = getBusStatusForAI();
+        const isPremium = isUserPremium(); // Verifica se é premium
 
-        // 3. PROMPT DO SISTEMA (ATUALIZADO E CORRIGIDO)
-        // AQUI ESTAVA O ERRO: Adicionamos a lista técnica de comandos
+        // --- LÓGICA DE RESTRIÇÃO DA IA ---
+        // Aqui definimos o que a IA pode ou não fazer baseado no plano
+        let permissionInstructions = "";
+
+        if (isPremium) {
+            permissionInstructions = `
+STATUS DA CONTA: PREMIUM 👑
+- O usuário tem acesso total a todas as cores e funções.
+- Pode executar qualquer comando da lista técnica.
+            `;
+        } else {
+            permissionInstructions = `
+STATUS DA CONTA: GRÁTIS (LIMITED) 🔒
+ATENÇÃO: Você deve agir como um 'Gatekeeper' (Porteiro) das funções pagas.
+
+REGRAS DE BLOQUEIO (SE O USUÁRIO PEDIR, VOCÊ DEVE NEGAR):
+1. CORES PROIBIDAS: O usuário SÓ pode usar as cores: 'Indigo' (Azul), 'Cyan' (Ciano) e 'Green' (Verde).
+   - Se ele pedir para mudar o tema para Preto, Roxo, Rosa, Laranja, Vermelho, etc -> RECUSE.
+   - Diga: "O tema [Cor] é exclusivo para membros Premium 👑. Você pode usar Azul, Ciano ou Verde."
+
+2. TEMPLATES DE EMAIL: A action "generate_template" é PROIBIDA para usuários grátis.
+   - Se ele pedir para escrever um email -> RECUSE.
+   - Diga: "A geração automática de emails é um recurso Premium 👑."
+
+3. IA GEMINI: Se ele perguntar, lembre que o modelo Gemini é Premium.
+
+IMPORTANTE: Se o pedido for bloqueado, NÃO envie o campo "commands" no JSON. Apenas envie a "message" explicando o motivo.
+            `;
+        }
+
+        // 3. PROMPT DO SISTEMA (ATUALIZADO COM AS REGRAS)
         let systemInstructionText = `
 VOCÊ É A "SALVE-SE IA", ASSISTENTE ACADÊMICA DA UFRB.
 Sua missão é organizar a vida do estudante, reduzir estresse e potencializar os estudos.
@@ -738,14 +768,15 @@ CONTEXTO ATUAL:
 - Hora: ${new Date().toLocaleTimeString('pt-BR')}
 - Ônibus: ${statusCircular}
 
-⚠️ IMPORTANTE - LISTA DE COMANDOS TÉCNICOS:
+${permissionInstructions}
+
+⚠️ LISTA TÉCNICA DE COMANDOS (Use apenas se permitido pelas regras acima):
 Para realizar ações no site, você DEVE usar o campo "commands" no JSON com as actions exatas abaixo:
 
 1. MUDAR COR DO TEMA:
    action: "set_global_color"
    params: { "color": "nome_da_cor" }
-   Cores aceitas: indigo, cyan, green, purple, pink, red, orange, yellow, teal, lime, violet, rose, black.
-   (Se o usuário pedir "azul", use "indigo". Se "roxo", use "purple").
+   (Lembre-se de checar se a cor é permitida para o plano do usuário).
 
 2. MUDAR MODO CLARO/ESCURO:
    action: "toggle_theme"
@@ -759,7 +790,7 @@ Para realizar ações no site, você DEVE usar o campo "commands" no JSON com as
    action: "create_note"
    params: { "title": "Título", "content": "HTML permitido" }
 
-5. GERAR EMAIL:
+5. GERAR EMAIL (PREMIUM):
    action: "generate_template"
    params: { "content": "texto do email" }
 
@@ -804,7 +835,7 @@ AÇÕES (Retorne APENAS JSON VÁLIDO):
         if (responseJson.message) appendMessage('ai', responseJson.message);
         else appendMessage('ai', "Feito!");
 
-        // Executa os comandos
+        // Executa os comandos (Se a IA obedeceu, ela não mandou comandos proibidos)
         if (responseJson.commands && Array.isArray(responseJson.commands)) {
             for (const cmd of responseJson.commands) {
                 await executeAICommand(cmd);

@@ -4202,85 +4202,101 @@ window.renderPremiumPage = function () {
 }
 
 // ============================================================
-// --- SISTEMA DE PAGAMENTO REAL (ASAAS) - COLE NO FINAL DO ARQUIVO ---
+// --- SISTEMA DE PAGAMENTO REAL (ASAAS) - VERSÃO FINAL COM CPF ---
 // ============================================================
 
 let paymentCheckInterval = null;
 let currentPaymentId = null;
 
-// 1. Função Principal (O botão chama esta)
-window.startPayment = async function () {
-    console.log("Iniciando pagamento...");
-
+// 1. Função Principal (O botão chama esta) - Agora pede CPF!
+window.startPayment = function() {
     if (!currentUser) {
         alert("Faça login para continuar.");
         return showLoginScreen();
     }
 
+    // Abre o modal para digitar o CPF
+    openCustomInputModal(
+        "CPF para Nota Fiscal",
+        "Digite apenas números...",
+        "",
+        (cpfValue) => {
+            // Remove tudo que não é número
+            const cleanCpf = cpfValue.replace(/\D/g, '');
+
+            if (cleanCpf.length !== 11) {
+                return showModal("CPF Inválido", "Por favor, digite um CPF válido com 11 números.");
+            }
+
+            // Se o CPF for válido, chama a função que processa o pagamento
+            processPaymentWithCpf(cleanCpf);
+        }
+    );
+}
+
+// 2. Função interna que chama a API (Com o CPF capturado)
+async function processPaymentWithCpf(cpf) {
+    // Abre o modal de carregamento (QR Code)
     const modal = document.getElementById('payment-modal');
     const qrImg = document.getElementById('pix-qr-image');
     const loader = document.getElementById('pix-loading');
-
-    if (!modal) {
-        alert("Erro: Modal de pagamento não encontrado no HTML. Verifique se você colou o código HTML do modal no final do index.html");
-        return;
+    
+    if (modal) {
+        modal.classList.remove('hidden');
+        setTimeout(() => {
+            modal.classList.remove('opacity-0');
+            if(modal.firstElementChild) {
+                modal.firstElementChild.classList.remove('scale-95');
+                modal.firstElementChild.classList.add('scale-100');
+            }
+        }, 10);
     }
 
-    // Abre o modal
-    modal.classList.remove('hidden');
-    setTimeout(() => {
-        modal.classList.remove('opacity-0');
-        if (modal.firstElementChild) {
-            modal.firstElementChild.classList.remove('scale-95');
-            modal.firstElementChild.classList.add('scale-100');
-        }
-    }, 10);
-
     try {
-        // Chama a API
+        // Chama a API Serverless enviando o CPF
         const response = await fetch('/api/create_pix', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                name: userProfile.displayName || "Aluno",
-                email: userProfile.email || currentUser.email
+                name: userProfile.displayName || "Aluno UFRB",
+                email: userProfile.email || currentUser.email,
+                cpf: cpf // <--- O CPF vai aqui!
             })
         });
 
         const data = await response.json();
-
+        
         if (data.error) throw new Error(data.error);
 
-        // Atualiza o Modal com o QR Code
+        // Sucesso: Exibe o QR Code
         currentPaymentId = data.id;
-
-        if (qrImg && data.encodedImage) {
+        
+        if (qrImg) {
             qrImg.src = `data:image/png;base64,${data.encodedImage}`;
             qrImg.classList.remove('opacity-50');
         }
-
         if (loader) loader.classList.add('hidden');
-
+        
         const copyInput = document.getElementById('pix-copy-paste');
         if (copyInput) copyInput.value = data.payload;
 
-        // Começa a verificar se pagou
+        // Inicia verificação de status
         if (paymentCheckInterval) clearInterval(paymentCheckInterval);
         paymentCheckInterval = setInterval(checkPaymentStatus, 3000);
 
     } catch (error) {
-        console.error("Erro no pagamento:", error);
-        alert("Erro ao gerar PIX: " + error.message);
+        console.error("Erro:", error);
         window.closePaymentModal();
+        showModal("Erro no Pagamento", error.message);
     }
 }
 
-// 2. Função para fechar o modal (O 'X' chama esta)
-window.closePaymentModal = function () {
+// 3. Função para fechar o modal
+window.closePaymentModal = function() {
     const modal = document.getElementById('payment-modal');
     if (modal) {
         modal.classList.add('opacity-0');
-        if (modal.firstElementChild) {
+        if(modal.firstElementChild) {
             modal.firstElementChild.classList.remove('scale-100');
             modal.firstElementChild.classList.add('scale-95');
         }
@@ -4289,13 +4305,13 @@ window.closePaymentModal = function () {
     if (paymentCheckInterval) clearInterval(paymentCheckInterval);
 }
 
-// 3. Função para copiar o código (O botão 'Copiar' chama esta)
-window.copyPixCode = function () {
+// 4. Função para copiar o código PIX
+window.copyPixCode = function() {
     const input = document.getElementById('pix-copy-paste');
     if (input) {
         input.select();
         document.execCommand('copy');
-
+        
         const btn = document.querySelector('#payment-modal button i.fa-copy')?.parentNode;
         if (btn) {
             const original = btn.innerHTML;
@@ -4305,7 +4321,7 @@ window.copyPixCode = function () {
     }
 }
 
-// 4. Verifica status do pagamento (Interna)
+// 5. Verifica status (Interna)
 async function checkPaymentStatus() {
     if (!currentPaymentId) return;
 
@@ -4324,17 +4340,17 @@ async function checkPaymentStatus() {
             activatePremiumForUser();
         }
     } catch (e) {
-        console.log("Verificando pagamento...", e);
+        console.log("Verificando...", e);
     }
 }
 
-// 5. Ativa o Premium (Interna)
+// 6. Ativa o Premium (Interna)
 async function activatePremiumForUser() {
     showModal("Pagamento Confirmado! 🌟", "Ativando sua assinatura Premium...");
 
     const now = new Date();
     const endDate = new Date();
-    endDate.setDate(now.getDate() + 30);
+    endDate.setDate(now.getDate() + 30); 
 
     const subscriptionData = {
         isPremium: true,
@@ -4343,17 +4359,13 @@ async function activatePremiumForUser() {
         lastPaymentId: currentPaymentId
     };
 
-    // Atualiza Firebase
     await setDoc(doc(db, "users", currentUser.uid), subscriptionData, { merge: true });
 
-    // Atualiza Local
     Object.assign(userProfile, subscriptionData);
     localStorage.setItem('salvese_user_profile', JSON.stringify(userProfile));
 
-    // Atualiza Interface
     updateUserInterfaceInfo();
     renderPremiumPage();
-
-    // Renderiza configurações para mostrar o timer se estiver lá
+    
     if (document.getElementById('settings-content')) renderSettings();
 }

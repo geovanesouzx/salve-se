@@ -943,55 +943,71 @@ async function executeAICommand(cmd) {
     console.log("🤖 Comando IA recebido:", cmd);
     const p = cmd.params || {};
 
+    // Define quais cores são gratuitas
+    const freeColors = ['indigo', 'cyan', 'green'];
+
     switch (cmd.action) {
-        // --- TEMA E CORES (CORRIGIDO) ---
+        // --- TEMA (CLARO/ESCURO) - CORRIGIDO ---
         case 'toggle_theme':
+            let targetTheme;
+
+            // Define o tema alvo
             if (p.mode === 'dark' || p.mode === 'escuro') {
+                targetTheme = 'dark';
+            } else if (p.mode === 'light' || p.mode === 'claro') {
+                targetTheme = 'light';
+            } else {
+                // Se não especificou, inverte o atual
+                targetTheme = document.documentElement.classList.contains('dark') ? 'light' : 'dark';
+            }
+
+            // Aplica e Salva
+            if (targetTheme === 'dark') {
                 document.documentElement.classList.add('dark');
                 localStorage.setItem('theme', 'dark');
-            } else if (p.mode === 'light' || p.mode === 'claro') {
+            } else {
                 document.documentElement.classList.remove('dark');
                 localStorage.setItem('theme', 'light');
-            } else {
-                toggleTheme();
             }
+
+            // Força atualização visual dos ícones
+            if (typeof updateThemeIconUI === 'function') updateThemeIconUI();
             break;
 
+        // --- MUDAR COR (COM TRAVA PREMIUM) ---
         case 'set_global_color':
-            // 1. Limpa a entrada da IA
             let rawColor = p.color ? p.color.toLowerCase().trim() : 'indigo';
 
-            // 2. TRADUTOR COMPLETO
             const colorMap = {
-                // Masculino
-                'verde': 'green', 'vermelho': 'red', 'azul': 'indigo',
-                'roxo': 'purple', 'rosa': 'pink', 'laranja': 'orange',
-                'amarelo': 'yellow', 'preto': 'black', 'ciano': 'cyan',
-                'violeta': 'violet', 'lima': 'lime', 'petroleo': 'teal',
-
-                // Feminino e variações
-                'preta': 'black', 'vermelha': 'red', 'amarela': 'yellow',
-                'roxa': 'purple', 'branca': 'black',
-
-                // Inglês
-                'indigo': 'indigo', 'green': 'green', 'red': 'red',
-                'purple': 'purple', 'pink': 'pink', 'orange': 'orange',
-                'yellow': 'yellow', 'black': 'black', 'cyan': 'cyan',
-                'violet': 'violet', 'lime': 'lime', 'teal': 'teal',
-                'rose': 'rose', 'blue': 'indigo'
+                'verde': 'green', 'vermelho': 'red', 'azul': 'indigo', 'roxo': 'purple',
+                'rosa': 'pink', 'laranja': 'orange', 'amarelo': 'yellow', 'preto': 'black',
+                'ciano': 'cyan', 'violeta': 'violet', 'lima': 'lime', 'petroleo': 'teal',
+                'preta': 'black', 'vermelha': 'red', 'amarela': 'yellow', 'roxa': 'purple',
+                'branca': 'black', 'cinza': 'black', 'indigo': 'indigo', 'green': 'green',
+                'red': 'red', 'purple': 'purple', 'pink': 'pink', 'orange': 'orange',
+                'yellow': 'yellow', 'black': 'black', 'cyan': 'cyan', 'violet': 'violet',
+                'lime': 'lime', 'teal': 'teal', 'rose': 'rose', 'blue': 'indigo'
             };
 
-            // 3. Traduz a cor
             const finalColor = colorMap[rawColor] || rawColor;
 
-            // 4. SEGURANÇA CORRIGIDA: Removemos o 'window.' para acessar a variável localmente
-            // Verifica se a paleta de cores existe antes de aplicar
-            if (typeof colorPalettes !== 'undefined' && colorPalettes[finalColor]) {
-                setThemeColor(finalColor);
-            } else {
+            // Verifica se a cor existe
+            if (typeof colorPalettes === 'undefined' || !colorPalettes[finalColor]) {
                 console.warn(`Cor não encontrada: ${finalColor}. Usando Indigo.`);
                 setThemeColor('indigo');
+                return;
             }
+
+            // 🔒 TRAVA PREMIUM: Se a cor é paga e o usuário não é Premium
+            if (!freeColors.includes(finalColor) && !isUserPremium()) {
+                showModal(
+                    "Recurso Premium 👑",
+                    `A cor "${finalColor.toUpperCase()}" é exclusiva para assinantes. Cores grátis: Indigo, Ciano e Verde.`
+                );
+                return; // Bloqueia a mudança
+            }
+
+            setThemeColor(finalColor);
             break;
 
         // --- TAREFAS ---
@@ -1041,28 +1057,12 @@ async function executeAICommand(cmd) {
             if (p.page !== currentViewContext) switchPage(p.page);
             break;
 
-        // --- NOTAS (Melhorado para IA) ---
+        // --- NOTAS ---
         case 'create_note':
             const newNoteId = Date.now().toString();
-
-            // Garante que o conteúdo venha formatado ou vazio
-            let noteContent = p.content || "";
-
-            notesData.push({
-                id: newNoteId,
-                title: p.title || "Nota da IA",
-                content: noteContent,
-                updatedAt: Date.now()
-            });
-
+            notesData.push({ id: newNoteId, title: p.title || "Nota da IA", content: p.content || "", updatedAt: Date.now() });
             saveData();
-
-            // Se não estiver na tela de notas, vai pra lá
-            if (currentViewContext !== 'notas') {
-                switchPage('notas');
-            }
-
-            // Renderiza e abre a nota criada
+            if (currentViewContext !== 'notas') { switchPage('notas'); }
             setTimeout(() => {
                 renderNotes();
                 openNote(newNoteId);
@@ -1070,8 +1070,12 @@ async function executeAICommand(cmd) {
             }, 300);
             break;
 
-        // --- WIDGETS ---
+        // --- OCULTAR WIDGETS (COM TRAVA PREMIUM) ---
         case 'hide_widget':
+            if (!isUserPremium()) {
+                showModal("Recurso Premium 👑", "Ocultar widgets é exclusivo para assinantes.");
+                return;
+            }
             if (p.id && !hiddenWidgets.includes(p.id)) toggleWidget(p.id);
             break;
 
@@ -1079,38 +1083,52 @@ async function executeAICommand(cmd) {
             if (p.id && hiddenWidgets.includes(p.id)) toggleWidget(p.id);
             break;
 
+        // --- TEMPLATES DE EMAIL (COM TRAVA PREMIUM) ---
         case 'generate_template':
-            const emailContent = p.content || "";
-
-            // 1. Muda para a tela de templates se não estiver nela
-            if (currentViewContext !== 'email') {
-                switchPage('email');
+            if (!isUserPremium()) {
+                showModal("Recurso Premium 👑", "Gerar templates de e-mail é exclusivo para assinantes.");
+                return;
             }
 
-            // 2. Aguarda a tela carregar (caso tenha trocado) e preenche
+            if (currentViewContext !== 'email') { switchPage('email'); }
             setTimeout(() => {
                 const emailArea = document.getElementById('email-content');
                 const statusLabel = document.getElementById('template-status');
-
                 if (emailArea) {
-                    // Efeito de "digitação" instantânea
-                    emailArea.value = emailContent;
+                    emailArea.value = p.content || "";
                     emailArea.classList.add('bg-indigo-50', 'dark:bg-indigo-900/20');
                     setTimeout(() => emailArea.classList.remove('bg-indigo-50', 'dark:bg-indigo-900/20'), 500);
-
-                    // Mostra etiqueta "Gerado por IA"
                     if (statusLabel) {
                         statusLabel.innerText = "✨ Criado pela IA";
                         statusLabel.classList.remove('hidden');
                     }
                 }
             }, 100);
+            break;
 
         default:
             console.warn("⚠️ Comando IA não reconhecido:", cmd.action);
     }
 }
 
+// Adicione esta função auxiliar logo abaixo, caso não exista, para garantir que os ícones atualizem
+function updateThemeIconUI() {
+    const isDark = document.documentElement.classList.contains('dark');
+    const btn = document.querySelector('button[onclick="toggleTheme()"]');
+    if (btn) {
+        // Força a re-renderização dos SVGs baseada na classe dark
+        const svgs = btn.querySelectorAll('svg');
+        if (svgs.length >= 2) {
+            if (isDark) {
+                svgs[0].classList.remove('hidden'); // Lua
+                svgs[1].classList.add('hidden');    // Sol
+            } else {
+                svgs[0].classList.add('hidden');    // Lua
+                svgs[1].classList.remove('hidden'); // Sol
+            }
+        }
+    }
+}
 function updateAIWidget(content) {
     aiWidgetContent = content;
     localStorage.setItem('salvese_ai_widget', content);

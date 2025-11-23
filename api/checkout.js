@@ -8,12 +8,12 @@ export default async function handler(req, res) {
     }
 
     try {
-        // Inicializa o MP com a chave segura que está na Vercel
+        // Inicializa o MP com a chave segura que está nas Variáveis de Ambiente da Vercel
         const client = new MercadoPagoConfig({ accessToken: process.env.MP_ACCESS_TOKEN });
         const preference = new Preference(client);
 
         // Pega a URL do site dinamicamente (funciona em localhost e produção)
-        // Se der erro, substitua pela URL fixa: 'https://salve-se-ufrb.vercel.app'
+        // Fallback para a URL de produção caso o header não exista
         const origin = req.headers.origin || 'https://salve-se-ufrb.vercel.app';
 
         const body = {
@@ -34,11 +34,18 @@ export default async function handler(req, res) {
                 pending: `${origin}/?status=pending`
             },
             auto_return: 'approved',
+            // CONFIGURAÇÃO EXTRA: Remove Boleto para forçar pagamento instantâneo (PIX/Cartão)
+            payment_methods: {
+                excluded_payment_types: [
+                    { id: "ticket" } // Remove boleto bancário (demora cair)
+                ],
+                installments: 1 // Opcional: remove parcelamento para valor baixo
+            }
         };
 
         const result = await preference.create({ body });
 
-        // Retorna o link para o Frontend
+        // Retorna o link de pagamento para o Frontend
         return res.status(200).json({ init_point: result.init_point });
 
     } catch (error) {

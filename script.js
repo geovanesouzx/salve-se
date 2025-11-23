@@ -425,14 +425,21 @@ function injectWidgetControls() {
         if (existingControls) existingControls.remove();
 
         const controlsDiv = document.createElement('div');
-        controlsDiv.className = "widget-controls absolute top-3 right-3 flex gap-2 z-20 opacity-0 group-hover:opacity-100 transition-opacity bg-white/80 dark:bg-black/50 backdrop-blur-sm rounded-lg p-1 shadow-sm";
+        // Ajustei para alinhar melhor os ícones
+        controlsDiv.className = "widget-controls absolute top-3 right-3 flex gap-2 z-20 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 dark:bg-black/60 backdrop-blur-sm rounded-lg p-1.5 shadow-sm border border-gray-100 dark:border-neutral-800";
+
+        // Verifica se é premium para mostrar ou não a coroa
+        const crownIcon = !isUserPremium() ? '<i class="fas fa-crown text-amber-500 text-[8px] absolute top-0 right-0 transform translate-x-1 -translate-y-1"></i>' : '';
 
         controlsDiv.innerHTML = `
-            <button onclick="openWidgetCustomizer('${id}')" class="w-6 h-6 flex items-center justify-center text-gray-500 hover:text-indigo-500 dark:text-gray-300 dark:hover:text-indigo-400 transition" title="Personalizar Estilo">
+            <button onclick="openWidgetCustomizer('${id}')" class="relative w-6 h-6 flex items-center justify-center text-gray-500 hover:text-indigo-500 dark:text-gray-300 dark:hover:text-indigo-400 transition" title="Personalizar Estilo">
                 <i class="fas fa-palette text-xs"></i>
+                ${crownIcon}
             </button>
-            <button onclick="toggleWidget('${id}')" class="w-6 h-6 flex items-center justify-center text-gray-500 hover:text-red-500 dark:text-gray-300 dark:hover:text-red-400 transition" title="Ocultar Widget">
+            <div class="w-px h-4 bg-gray-300 dark:bg-neutral-600 self-center"></div>
+            <button onclick="toggleWidget('${id}')" class="relative w-6 h-6 flex items-center justify-center text-gray-500 hover:text-red-500 dark:text-gray-300 dark:hover:text-red-400 transition" title="Ocultar Widget">
                 <i class="fas fa-eye-slash text-xs"></i>
+                ${crownIcon}
             </button>
         `;
 
@@ -447,35 +454,37 @@ function injectWidgetControls() {
         });
     });
 }
-
 window.openWidgetCustomizer = function (widgetId) {
     // TRAVA PREMIUM
     if (!requirePremium('Personalizar Cor do Widget')) return;
 
-    // ... resto do código original openWidgetCustomizer ...
     const modal = document.createElement('div');
-    // ... (criação do modal continua igual)
     modal.className = "fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm fade-in";
     modal.id = "customizer-modal";
 
     let optionsHtml = '';
     Object.entries(WIDGET_PRESETS).forEach(([key, preset]) => {
-        // ... (geração das opções)
+        // Adiciona coroa visual se não for o padrão (apenas estético aqui, pois a trava já ocorreu na entrada da função)
+        const isPremiumStyle = key !== 'default';
+        const icon = isPremiumStyle ? '<i class="fas fa-crown text-amber-500 ml-2 text-xs"></i>' : '';
+
         optionsHtml += `
-            <button onclick="setWidgetStyle('${widgetId}', '${key}')" class="w-full text-left p-3 rounded-xl border border-gray-200 dark:border-neutral-700 mb-2 hover:scale-[1.02] transition flex items-center gap-3 overflow-hidden group">
+            <button onclick="setWidgetStyle('${widgetId}', '${key}')" class="w-full text-left p-3 rounded-xl border border-gray-200 dark:border-neutral-700 mb-2 hover:scale-[1.02] transition flex items-center gap-3 overflow-hidden group bg-white dark:bg-neutral-800 hover:border-indigo-500">
                 <div class="w-8 h-8 rounded-full ${preset.class.split(' ').filter(c => c.startsWith('bg-') || c.startsWith('from-')).join(' ')} border border-gray-300 shadow-sm"></div>
-                <span class="font-medium text-gray-700 dark:text-gray-200">${preset.label}</span>
+                <span class="font-medium text-gray-700 dark:text-gray-200 flex items-center">${preset.label} ${icon}</span>
                 ${widgetStyles[widgetId] === key ? '<i class="fas fa-check text-green-500 ml-auto"></i>' : ''}
             </button>
         `;
     });
-    // ... (finalização do modal)
+
     modal.innerHTML = `
         <div class="bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl w-full max-w-sm p-6 m-4 relative animate-scale-in border border-gray-200 dark:border-neutral-800">
             <button onclick="document.getElementById('customizer-modal').remove()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
                 <i class="fas fa-times"></i>
             </button>
-            <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-1">Personalizar Widget</h3>
+            <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-1 flex items-center gap-2">
+                Personalizar Widget <span class="bg-amber-100 text-amber-600 text-[10px] px-2 py-0.5 rounded-full uppercase font-bold">Pro</span>
+            </h3>
             <p class="text-sm text-gray-500 mb-4">Escolha um estilo visual:</p>
             <div class="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
                 ${optionsHtml}
@@ -3201,14 +3210,13 @@ window.toggleColorMenu = function (device) {
             // Verifica se esta cor deve estar bloqueada
             const isLocked = !isUserPremium() && !freeColors.includes(color);
 
-            // Se bloqueado, adiciona o ícone de cadeado
-            let innerContent = isLocked ? '<i class="fas fa-lock text-white/70 text-[10px] drop-shadow-sm"></i>' : '';
+            // AQUI ESTÁ A MUDANÇA: Ícone de Coroa Dourada
+            let innerContent = isLocked ? '<i class="fas fa-crown text-amber-300 text-[10px] drop-shadow-sm"></i>' : '';
 
-            // Adicionei 'flex items-center justify-center' para centralizar o cadeado
+            // Adicionei 'flex items-center justify-center' para centralizar
             btn.className = `w-6 h-6 rounded-full border border-gray-200 dark:border-gray-700 hover:scale-110 transition transform focus:outline-none ring-2 ring-transparent focus:ring-offset-1 focus:ring-gray-400 flex items-center justify-center`;
             btn.style.backgroundColor = `rgb(${rgb})`;
 
-            // Tooltip mostra se é Premium
             btn.title = color.charAt(0).toUpperCase() + color.slice(1) + (isLocked ? " (Premium)" : "");
             btn.innerHTML = innerContent;
 

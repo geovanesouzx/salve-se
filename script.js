@@ -4200,3 +4200,160 @@ window.renderPremiumPage = function () {
         document.head.appendChild(style);
     }
 }
+
+// ============================================================
+// --- SISTEMA DE PAGAMENTO REAL (ASAAS) - COLE NO FINAL DO ARQUIVO ---
+// ============================================================
+
+let paymentCheckInterval = null;
+let currentPaymentId = null;
+
+// 1. Função Principal (O botão chama esta)
+window.startPayment = async function () {
+    console.log("Iniciando pagamento...");
+
+    if (!currentUser) {
+        alert("Faça login para continuar.");
+        return showLoginScreen();
+    }
+
+    const modal = document.getElementById('payment-modal');
+    const qrImg = document.getElementById('pix-qr-image');
+    const loader = document.getElementById('pix-loading');
+
+    if (!modal) {
+        alert("Erro: Modal de pagamento não encontrado no HTML. Verifique se você colou o código HTML do modal no final do index.html");
+        return;
+    }
+
+    // Abre o modal
+    modal.classList.remove('hidden');
+    setTimeout(() => {
+        modal.classList.remove('opacity-0');
+        if (modal.firstElementChild) {
+            modal.firstElementChild.classList.remove('scale-95');
+            modal.firstElementChild.classList.add('scale-100');
+        }
+    }, 10);
+
+    try {
+        // Chama a API
+        const response = await fetch('/api/create_pix', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                name: userProfile.displayName || "Aluno",
+                email: userProfile.email || currentUser.email
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.error) throw new Error(data.error);
+
+        // Atualiza o Modal com o QR Code
+        currentPaymentId = data.id;
+
+        if (qrImg && data.encodedImage) {
+            qrImg.src = `data:image/png;base64,${data.encodedImage}`;
+            qrImg.classList.remove('opacity-50');
+        }
+
+        if (loader) loader.classList.add('hidden');
+
+        const copyInput = document.getElementById('pix-copy-paste');
+        if (copyInput) copyInput.value = data.payload;
+
+        // Começa a verificar se pagou
+        if (paymentCheckInterval) clearInterval(paymentCheckInterval);
+        paymentCheckInterval = setInterval(checkPaymentStatus, 3000);
+
+    } catch (error) {
+        console.error("Erro no pagamento:", error);
+        alert("Erro ao gerar PIX: " + error.message);
+        window.closePaymentModal();
+    }
+}
+
+// 2. Função para fechar o modal (O 'X' chama esta)
+window.closePaymentModal = function () {
+    const modal = document.getElementById('payment-modal');
+    if (modal) {
+        modal.classList.add('opacity-0');
+        if (modal.firstElementChild) {
+            modal.firstElementChild.classList.remove('scale-100');
+            modal.firstElementChild.classList.add('scale-95');
+        }
+        setTimeout(() => modal.classList.add('hidden'), 300);
+    }
+    if (paymentCheckInterval) clearInterval(paymentCheckInterval);
+}
+
+// 3. Função para copiar o código (O botão 'Copiar' chama esta)
+window.copyPixCode = function () {
+    const input = document.getElementById('pix-copy-paste');
+    if (input) {
+        input.select();
+        document.execCommand('copy');
+
+        const btn = document.querySelector('#payment-modal button i.fa-copy')?.parentNode;
+        if (btn) {
+            const original = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-check"></i> Copiado!';
+            setTimeout(() => btn.innerHTML = original, 2000);
+        }
+    }
+}
+
+// 4. Verifica status do pagamento (Interna)
+async function checkPaymentStatus() {
+    if (!currentPaymentId) return;
+
+    try {
+        const response = await fetch('/api/check_status', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: currentPaymentId })
+        });
+
+        const data = await response.json();
+
+        if (data.paid) {
+            clearInterval(paymentCheckInterval);
+            window.closePaymentModal();
+            activatePremiumForUser();
+        }
+    } catch (e) {
+        console.log("Verificando pagamento...", e);
+    }
+}
+
+// 5. Ativa o Premium (Interna)
+async function activatePremiumForUser() {
+    showModal("Pagamento Confirmado! 🌟", "Ativando sua assinatura Premium...");
+
+    const now = new Date();
+    const endDate = new Date();
+    endDate.setDate(now.getDate() + 30);
+
+    const subscriptionData = {
+        isPremium: true,
+        subscriptionStartDate: now.toISOString(),
+        subscriptionEndDate: endDate.toISOString(),
+        lastPaymentId: currentPaymentId
+    };
+
+    // Atualiza Firebase
+    await setDoc(doc(db, "users", currentUser.uid), subscriptionData, { merge: true });
+
+    // Atualiza Local
+    Object.assign(userProfile, subscriptionData);
+    localStorage.setItem('salvese_user_profile', JSON.stringify(userProfile));
+
+    // Atualiza Interface
+    updateUserInterfaceInfo();
+    renderPremiumPage();
+
+    // Renderiza configurações para mostrar o timer se estiver lá
+    if (document.getElementById('settings-content')) renderSettings();
+}

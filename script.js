@@ -943,7 +943,7 @@ async function executeAICommand(cmd) {
     console.log("🤖 Comando IA recebido:", cmd);
     const p = cmd.params || {};
 
-    // Define quais cores são gratuitas
+    // Define quais cores são gratuitas para validar a IA
     const freeColors = ['indigo', 'cyan', 'green'];
 
     switch (cmd.action) {
@@ -951,7 +951,7 @@ async function executeAICommand(cmd) {
         case 'toggle_theme':
             let targetTheme;
 
-            // Define o tema alvo
+            // 1. Descobre qual tema aplicar
             if (p.mode === 'dark' || p.mode === 'escuro') {
                 targetTheme = 'dark';
             } else if (p.mode === 'light' || p.mode === 'claro') {
@@ -961,7 +961,7 @@ async function executeAICommand(cmd) {
                 targetTheme = document.documentElement.classList.contains('dark') ? 'light' : 'dark';
             }
 
-            // Aplica e Salva
+            // 2. Aplica a classe e salva na memória do navegador
             if (targetTheme === 'dark') {
                 document.documentElement.classList.add('dark');
                 localStorage.setItem('theme', 'dark');
@@ -970,7 +970,7 @@ async function executeAICommand(cmd) {
                 localStorage.setItem('theme', 'light');
             }
 
-            // Força atualização visual dos ícones
+            // 3. Atualiza os ícones de sol/lua no topo da página
             if (typeof updateThemeIconUI === 'function') updateThemeIconUI();
             break;
 
@@ -991,22 +991,24 @@ async function executeAICommand(cmd) {
 
             const finalColor = colorMap[rawColor] || rawColor;
 
-            // Verifica se a cor existe
+            // Verifica se a cor existe no sistema
             if (typeof colorPalettes === 'undefined' || !colorPalettes[finalColor]) {
                 console.warn(`Cor não encontrada: ${finalColor}. Usando Indigo.`);
                 setThemeColor('indigo');
                 return;
             }
 
-            // 🔒 TRAVA PREMIUM: Se a cor é paga e o usuário não é Premium
+            // 🔒 TRAVA PREMIUM: Se a cor NÃO for grátis E o usuário NÃO for Premium
             if (!freeColors.includes(finalColor) && !isUserPremium()) {
+                // Mostra modal de aviso e PARA a execução (return)
                 showModal(
                     "Recurso Premium 👑",
-                    `A cor "${finalColor.toUpperCase()}" é exclusiva para assinantes. Cores grátis: Indigo, Ciano e Verde.`
+                    `A cor "${finalColor.toUpperCase()}" é exclusiva para assinantes. Cores liberadas: Indigo, Ciano e Verde.`
                 );
-                return; // Bloqueia a mudança
+                return;
             }
 
+            // Se passou pela trava, aplica a cor
             setThemeColor(finalColor);
             break;
 
@@ -1110,7 +1112,6 @@ async function executeAICommand(cmd) {
             console.warn("⚠️ Comando IA não reconhecido:", cmd.action);
     }
 }
-
 // Adicione esta função auxiliar logo abaixo, caso não exista, para garantir que os ícones atualizem
 function updateThemeIconUI() {
     const isDark = document.documentElement.classList.contains('dark');

@@ -3905,7 +3905,7 @@ window.showTypingIndicator = function () {
 }
 
 // ============================================================
-// --- PÁGINA PREMIUM (DESIGN REDESENHADO - ESTILO HBO/GLASS) ---
+// --- PÁGINA PREMIUM (ATUALIZADO PARA R$ 6,00) ---
 // ============================================================
 
 window.renderPremiumPage = function () {
@@ -3914,7 +3914,7 @@ window.renderPremiumPage = function () {
 
     // Verifica status
     const isPremium = isUserPremium();
-
+    
     // --- CONTEÚDO SE JÁ FOR PREMIUM (CARTÃO BLACK/GOLD) ---
     if (isPremium) {
         const now = new Date();
@@ -4018,7 +4018,7 @@ window.renderPremiumPage = function () {
                     <div class="relative z-10">
                         <p class="text-indigo-100 font-bold text-xs uppercase tracking-widest mb-1">Plano Mensal</p>
                         <div class="flex items-end gap-1 mb-2">
-                            <span class="text-5xl font-black tracking-tighter">R$ 4,90</span>
+                            <span class="text-5xl font-black tracking-tighter">R$ 6,00</span>
                             <span class="text-indigo-100 font-medium mb-1">/mês</span>
                         </div>
                         <p class="text-xs text-indigo-100/80 bg-white/10 inline-block px-2 py-1 rounded backdrop-blur-sm">
@@ -4089,7 +4089,7 @@ window.renderPremiumPage = function () {
 
         </div>
     `;
-
+    
     // Adicionar animação keyframe para o brilho do botão se não existir
     if (!document.getElementById('shimmer-style')) {
         const style = document.createElement('style');

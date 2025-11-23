@@ -3253,24 +3253,27 @@ function showPremiumLock(recurso) {
         `Recurso Premium 👑`,
         `O recurso "${recurso}" é exclusivo para assinantes.\n\nDesbloqueie agora por apenas R$ 5,00!`
     );
-    function updatePremiumVisuals() {
-        const userIsPremium = isPremium();
 
-        // Pega todas as coroas do site
-        const icons = document.querySelectorAll('.premium-icon');
-
-        icons.forEach(icon => {
-            if (userIsPremium) {
-                // Se pagou, esconde a coroa
-                icon.style.display = 'none';
-            } else {
-                // Se é grátis, mostra a coroa
-                icon.style.display = 'inline-block';
-            }
-        });
-    }
     // Quando fechar o modal, leva pra tela de compra
     setTimeout(() => switchPage('premium'), 2000);
+}
+
+// ESTA FUNÇÃO ESTAVA DENTRO DA DE CIMA. AGORA ESTÁ FORA (CORRETO):
+function updatePremiumVisuals() {
+    const userIsPremium = isPremium();
+
+    // Pega todas as coroas do site
+    const icons = document.querySelectorAll('.premium-icon');
+
+    icons.forEach(icon => {
+        if (userIsPremium) {
+            // Se pagou, esconde a coroa
+            icon.style.display = 'none';
+        } else {
+            // Se é grátis, mostra a coroa
+            icon.style.display = 'inline-block';
+        }
+    });
 }
 
 // Inicialização DOM

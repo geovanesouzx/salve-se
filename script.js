@@ -455,27 +455,40 @@ function injectWidgetControls() {
 }
 
 window.openWidgetCustomizer = function (widgetId) {
-    // TRAVA PREMIUM
+    // TRAVA PREMIUM (Mantenha a trava se quiser bloquear o acesso total, 
+    // ou remova essa linha se quiser deixar abrir o menu mas mostrar as coroas dentro)
     if (!requirePremium('Personalizar Cor do Widget')) return;
 
-    // ... resto do código original openWidgetCustomizer ...
     const modal = document.createElement('div');
-    // ... (criação do modal continua igual)
     modal.className = "fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm fade-in";
     modal.id = "customizer-modal";
 
     let optionsHtml = '';
+
+    // Verifica se usuário é premium para decidir se mostra a coroa
+    const showCrown = !isUserPremium();
+
     Object.entries(WIDGET_PRESETS).forEach(([key, preset]) => {
-        // ... (geração das opções)
+        // Define se o estilo é premium (todos menos o default)
+        const isPremiumStyle = key !== 'default';
+
+        // HTML da coroa
+        const crownIcon = (isPremiumStyle && showCrown)
+            ? '<i class="fas fa-crown text-amber-500 text-xs ml-2 animate-pulse"></i>'
+            : '';
+
         optionsHtml += `
             <button onclick="setWidgetStyle('${widgetId}', '${key}')" class="w-full text-left p-3 rounded-xl border border-gray-200 dark:border-neutral-700 mb-2 hover:scale-[1.02] transition flex items-center gap-3 overflow-hidden group">
                 <div class="w-8 h-8 rounded-full ${preset.class.split(' ').filter(c => c.startsWith('bg-') || c.startsWith('from-')).join(' ')} border border-gray-300 shadow-sm"></div>
-                <span class="font-medium text-gray-700 dark:text-gray-200">${preset.label}</span>
+                <span class="font-medium text-gray-700 dark:text-gray-200 flex items-center">
+                    ${preset.label}
+                    ${crownIcon}
+                </span>
                 ${widgetStyles[widgetId] === key ? '<i class="fas fa-check text-green-500 ml-auto"></i>' : ''}
             </button>
         `;
     });
-    // ... (finalização do modal)
+
     modal.innerHTML = `
         <div class="bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl w-full max-w-sm p-6 m-4 relative animate-scale-in border border-gray-200 dark:border-neutral-800">
             <button onclick="document.getElementById('customizer-modal').remove()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
@@ -1982,6 +1995,10 @@ window.renderSettings = function () {
     const container = document.getElementById('settings-content');
     if (!container || !userProfile) return;
 
+    // --- 1. ADICIONE ISTO AQUI (Define a coroa se não for Premium) ---
+    const hiddenWidgetCrown = !isUserPremium() ? ' <i class="fas fa-crown text-amber-500 text-[10px] ml-1"></i>' : '';
+    // -----------------------------------------------------------------
+
     let dateStr = "N/A";
     if (userProfile.createdAt) {
         const date = new Date(userProfile.createdAt);
@@ -2003,7 +2020,7 @@ window.renderSettings = function () {
                     ${svgIcon}
                 </div>
                 <div>
-                    <p class="font-bold text-gray-800 dark:text-gray-200 text-sm">${title}</p>
+                    <p class="font-bold text-gray-800 dark:text-gray-200 text-sm flex items-center">${title}</p>
                     <p class="text-xs text-gray-400 dark:text-gray-500">${subtitle}</p>
                 </div>
             </div>
@@ -3236,7 +3253,7 @@ window.toggleTheme = function () {
     }
 }
 
-window.toggleColorMenu = function (device) {
+wwindow.toggleColorMenu = function (device) {
     const menu = document.getElementById(`color-menu-${device}`);
     if (!menu) return;
     const isHidden = menu.classList.contains('hidden');
@@ -3251,8 +3268,9 @@ window.toggleColorMenu = function (device) {
             const rgb = colorPalettes[color][500];
             const isLocked = !isUserPremium() && !freeColors.includes(color);
 
-            // MUDANÇA AQUI: Ícone de Coroa Dourada
-            let innerContent = isLocked ? '<i class="fas fa-crown text-amber-400 text-[10px] drop-shadow-sm" style="text-shadow: 0 1px 2px rgba(0,0,0,0.3);"></i>' : '';
+            // --- PASSO 3: Ícone de Coroa Dourada ---
+            let innerContent = isLocked ? '<i class="fas fa-crown text-amber-500 text-[10px] drop-shadow-sm" style="text-shadow: 0 1px 2px rgba(0,0,0,0.3);"></i>' : '';
+            // ---------------------------------------
 
             btn.className = `w-6 h-6 rounded-full border border-gray-200 dark:border-gray-700 hover:scale-110 transition transform focus:outline-none ring-2 ring-transparent focus:ring-offset-1 focus:ring-gray-400 flex items-center justify-center`;
             btn.style.backgroundColor = `rgb(${rgb})`;

@@ -695,6 +695,23 @@ window.sendIAMessage = async function () {
 
     if (!message) return;
 
+    // =================================================================
+    // 🔒 TRAVA DE SEGURANÇA (NOVA)
+    // Verifica se está tentando usar Gemini sem ser Premium antes de enviar
+    // =================================================================
+    if (currentAIProvider === 'gemini' && !isUserPremium()) {
+        requirePremium('IA Gemini (Google)'); // Mostra o modal de venda
+
+        // Opcional: Já muda o seletor visualmente para o Llama (que é grátis)
+        // para facilitar a vida do usuário na próxima tentativa
+        updateAISelectorUI();
+        const btnGroq = document.getElementById('btn-ai-groq');
+        if (btnGroq) btnGroq.click(); // Simula clique no Llama
+
+        return; // ⛔ PARE AQUI. Não envia nada para a API.
+    }
+    // =================================================================
+
     // 1. Exibe a mensagem do usuário
     appendMessage('user', message);
     input.value = '';
@@ -708,7 +725,7 @@ window.sendIAMessage = async function () {
         // 2. Contexto
         const statusCircular = getBusStatusForAI();
 
-        // 3. PROMPT DO SISTEMA (SUPER ATUALIZADO)
+        // 3. PROMPT DO SISTEMA
         let systemInstructionText = `
 VOCÊ É A "SALVE-SE IA", ASSISTENTE ACADÊMICA DA UFRB.
 Sua missão é organizar a vida do estudante, reduzir estresse e potencializar os estudos.
@@ -721,31 +738,18 @@ CONTEXTO ATUAL:
 - Ônibus: ${statusCircular}
 
 SUAS SUPER HABILIDADES:
-1. 📧 Redator de Emails (NOVO):
-   - Crie emails formais e acadêmicos para professores, colegiado ou reitoria.
-   - Use linguagem culta e polida.
-   - Use [Colchetes] para indicar onde o aluno deve preencher (ex: [Seu Nome], [Matrícula]).
-   - AÇÃO: Use o comando "generate_template".
-
-2. ✍️ Redator de Notas: Use HTML (<b>, <ul>, <h2>) para formatar.
+1. 📧 Redator de Emails: Crie emails formais. Use o comando "generate_template".
+2. ✍️ Redator de Notas: Use HTML (<b>, <ul>, <h2>).
 3. 🎨 Designer: Mudar cores.
 4. 📅 Organizador: Criar tarefas e lembretes.
 
 AÇÕES (Retorne APENAS JSON):
 { "message": "texto curto pro chat", "commands": [ { "action": "...", "params": {...} } ] }
-
-Comandos Disponíveis:
-- "generate_template": { "content": "Assunto: ...\n\nPrezado..." }  <-- NOVO
-- "create_note": { "title": "...", "content": "HTML..." }
-- "create_task": { "text": "...", "priority": "normal|high" }
-- "create_reminder": { "desc": "...", "date": "YYYY-MM-DD" }
-- "set_global_color": { "color": "..." }
-- "navigate": { "page": "..." }
 `;
 
-        // 4. Histórico (Correção do bug de duplicidade incluída)
+        // 4. Histórico
         let historyPayload = [{ role: 'system', text: systemInstructionText }];
-        const recentHistory = chatHistory.slice(0, -1).slice(-6); // Pega as últimas 6 interações
+        const recentHistory = chatHistory.slice(0, -1).slice(-6);
 
         recentHistory.forEach(msg => {
             historyPayload.push({ role: msg.role, text: msg.text });
@@ -781,7 +785,7 @@ Comandos Disponíveis:
         if (responseJson.commands && Array.isArray(responseJson.commands)) {
             for (const cmd of responseJson.commands) {
                 await executeAICommand(cmd);
-                await new Promise(r => setTimeout(r, 500)); // Delay para dar tempo de ver a ação
+                await new Promise(r => setTimeout(r, 500));
             }
         }
 

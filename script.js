@@ -3253,7 +3253,7 @@ window.toggleTheme = function () {
     }
 }
 
-wwindow.toggleColorMenu = function (device) {
+window.toggleColorMenu = function (device) {
     const menu = document.getElementById(`color-menu-${device}`);
     if (!menu) return;
     const isHidden = menu.classList.contains('hidden');

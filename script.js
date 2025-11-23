@@ -712,6 +712,10 @@ function formatAIContent(text) {
     return text.split('\n').filter(line => line.trim() !== '').map(line => `<p>${line}</p>`).join('');
 }
 
+// ============================================================
+// --- INTEGRAÇÃO IA APRIMORADA (Cérebro Acadêmico ABNT) ---
+// ============================================================
+
 window.sendIAMessage = async function () {
     const input = document.getElementById('chat-input');
     const message = input.value.trim();
@@ -736,7 +740,6 @@ window.sendIAMessage = async function () {
     showTypingIndicator();
 
     try {
-        // Contexto
         const now = new Date();
         const diaSemana = now.toLocaleDateString('pt-BR', { weekday: 'long' });
         const dataHoje = now.toLocaleDateString('pt-BR');
@@ -746,42 +749,37 @@ window.sendIAMessage = async function () {
         const gradeContext = getClassContextForAI();
         const userLevel = isUserPremium() ? "PREMIUM" : "GRÁTIS";
 
-        // PROMPT SISTÊMICO ATUALIZADO
+        // --- PROMPT SISTÊMICO (O CÉREBRO) ---
         let systemInstructionText = `
-VOCÊ É A "SALVE-SE IA". Responda APENAS com JSON válido.
+VOCÊ É A "SALVE-SE IA ACADÊMICA". Responda APENAS com JSON.
 
---- CONTEXTO ---
-Data: ${diaSemana}, ${dataHoje} às ${horaAtual}.
-Usuário: ${userLevel}.
+--- PERFIL ---
+Você é especialista em normas da ABNT (Associação Brasileira de Normas Técnicas).
+Ao escrever textos acadêmicos, você deve usar linguagem formal, impessoal e estruturada.
 
---- LISTA DE COMANDOS DISPONÍVEIS ---
-Analise a intenção e use o comando certo:
+--- COMANDOS DISPONÍVEIS ---
 
-1. **TAREFAS (Todo)**:
-   - Criar: "create_task" | params: { "text": "...", "priority": "high/medium/normal" }
-   - Excluir Uma: "delete_task" | params: { "text": "trecho do texto da tarefa" }
-   - Excluir TODAS: "delete_all_tasks" | params: {}
+1. **MODO ABNT / ACADÊMICO (Novo!)**:
+   - Gatilhos: "faça um artigo sobre...", "resumo abnt", "fichamento de...", "texto acadêmico sobre...".
+   - Ação: "create_note"
+   - **REGRAS DE FORMATAÇÃO (HTML OBRIGATÓRIO)**:
+     - Use tags HTML para simular a formatação ABNT dentro da nota.
+     - Títulos: Use <h3><strong>1. INTRODUÇÃO</strong></h3> (Caixa alta e negrito).
+     - Parágrafos: Use <p style="text-align: justify; text-indent: 2em; line-height: 1.5;">Texto aqui...</p>
+     - Citações longas (+3 linhas): <p style="margin-left: 4cm; font-size: 0.8em;">Citação...</p>
+     - Referências: No final, crie uma seção <h3><strong>REFERÊNCIAS</strong></h3>.
+   - Params: { "title": "ABNT: [Tema]", "content": "[HTML COMPLETO AQUI]" }
 
-2. **LEMBRETES (Agenda)**:
-   - Criar: "create_reminder" | params: { "desc": "...", "date": "YYYY-MM-DD", "prio": "high/medium" }
-   - Excluir Um: "delete_reminder" | params: { "desc": "trecho da descrição" }
-   - Excluir TODOS: "delete_all_reminders" | params: {}
+2. **TAREFAS**: "create_task" | params: { "text": "...", "priority": "high/medium" }
+3. **LEMBRETES**: "create_reminder" | params: { "desc": "...", "date": "YYYY-MM-DD" }
+4. **NOTAS COMUNS**: "create_note" | params: { "title": "...", "content": "..." }
+5. **TEMPLATES EMAIL**: "generate_template" | params: { "content": "..." }
+6. **NAVEGAÇÃO**: "navigate" | params: { "page": "..." }
+7. **CONFIGURAÇÃO**: "toggle_theme", "set_global_color"
 
-3. **NOTAS (Texto/Resumo)**:
-   - Criar: "create_note" | params: { "title": "...", "content": "..." }
-   - Fixar/Desfixar: "pin_note" | params: { "title": "titulo da nota" }
-   - Excluir Uma: "delete_note" | params: { "title": "titulo da nota" }
-   - Excluir TODAS: "delete_all_notes" | params: {}
-
-4. **TEMPLATES (Email)**:
-   - Gerar Texto: "generate_template" | params: { "content": "Texto do email..." }
-
-5. **NAVEGAÇÃO**:
-   - "navigate" | params: { "page": "home/todo/notas/aulas/onibus/ia/config" }
-
---- RESPOSTA JSON ---
+--- FORMATO DE RESPOSTA JSON ---
 {
-  "message": "Texto curto de confirmação.",
+  "message": "Texto curto falando que criou o documento.",
   "commands": [ { "action": "...", "params": { ... } } ]
 }
 `;
@@ -821,7 +819,7 @@ Analise a intenção e use o comando certo:
 
     } catch (error) {
         console.error("Erro IA:", error);
-        appendMessage('ai', `Erro ao processar: ${error.message}`);
+        appendMessage('ai', `Erro: ${error.message}`);
     } finally {
         hideTypingIndicator();
         input.disabled = false;
@@ -830,7 +828,6 @@ Analise a intenção e use o comando certo:
         scrollToBottom();
     }
 };
-
 function hideTypingIndicator() {
     const existing = document.getElementById('dynamic-typing-indicator');
     if (existing) existing.remove();
@@ -885,11 +882,11 @@ function appendMessage(sender, text) {
 }
 
 // ============================================================
-// --- EXECUTOR DE COMANDOS DA IA (COMPLETO) ---
+// --- EXECUTOR DE COMANDOS (Completo + Suporte ABNT) ---
 // ============================================================
 
 async function executeAICommand(cmd) {
-    console.log("🤖 Comando IA recebido:", cmd);
+    console.log("🤖 Executando:", cmd);
     const p = cmd.params || {};
 
     switch (cmd.action) {
@@ -957,9 +954,11 @@ async function executeAICommand(cmd) {
             showModal("Limpeza", "Todos os lembretes foram apagados.");
             break;
 
-        // --- NOTAS (CRIAR, FIXAR, EXCLUIR) ---
+        // --- NOTAS (RESUMOS, ARTIGOS ABNT, TEXTOS) ---
         case 'create_note':
             const newId = Date.now().toString();
+
+            // Aqui a mágica acontece: Se for ABNT, o p.content já vem com HTML formatado pela IA
             notesData.push({
                 id: newId,
                 title: p.title || "Nota da IA",
@@ -969,23 +968,31 @@ async function executeAICommand(cmd) {
             });
             saveData();
 
-            // Vai para tela de notas e abre a nota nova
+            // Se não estiver na tela de notas, vai pra lá
             if (currentViewContext !== 'notas') {
                 switchPage('notas');
             }
+
             setTimeout(() => {
-                renderNotes(); // Atualiza a lista
-                openNote(newId); // Abre o editor
-                showModal("Nota Criada 🤖", "A IA gerou uma nova anotação para você.");
+                renderNotes();
+                openNote(newId); // Abre o editor imediatamente para visualização
+
+                // Feedback Inteligente: Detecta se é um documento acadêmico pelo título
+                const isAcademic = (p.title || "").toUpperCase().includes("ABNT");
+                if (isAcademic) {
+                    showModal("Documento Acadêmico 🎓", "Seu texto foi gerado seguindo as normas da ABNT.");
+                } else {
+                    showModal("Nota Criada 🤖", "A IA salvou suas anotações.");
+                }
             }, 300);
             break;
 
         case 'pin_note':
             if (p.title) {
-                // Procura a nota pelo título
+                // Procura a nota pelo título (ignora maiúsculas/minúsculas)
                 const target = notesData.find(n => n.title && n.title.toLowerCase().includes(p.title.toLowerCase()));
                 if (target) {
-                    togglePin(target.id); // Usa a função existente de fixar
+                    togglePin(target.id); // Usa a função existente
                 } else {
                     appendMessage('ai', `Não encontrei a nota "${p.title}" para fixar.`);
                 }
@@ -1038,6 +1045,11 @@ async function executeAICommand(cmd) {
             }, 200);
             break;
 
+        // --- NAVEGAÇÃO ---
+        case 'navigate':
+            if (p.page && p.page !== currentViewContext) switchPage(p.page);
+            break;
+
         // --- AULAS ---
         case 'create_class':
             scheduleData.push({
@@ -1051,11 +1063,6 @@ async function executeAICommand(cmd) {
                 color: 'indigo'
             });
             saveData();
-            break;
-
-        // --- NAVEGAÇÃO ---
-        case 'navigate':
-            if (p.page && p.page !== currentViewContext) switchPage(p.page);
             break;
 
         // --- WIDGETS ---
@@ -1081,10 +1088,8 @@ async function executeAICommand(cmd) {
             break;
 
         case 'set_global_color':
-            // Limpeza básica do input
             let rawColor = p.color ? p.color.toLowerCase().trim() : 'indigo';
 
-            // Tradução de cores
             const colorMap = {
                 'verde': 'green', 'vermelho': 'red', 'azul': 'indigo',
                 'roxo': 'purple', 'rosa': 'pink', 'laranja': 'orange',

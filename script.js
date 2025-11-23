@@ -3694,24 +3694,37 @@ window.renderPremiumPage = function () {
 }
 
 // ============================================================
-// --- PAGAMENTO AUTOMÁTICO (ASAAS) ---
+// --- PAGAMENTO ASAAS (COM CPF) ---
 // ============================================================
 
 window.startCheckout = async function () {
     const btn = document.querySelector('button[onclick="startCheckout()"]');
     const originalHTML = btn.innerHTML;
 
-    // Feedback visual para o usuário saber que está carregando
+    // 1. Pede o CPF (Obrigatório para PIX)
+    // Usamos um prompt simples para não ter que criar telas novas agora
+    let userCpf = prompt("Para gerar o PIX, informe seu CPF (apenas números):");
+
+    if (!userCpf) return; // Se cancelar, para tudo
+
+    // Limpa o CPF (deixa só números)
+    userCpf = userCpf.replace(/\D/g, '');
+
+    if (userCpf.length !== 11) {
+        alert("CPF inválido. Digite os 11 números.");
+        return;
+    }
+
+    // Feedback visual
     btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Gerando PIX...';
     btn.disabled = true;
     btn.classList.add('opacity-75', 'cursor-not-allowed');
 
     try {
-        // Pega os dados do usuário logado
         const payload = {
             email: currentUser.email,
             name: userProfile.displayName || "Estudante Salve-se",
-            // Se futuramente você pedir CPF no cadastro, envie aqui: cpf: "..."
+            cpf: userCpf // Agora enviamos o CPF!
         };
 
         const response = await fetch('/api/checkout', {
@@ -3722,20 +3735,20 @@ window.startCheckout = async function () {
 
         const data = await response.json();
 
+        // Se der erro no backend, lançamos para o catch
         if (data.error) throw new Error(data.error);
 
         if (data.init_point) {
-            // Redireciona o usuário para a tela segura do Asaas
             window.location.href = data.init_point;
         } else {
-            throw new Error('Link de pagamento não gerado.');
+            throw new Error('O Asaas não retornou o link.');
         }
 
     } catch (error) {
-        console.error("Erro no checkout:", error);
-        showModal("Erro", "Não foi possível gerar o PIX. Tente novamente em instantes.");
+        console.error("Erro detalhado:", error);
+        // Agora mostramos o erro REAL na tela
+        showModal("Atenção", "Erro: " + error.message);
 
-        // Restaura o botão ao estado original
         btn.innerHTML = originalHTML;
         btn.disabled = false;
         btn.classList.remove('opacity-75', 'cursor-not-allowed');

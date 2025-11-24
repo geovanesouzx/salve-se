@@ -2170,40 +2170,32 @@ window.renderSettings = function () {
     const container = document.getElementById('settings-content');
     if (!container || !userProfile) return;
 
-    // Formatação da Data
     let dateStr = "N/A";
     if (userProfile.createdAt) {
         const date = new Date(userProfile.createdAt);
         dateStr = date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
     }
 
-    // Mídia do Usuário
     const photoUrl = userProfile.photoURL || "https://files.catbox.moe/pmdtq6.png";
     const isVideo = photoUrl.match(/\.(mp4|webm)$/i);
     const mediaHtml = isVideo
         ? `<video src="${photoUrl}" class="w-full h-full object-cover" autoplay loop muted playsinline></video>`
         : `<img src="${photoUrl}" class="w-full h-full object-cover" onerror="this.src='https://files.catbox.moe/pmdtq6.png'">`;
 
-    // Badge Premium
     const verifiedBadgeSettings = isUserPremium()
         ? `<i class="fas fa-crown text-amber-500 ml-2 text-2xl drop-shadow-md animate-pulse" title="Membro Premium"></i>`
         : ``;
 
-    // --- LÓGICA DO CARTÃO DE ASSINATURA (COM CONTAGEM) ---
+    // --- LÓGICA DO CARTÃO DE ASSINATURA ---
     let subscriptionCardHtml = '';
     if (isUserPremium() && userProfile.subscriptionEndDate) {
-        const endFormatted = new Date(userProfile.subscriptionEndDate).toLocaleDateString('pt-BR');
-
-        // Cálculo da barra de progresso (fixado em 30 dias para visualização)
-        const nowMs = new Date().getTime();
-        const endMs = new Date(userProfile.subscriptionEndDate).getTime();
-        const totalDuration = 1000 * 60 * 60 * 24 * 30; // 30 dias em ms
-        const timeLeft = Math.max(0, endMs - nowMs);
-        let percent = Math.min(100, (timeLeft / totalDuration) * 100);
-
-        // Cores da barra baseadas no tempo restante
+        const now = new Date();
+        const end = new Date(userProfile.subscriptionEndDate);
+        const remainingTime = end - now;
+        const daysLeft = Math.ceil(remainingTime / (1000 * 60 * 60 * 24));
+        let percent = Math.min(100, Math.max(0, (daysLeft / 30) * 100));
+        const endFormatted = end.toLocaleDateString('pt-BR');
         let barColor = "bg-indigo-500";
-        const daysLeft = Math.ceil(timeLeft / (1000 * 60 * 60 * 24));
         if (daysLeft <= 5) barColor = "bg-red-500";
         else if (daysLeft <= 10) barColor = "bg-orange-500";
 
@@ -2215,14 +2207,9 @@ window.renderSettings = function () {
                         <h3 class="font-bold text-lg text-amber-400 flex items-center gap-2"><i class="fas fa-star"></i> Premium Ativo</h3>
                         <span class="text-xs font-mono bg-white/10 px-2 py-1 rounded">Vence: ${endFormatted}</span>
                     </div>
-                    
-                    <div class="bg-black/30 rounded-xl p-3 border border-white/10 backdrop-blur-sm mb-4">
-                        <p class="text-[10px] text-gray-400 uppercase tracking-widest text-center mb-1">Tempo Restante</p>
-                        <div id="premium-countdown" class="text-center font-mono text-xl md:text-2xl font-bold text-white tracking-tight flex justify-center gap-2">
-                            <span class="animate-pulse">Calculando...</span>
-                        </div>
+                    <div class="flex justify-between items-end mb-2">
+                        <span class="text-3xl font-bold">${daysLeft} <span class="text-sm font-normal text-gray-400">dias restantes</span></span>
                     </div>
-
                     <div class="w-full bg-gray-700 rounded-full h-2.5 mb-2 overflow-hidden">
                         <div class="${barColor} h-2.5 rounded-full transition-all duration-1000 shadow-[0_0_10px_rgba(255,255,255,0.3)]" style="width: ${percent}%"></div>
                     </div>
@@ -2246,17 +2233,23 @@ window.renderSettings = function () {
         `;
     }
 
-    // --- GERAÇÃO DAS CORES ---
+    // --- GERAÇÃO DAS CORES PARA O NOVO PAINEL (CORRIGIDO) ---
     const freeColors = ['indigo', 'cyan', 'green'];
     let colorsGridHtml = '<div class="grid grid-cols-5 gap-3">';
+
+    // Tenta pegar o nome salvo, ou usa 'indigo' como padrão
     const savedColorName = localStorage.getItem('salvese_color_name') || 'indigo';
 
     Object.keys(colorPalettes).forEach(color => {
         const rgb = colorPalettes[color][500];
         const isLocked = !isUserPremium() && !freeColors.includes(color);
         const lockIcon = isLocked ? '<i class="fas fa-lock text-white/70 text-[10px]"></i>' : '';
+
+        // Verifica se é a cor atual comparando os NOMES
         const isSelected = savedColorName === color;
         const checkIcon = isSelected ? '<i class="fas fa-check text-white text-xs font-bold"></i>' : lockIcon;
+
+        // Adiciona borda extra se selecionado
         const ringClass = isSelected ? 'ring-2 ring-offset-2 ring-gray-400 dark:ring-gray-500' : 'ring-transparent';
 
         colorsGridHtml += `
@@ -2285,7 +2278,6 @@ window.renderSettings = function () {
         </button>
     `;
 
-    // --- HTML DA PÁGINA ---
     container.innerHTML = `
         <div class="max-w-2xl mx-auto w-full pb-24 space-y-6">
             
@@ -2328,12 +2320,14 @@ window.renderSettings = function () {
                 <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
                     <i class="fas fa-paint-brush"></i> Personalização
                 </h3>
+                
                 <div class="flex items-center justify-between mb-6">
                     <span class="text-sm font-bold text-gray-700 dark:text-gray-300">Modo Escuro</span>
                     <button onclick="toggleTheme()" class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${document.documentElement.classList.contains('dark') ? 'bg-indigo-600' : 'bg-gray-200'}">
                         <span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${document.documentElement.classList.contains('dark') ? 'translate-x-6' : 'translate-x-1'}"></span>
                     </button>
                 </div>
+
                 <div class="space-y-3">
                     <p class="text-sm font-bold text-gray-700 dark:text-gray-300">Cor de Destaque</p>
                     ${colorsGridHtml}
@@ -2363,52 +2357,29 @@ window.renderSettings = function () {
                 <h3 class="px-4 text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Segurança & Dados</h3>
                 ${createActionCard('changePassword()', svgs.lock, 'Redefinir Senha', 'Receba um e-mail para trocar a senha')}
                 ${createActionCard('manualBackup()', svgs.cloud, 'Backup Manual', 'Forçar sincronização com a nuvem')}
-                ${createActionCard('logoutApp()', svgs.logout, 'Sair da Conta', 'Encerrar sessão neste dispositivo', 'text-red-500 bg-red-50 dark:bg-red-900/20')}
+                
+                <button onclick="logoutApp()" class="group w-full bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/30 p-4 rounded-2xl flex items-center justify-between hover:bg-red-100 dark:hover:bg-red-900/20 transition-all duration-200 text-left mt-4">
+                    <div class="flex items-center gap-4">
+                        <div class="w-10 h-10 rounded-full bg-white dark:bg-red-900/20 flex items-center justify-center text-red-500">
+                            ${svgs.logout}
+                        </div>
+                        <div>
+                            <p class="font-bold text-red-600 dark:text-red-400 text-sm">Sair da Conta</p>
+                            <p class="text-xs text-red-400 dark:text-red-500/70">Encerrar sessão neste dispositivo</p>
+                        </div>
+                    </div>
+                    <div class="text-red-300 dark:text-red-800">
+                        ${svgs.chevron}
+                    </div>
+                </button>
             </div>
 
             <div class="text-center pt-4 pb-8">
                  <p class="text-xs text-gray-300 dark:text-gray-600 font-mono">ID: ${currentUser.uid.substring(0, 8)}...</p>
-                 <p class="text-xs text-gray-300 dark:text-gray-600 mt-1">Salve-se UFRB v4.2</p>
+                 <p class="text-xs text-gray-300 dark:text-gray-600 mt-1">Salve-se UFRB v4.1</p>
             </div>
         </div>
     `;
-
-    // --- LÓGICA DO CRONÔMETRO (LIVE) ---
-    if (isUserPremium() && userProfile.subscriptionEndDate) {
-        if (window.premiumInterval) clearInterval(window.premiumInterval);
-
-        const updateTimer = () => {
-            const now = new Date().getTime();
-            const end = new Date(userProfile.subscriptionEndDate).getTime();
-            const distance = end - now;
-
-            const el = document.getElementById('premium-countdown');
-            if (!el) { clearInterval(window.premiumInterval); return; }
-
-            if (distance < 0) {
-                el.innerHTML = "<span class='text-red-400'>EXPIRADO</span>";
-                return;
-            }
-
-            const d = Math.floor(distance / (1000 * 60 * 60 * 24));
-            const h = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-            const m = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
-            const s = Math.floor((distance % (1000 * 60)) / 1000);
-
-            el.innerHTML = `
-                <div class="flex flex-col"><span class="text-xl">${d}</span><span class="text-[8px] font-normal opacity-50">DIAS</span></div>
-                <span class="opacity-30">:</span>
-                <div class="flex flex-col"><span class="text-xl">${h.toString().padStart(2, '0')}</span><span class="text-[8px] font-normal opacity-50">HRS</span></div>
-                <span class="opacity-30">:</span>
-                <div class="flex flex-col"><span class="text-xl">${m.toString().padStart(2, '0')}</span><span class="text-[8px] font-normal opacity-50">MIN</span></div>
-                <span class="opacity-30">:</span>
-                <div class="flex flex-col"><span class="text-xl text-amber-400">${s.toString().padStart(2, '0')}</span><span class="text-[8px] font-normal opacity-50">SEG</span></div>
-            `;
-        };
-
-        window.premiumInterval = setInterval(updateTimer, 1000);
-        updateTimer();
-    }
 }
 // ============================================================
 // --- FUNCIONALIDADE: TAREFAS (TODO LIST) ---

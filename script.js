@@ -1368,22 +1368,35 @@ function updateUserInterfaceInfo() {
     const handleDisplay = document.getElementById('user-display-id');
     const container = document.getElementById('sidebar-avatar-container');
 
-    if (userProfile) {
-        // Atualiza Nome + Coroa
-        if (nameDisplay) {
-            // Ícone de Coroa Dourada
-            const verifiedBadge = `<i class="fas fa-crown text-amber-500 ml-2 drop-shadow-sm text-xs" title="Membro Premium"></i>`;
+    // --- NOVO: Elementos de XP ---
+    const levelBadge = document.getElementById('user-level-badge');
+    const xpBar = document.getElementById('user-xp-bar');
+    const xpText = document.getElementById('user-xp-text');
 
+    if (userProfile) {
+        // 1. Garante valores padrão
+        if (!userProfile.xp) userProfile.xp = 0;
+        if (!userProfile.level) userProfile.level = 1;
+
+        // 2. Calcula progresso (Cada nível requer Nível atual * 100 XP)
+        const xpToNextLevel = userProfile.level * 100;
+        const xpPercentage = Math.min(100, (userProfile.xp / xpToNextLevel) * 100);
+
+        // 3. Atualiza a tela
+        if (levelBadge) levelBadge.innerText = `LVL ${userProfile.level}`;
+        if (xpText) xpText.innerText = `${Math.floor(userProfile.xp)}/${xpToNextLevel} XP`;
+        if (xpBar) xpBar.style.width = `${xpPercentage}%`;
+
+        // --- Código antigo (Nome e Premium) ---
+        if (nameDisplay) {
+            const verifiedBadge = `<i class="fas fa-crown text-amber-500 ml-2 drop-shadow-sm text-xs" title="Membro Premium"></i>`;
             if (isUserPremium()) {
                 nameDisplay.innerHTML = `${userProfile.displayName} ${verifiedBadge}`;
             } else {
                 nameDisplay.innerText = userProfile.displayName;
             }
         }
-
         if (handleDisplay) handleDisplay.innerText = "@" + userProfile.handle;
-
-        // Atualiza Mídia
         if (container && userProfile.photoURL) {
             renderMediaInContainer("sidebar-avatar-container", userProfile.photoURL);
         }
@@ -1403,6 +1416,46 @@ function refreshAllUI() {
     if (window.renderNotes && currentViewContext === 'notas') window.renderNotes(false);
 
     injectWidgetControls();
+}
+
+// ============================================================
+// --- SISTEMA DE XP (RPG) ---
+// ============================================================
+window.addXP = async function (amount) {
+    if (!userProfile) return;
+
+    // Inicializa se não existir
+    if (!userProfile.xp) userProfile.xp = 0;
+    if (!userProfile.level) userProfile.level = 1;
+
+    userProfile.xp += amount;
+
+    // Verifica Level Up
+    let xpToNextLevel = userProfile.level * 100;
+
+    if (userProfile.xp >= xpToNextLevel) {
+        userProfile.xp -= xpToNextLevel; // Sobra de XP vai pro próximo nível
+        userProfile.level++;
+
+        // Efeito visual/Modal
+        showModal("LEVEL UP! 🎉", `Parabéns! Você alcançou o Nível ${userProfile.level}!`);
+    }
+
+    updateUserInterfaceInfo(); // Atualiza a barra na hora
+
+    // Salva no Firebase apenas os dados de nível para economizar escrita
+    try {
+        if (currentUser) {
+            await setDoc(doc(db, "users", currentUser.uid), {
+                xp: userProfile.xp,
+                level: userProfile.level
+            }, { merge: true });
+        }
+        // Salva localmente tudo
+        localStorage.setItem('salvese_user_profile', JSON.stringify(userProfile));
+    } catch (e) {
+        console.error("Erro ao salvar XP", e);
+    }
 }
 
 async function saveData() {
@@ -2344,6 +2397,12 @@ window.toggleTask = function (taskId) {
     const task = tasksData.find(t => t.id === taskId);
     if (task) {
         task.done = !task.done;
+
+        // SE completou a tarefa (marcou como feita), ganha XP
+        if (task.done) {
+            addXP(20); // Ganha 20 pontos
+        }
+
         saveData();
     }
 };
@@ -3371,7 +3430,9 @@ function updateTimerDisplay() {
 window.toggleTimer = function () {
     const btn = document.getElementById('btn-start');
     if (!btn) return;
+
     if (isRunning1) {
+        // Se pausar manualmente, não ganha XP (ou ganha parcial se você quiser programar depois)
         clearInterval(timerInterval1); isRunning1 = false;
         btn.innerHTML = '<i class="fas fa-play pl-1"></i>';
         btn.classList.replace('bg-red-600', 'bg-indigo-600');
@@ -3385,11 +3446,29 @@ window.toggleTimer = function () {
 
         timerInterval1 = setInterval(() => {
             timeLeft1--;
+
+            // --- AQUI ACONTECE A MÁGICA QUANDO O TEMPO ACABA ---
             if (timeLeft1 <= 0) {
                 clearInterval(timerInterval1);
                 isRunning1 = false;
-                showModal('Tempo', 'O tempo acabou!');
-                toggleTimer(); // Reseta visual do botão
+
+                // Calcula XP baseado no modo
+                let xpGain = 0;
+                if (currentMode1 === 'pomodoro') xpGain = 50; // Foco total = 50xp
+                else if (currentMode1 === 'custom') xpGain = 30; // Custom = 30xp
+                else xpGain = 10; // Pausas = 10xp
+
+                // Dá o XP
+                addXP(xpGain);
+
+                showModal('Tempo Esgotado!', `O tempo acabou! Você ganhou +${xpGain} XP.`);
+
+                // Reseta botão
+                btn.innerHTML = '<i class="fas fa-play pl-1"></i>';
+                btn.classList.replace('bg-red-600', 'bg-indigo-600');
+                btn.classList.replace('hover:bg-red-700', 'hover:bg-indigo-700');
+
+                // Toca som se estiver na página correta (opcional)
                 return;
             }
             updateTimerDisplay();

@@ -2170,18 +2170,21 @@ window.renderSettings = function () {
     const container = document.getElementById('settings-content');
     if (!container || !userProfile) return;
 
+    // Formatação da Data
     let dateStr = "N/A";
     if (userProfile.createdAt) {
         const date = new Date(userProfile.createdAt);
         dateStr = date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
     }
 
+    // Mídia do Usuário
     const photoUrl = userProfile.photoURL || "https://files.catbox.moe/pmdtq6.png";
     const isVideo = photoUrl.match(/\.(mp4|webm)$/i);
     const mediaHtml = isVideo
         ? `<video src="${photoUrl}" class="w-full h-full object-cover" autoplay loop muted playsinline></video>`
         : `<img src="${photoUrl}" class="w-full h-full object-cover" onerror="this.src='https://files.catbox.moe/pmdtq6.png'">`;
 
+    // Badge Premium
     const verifiedBadgeSettings = isUserPremium()
         ? `<i class="fas fa-crown text-amber-500 ml-2 text-2xl drop-shadow-md animate-pulse" title="Membro Premium"></i>`
         : ``;
@@ -2190,6 +2193,19 @@ window.renderSettings = function () {
     let subscriptionCardHtml = '';
     if (isUserPremium() && userProfile.subscriptionEndDate) {
         const endFormatted = new Date(userProfile.subscriptionEndDate).toLocaleDateString('pt-BR');
+
+        // Cálculo da barra de progresso (fixado em 30 dias para visualização)
+        const nowMs = new Date().getTime();
+        const endMs = new Date(userProfile.subscriptionEndDate).getTime();
+        const totalDuration = 1000 * 60 * 60 * 24 * 30; // 30 dias em ms
+        const timeLeft = Math.max(0, endMs - nowMs);
+        let percent = Math.min(100, (timeLeft / totalDuration) * 100);
+
+        // Cores da barra baseadas no tempo restante
+        let barColor = "bg-indigo-500";
+        const daysLeft = Math.ceil(timeLeft / (1000 * 60 * 60 * 24));
+        if (daysLeft <= 5) barColor = "bg-red-500";
+        else if (daysLeft <= 10) barColor = "bg-orange-500";
 
         subscriptionCardHtml = `
             <div class="bg-gradient-to-br from-gray-900 to-gray-800 dark:from-black dark:to-neutral-900 rounded-2xl p-5 text-white shadow-lg relative overflow-hidden border border-gray-700">
@@ -2203,12 +2219,12 @@ window.renderSettings = function () {
                     <div class="bg-black/30 rounded-xl p-3 border border-white/10 backdrop-blur-sm mb-4">
                         <p class="text-[10px] text-gray-400 uppercase tracking-widest text-center mb-1">Tempo Restante</p>
                         <div id="premium-countdown" class="text-center font-mono text-xl md:text-2xl font-bold text-white tracking-tight flex justify-center gap-2">
-                            --d --h --m --s
+                            <span class="animate-pulse">Calculando...</span>
                         </div>
                     </div>
 
                     <div class="w-full bg-gray-700 rounded-full h-2.5 mb-2 overflow-hidden">
-                        <div class="bg-indigo-500 h-2.5 rounded-full transition-all duration-1000 shadow-[0_0_10px_rgba(255,255,255,0.3)]" style="width: ${Math.min(100, ((new Date(userProfile.subscriptionEndDate) - new Date()) / (1000 * 60 * 60 * 24 * 30)) * 100)}%"></div>
+                        <div class="${barColor} h-2.5 rounded-full transition-all duration-1000 shadow-[0_0_10px_rgba(255,255,255,0.3)]" style="width: ${percent}%"></div>
                     </div>
                     <p class="text-xs text-gray-400 text-right">Renovação necessária ao fim do prazo</p>
                 </div>
@@ -2230,7 +2246,7 @@ window.renderSettings = function () {
         `;
     }
 
-    // --- GERAÇÃO DAS CORES (Mantendo a correção do Check) ---
+    // --- GERAÇÃO DAS CORES ---
     const freeColors = ['indigo', 'cyan', 'green'];
     let colorsGridHtml = '<div class="grid grid-cols-5 gap-3">';
     const savedColorName = localStorage.getItem('salvese_color_name') || 'indigo';
@@ -2251,7 +2267,7 @@ window.renderSettings = function () {
     });
     colorsGridHtml += '</div>';
 
-    // Helper de cards (Estilo Original com Chevron)
+    // Helper de cards
     const createActionCard = (onclick, svgIcon, title, subtitle, colorClass = "text-gray-500 group-hover:text-indigo-500") => `
         <button onclick="${onclick}" class="group w-full bg-white dark:bg-darkcard border border-gray-100 dark:border-darkborder p-4 rounded-2xl flex items-center justify-between hover:border-indigo-500 dark:hover:border-indigo-500 hover:shadow-md transition-all duration-200 mb-3 text-left">
             <div class="flex items-center gap-4">
@@ -2269,7 +2285,7 @@ window.renderSettings = function () {
         </button>
     `;
 
-    // --- HTML DA PÁGINA (LAYOUT ORIGINAL) ---
+    // --- HTML DA PÁGINA ---
     container.innerHTML = `
         <div class="max-w-2xl mx-auto w-full pb-24 space-y-6">
             
@@ -2312,14 +2328,12 @@ window.renderSettings = function () {
                 <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
                     <i class="fas fa-paint-brush"></i> Personalização
                 </h3>
-                
                 <div class="flex items-center justify-between mb-6">
                     <span class="text-sm font-bold text-gray-700 dark:text-gray-300">Modo Escuro</span>
                     <button onclick="toggleTheme()" class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${document.documentElement.classList.contains('dark') ? 'bg-indigo-600' : 'bg-gray-200'}">
                         <span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${document.documentElement.classList.contains('dark') ? 'translate-x-6' : 'translate-x-1'}"></span>
                     </button>
                 </div>
-
                 <div class="space-y-3">
                     <p class="text-sm font-bold text-gray-700 dark:text-gray-300">Cor de Destaque</p>
                     ${colorsGridHtml}
@@ -2349,33 +2363,18 @@ window.renderSettings = function () {
                 <h3 class="px-4 text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Segurança & Dados</h3>
                 ${createActionCard('changePassword()', svgs.lock, 'Redefinir Senha', 'Receba um e-mail para trocar a senha')}
                 ${createActionCard('manualBackup()', svgs.cloud, 'Backup Manual', 'Forçar sincronização com a nuvem')}
-                
-                <button onclick="logoutApp()" class="group w-full bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/30 p-4 rounded-2xl flex items-center justify-between hover:bg-red-100 dark:hover:bg-red-900/20 transition-all duration-200 text-left mt-4">
-                    <div class="flex items-center gap-4">
-                        <div class="w-10 h-10 rounded-full bg-white dark:bg-red-900/20 flex items-center justify-center text-red-500">
-                            ${svgs.logout}
-                        </div>
-                        <div>
-                            <p class="font-bold text-red-600 dark:text-red-400 text-sm">Sair da Conta</p>
-                            <p class="text-xs text-red-400 dark:text-red-500/70">Encerrar sessão neste dispositivo</p>
-                        </div>
-                    </div>
-                    <div class="text-red-300 dark:text-red-800">
-                        ${svgs.chevron}
-                    </div>
-                </button>
+                ${createActionCard('logoutApp()', svgs.logout, 'Sair da Conta', 'Encerrar sessão neste dispositivo', 'text-red-500 bg-red-50 dark:bg-red-900/20')}
             </div>
 
-            <div class="text-center pb-4">
+            <div class="text-center pt-4 pb-8">
                  <p class="text-xs text-gray-300 dark:text-gray-600 font-mono">ID: ${currentUser.uid.substring(0, 8)}...</p>
-                 <p class="text-xs text-gray-300 dark:text-gray-600 mt-1">Salve-se UFRB v4.3</p>
+                 <p class="text-xs text-gray-300 dark:text-gray-600 mt-1">Salve-se UFRB v4.2</p>
             </div>
         </div>
     `;
 
-    // --- LÓGICA DA CONTAGEM REGRESSIVA (LIVE) ---
-    if (isPremium && userProfile.subscriptionEndDate) {
-        // Limpa o intervalo antigo para não acumular
+    // --- LÓGICA DO CRONÔMETRO (LIVE) ---
+    if (isUserPremium() && userProfile.subscriptionEndDate) {
         if (window.premiumInterval) clearInterval(window.premiumInterval);
 
         const updateTimer = () => {
@@ -2384,12 +2383,10 @@ window.renderSettings = function () {
             const distance = end - now;
 
             const el = document.getElementById('premium-countdown');
-            // Se saiu da página, para o timer
             if (!el) { clearInterval(window.premiumInterval); return; }
 
             if (distance < 0) {
                 el.innerHTML = "<span class='text-red-400'>EXPIRADO</span>";
-                el.classList.add('animate-pulse');
                 return;
             }
 
@@ -2409,9 +2406,8 @@ window.renderSettings = function () {
             `;
         };
 
-        // Inicia o loop a cada 1 segundo
         window.premiumInterval = setInterval(updateTimer, 1000);
-        updateTimer(); // Roda imediatamente
+        updateTimer();
     }
 }
 // ============================================================

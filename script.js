@@ -758,67 +758,78 @@ window.sendIAMessage = async function () {
         const statusBus = getBusStatusForAI();
         const gradeContext = getClassContextForAI();
 
-        // Contexto de Tarefas (Resumido)
+        // Contexto de Tarefas
         const tasksList = tasksData.map(t => `- "${t.text}" (${t.done ? 'Feita' : 'Pendente'})`).join('\n') || "Nenhuma tarefa.";
 
-        // Contexto de Notas (Títulos)
+        // Contexto de Notas
         const notesList = notesData.map(n => `- "${n.title}"`).join('\n') || "Nenhuma nota.";
 
-        // --- 2. PROMPT DO SISTEMA (A LISTA MESTRA DE COMANDOS) ---
-        let systemInstructionText = `
-VOCÊ É A "SALVE-SE IA" (Versão Ultimate). Responda APENAS com JSON.
-Você tem permissão total para controlar a interface, calculadora e dados do usuário.
+        // --- NOVO: CONTEXTO FINANCEIRO ---
+        let financeContext = "Dados financeiros não disponíveis.";
+        if (isUserPremium()) {
+            const trans = JSON.parse(localStorage.getItem('salvese_finances')) || [];
+            const budget = parseFloat(localStorage.getItem('salvese_finance_budget')) || 0;
+            const totalSpent = trans.reduce((acc, t) => acc + t.val, 0);
+            const remaining = budget - totalSpent;
 
---- DADOS DO USUÁRIO ---
+            // Lista os 5 últimos gastos para contexto
+            const recentTrans = trans.slice(0, 5).map(t => `- R$${t.val.toFixed(2)} em ${t.desc}`).join('\n');
+
+            financeContext = `
+Saldo Mensal Definido: R$ ${budget.toFixed(2)}
+Total Gasto: R$ ${totalSpent.toFixed(2)}
+Disponível/Restante: R$ ${remaining.toFixed(2)}
+Últimos gastos:
+${recentTrans || "Nenhum gasto registrado."}
+`;
+        } else {
+            financeContext = "O usuário NÃO é Premium, então ele não tem acesso ao módulo financeiro. Se ele pedir para adicionar gastos, avise que é um recurso Pro.";
+        }
+
+        // --- 2. PROMPT DO SISTEMA ---
+        let systemInstructionText = `
+VOCÊ É A "SALVE-SE IA". Responda APENAS com JSON.
+Você controla interface, finanças, calculadora e dados.
+
+--- DADOS ATUAIS ---
 Agora: ${dataHora}
 Ônibus: ${statusBus}
+Financeiro (Carteira):
+${financeContext}
 Aulas:
 ${gradeContext}
 Tarefas:
 ${tasksList}
-Notas:
-${notesList}
 
 --- COMANDOS DISPONÍVEIS (JSON) ---
 
-1. **TAREFAS & ESTUDOS**:
+1. **FINANÇAS (NOVO!)**:
+   - "set_budget": { "amount": 1500.00 } (Definir quanto o usuário tem no mês/bolsa)
+   - "add_expense": { "desc": "Lanche", "amount": 15.50 } (Adicionar um gasto)
+   - "remove_expense": { "desc": "Lanche" } (Remove o gasto mais recente com esse nome ou similar)
+
+2. **TAREFAS**:
    - "create_task": { "text": "...", "priority": "high/medium/normal" }
-   - "bulk_create_tasks": { "tasks": [ {"text": "...", "priority": "high"}, {"text": "...", "priority": "medium"} ] } (Use para planos de estudo)
-   - "delete_task": { "text": "texto para apagar" }
-   - "edit_task": { "old_text": "...", "new_text": "...", "done": true/false }
+   - "delete_task": { "text": "..." }
 
-2. **CALCULADORA (MÉDIAS)**:
-   - "fill_calculator": { "grades": [8.5, 7.0], "weights": [1, 2] } (Envie números puros. Se não tiver peso, mande 1)
+3. **CALCULADORA**:
+   - "fill_calculator": { "grades": [8.5, 7.0], "weights": [1, 2] }
 
-3. **VISUAL & SISTEMA**:
+4. **VISUAL**:
    - "change_theme": { "mode": "dark" | "light" }
-   - "change_color": { "color": "indigo" | "blue" | "green" | "red" | "purple" | "pink" | "orange" | "cyan" | "black" }
-   - "toggle_zen_mode": { "active": true } (Oculta todos os widgets para foco total)
+   - "change_color": { "color": "indigo/green/orange/etc" }
 
-4. **CRONÔMETRO (TIMER)**:
-   - "timer_control": { "action": "start" | "stop" | "reset" }
-   - "timer_set": { "mode": "pomodoro" | "short" | "long" | "custom", "minutes": 30 }
+5. **CRONÔMETRO**:
+   - "timer_set": { "mode": "pomodoro" | "short" | "custom", "minutes": 30 }
+   - "timer_control": { "action": "start" | "stop" }
 
-5. **AULAS & HORÁRIOS**:
-   - "create_class": { "name": "...", "day": "seg/ter/qua/qui/sex/sab", "start": "08:00", "end": "10:00", "room": "..." }
-   - "delete_class": { "name": "nome da materia" }
-
-6. **NOTAS & DOCUMENTOS**:
-   - "create_note": { "title": "...", "content": "Use HTML (<b>, <br>, <h3>)" }
-   - "delete_note": { "title": "..." }
-   - "append_note": { "title": "...", "text_to_add": "..." }
-
-7. **LEMBRETES & RESUMO**:
-   - "create_reminder": { "desc": "...", "date": "YYYY-MM-DD", "prio": "high/medium" }
-   - "set_summary": { "text": "Texto curto para o widget da home" }
-
-8. **OUTROS**:
-   - "generate_template": { "content": "..." } (Email)
-   - "navigate": { "page": "home/aulas/todo/calc/notas/..." }
+6. **OUTROS**:
+   - "navigate": { "page": "financeiro" | "home" | "todo" | ... }
+   - "create_note": { "title": "...", "content": "..." }
 
 --- RESPOSTA OBRIGATÓRIA ---
 {
-  "message": "Texto curto confirmando a ação.",
+  "message": "Texto curto conversando com o usuário (ex: 'Adicionei o gasto de R$15').",
   "commands": [ { "action": "...", "params": { ... } } ]
 }
 `;
@@ -858,7 +869,7 @@ ${notesList}
 
     } catch (error) {
         console.error("Erro IA:", error);
-        appendMessage('ai', `Não entendi ou houve um erro técnico (${error.message}). Tente reformular.`);
+        appendMessage('ai', `Erro: ${error.message}. Tente novamente.`);
     } finally {
         hideTypingIndicator();
         input.disabled = false;
@@ -1109,6 +1120,41 @@ async function executeAICommand(cmd) {
         case 'generate_template':
             switchPage('email');
             setTimeout(() => { const el = document.getElementById('email-content'); if (el) el.value = p.content; }, 300);
+            break;
+
+        // --- 8. FINANÇAS (NOVO) ---
+        case 'set_budget':
+            if (p.amount) {
+                localStorage.setItem('salvese_finance_budget', parseFloat(p.amount));
+                if (currentViewContext === 'financeiro') renderFinance();
+            }
+            break;
+
+        case 'add_expense':
+            if (p.amount && p.desc) {
+                let currentTrans = JSON.parse(localStorage.getItem('salvese_finances')) || [];
+                currentTrans.unshift({
+                    val: parseFloat(p.amount),
+                    desc: p.desc,
+                    date: new Date().toISOString()
+                });
+                transactions = currentTrans;
+                localStorage.setItem('salvese_finances', JSON.stringify(currentTrans));
+                if (currentViewContext === 'financeiro') renderFinance();
+            }
+            break;
+
+        case 'remove_expense':
+            if (p.desc) {
+                let currentTrans = JSON.parse(localStorage.getItem('salvese_finances')) || [];
+                const index = currentTrans.findIndex(t => t.desc.toLowerCase().includes(p.desc.toLowerCase()));
+                if (index !== -1) {
+                    currentTrans.splice(index, 1);
+                    transactions = currentTrans;
+                    localStorage.setItem('salvese_finances', JSON.stringify(currentTrans));
+                    if (currentViewContext === 'financeiro') renderFinance();
+                }
+            }
             break;
 
         default:
@@ -2075,25 +2121,15 @@ window.renderSettings = function () {
         ? `<i class="fas fa-crown text-amber-500 ml-2 text-2xl drop-shadow-md animate-pulse" title="Membro Premium"></i>`
         : ``;
 
-    // --- LÓGICA DO CARTÃO DE ASSINATURA (CORRIGIDA) ---
+    // --- LÓGICA DO CARTÃO DE ASSINATURA ---
     let subscriptionCardHtml = '';
-
     if (isUserPremium() && userProfile.subscriptionEndDate) {
         const now = new Date();
         const end = new Date(userProfile.subscriptionEndDate);
-
-        // 1. Calcula dias restantes
         const remainingTime = end - now;
         const daysLeft = Math.ceil(remainingTime / (1000 * 60 * 60 * 24));
-
-        // 2. CORREÇÃO: Calcula porcentagem visual baseada em 30 dias (igual ao painel Premium)
-        // Se tiver 30 dias ou mais, barra cheia (100%). Se tiver 15, 50%.
         let percent = Math.min(100, Math.max(0, (daysLeft / 30) * 100));
-
-        // Formatação das datas
         const endFormatted = end.toLocaleDateString('pt-BR');
-
-        // Define cor da barra baseada na urgência
         let barColor = "bg-indigo-500";
         if (daysLeft <= 5) barColor = "bg-red-500";
         else if (daysLeft <= 10) barColor = "bg-orange-500";
@@ -2101,17 +2137,14 @@ window.renderSettings = function () {
         subscriptionCardHtml = `
             <div class="bg-gradient-to-br from-gray-900 to-gray-800 dark:from-black dark:to-neutral-900 rounded-2xl p-5 text-white shadow-lg relative overflow-hidden border border-gray-700">
                 <div class="absolute top-0 right-0 p-3 opacity-20"><i class="fas fa-crown text-6xl"></i></div>
-                
                 <div class="relative z-10">
                     <div class="flex justify-between items-center mb-4">
                         <h3 class="font-bold text-lg text-amber-400 flex items-center gap-2"><i class="fas fa-star"></i> Premium Ativo</h3>
                         <span class="text-xs font-mono bg-white/10 px-2 py-1 rounded">Vence: ${endFormatted}</span>
                     </div>
-
                     <div class="flex justify-between items-end mb-2">
                         <span class="text-3xl font-bold">${daysLeft} <span class="text-sm font-normal text-gray-400">dias restantes</span></span>
                     </div>
-
                     <div class="w-full bg-gray-700 rounded-full h-2.5 mb-2 overflow-hidden">
                         <div class="${barColor} h-2.5 rounded-full transition-all duration-1000 shadow-[0_0_10px_rgba(255,255,255,0.3)]" style="width: ${percent}%"></div>
                     </div>
@@ -2120,7 +2153,6 @@ window.renderSettings = function () {
             </div>
         `;
     } else {
-        // Se não for premium, mostra convite
         subscriptionCardHtml = `
             <div onclick="switchPage('premium')" class="cursor-pointer bg-white dark:bg-darkcard border border-indigo-200 dark:border-indigo-900/50 rounded-2xl p-5 shadow-sm relative overflow-hidden group">
                 <div class="flex items-center justify-between">
@@ -2135,6 +2167,29 @@ window.renderSettings = function () {
             </div>
         `;
     }
+
+    // --- GERAÇÃO DAS CORES PARA O NOVO PAINEL ---
+    // Cores liberadas (Grátis)
+    const freeColors = ['indigo', 'cyan', 'green'];
+    let colorsGridHtml = '<div class="grid grid-cols-5 gap-3">';
+
+    Object.keys(colorPalettes).forEach(color => {
+        const rgb = colorPalettes[color][500];
+        const isLocked = !isUserPremium() && !freeColors.includes(color);
+        const lockIcon = isLocked ? '<i class="fas fa-lock text-white/70 text-[10px]"></i>' : '';
+
+        // Verifica se é a cor atual salva no localStorage ou padrão
+        const currentSaved = JSON.parse(localStorage.getItem('salvese_color') || '{}');
+        const isSelected = currentSaved['500'] === rgb;
+        const checkIcon = isSelected ? '<i class="fas fa-check text-white text-xs"></i>' : lockIcon;
+
+        colorsGridHtml += `
+            <button onclick="setThemeColor('${color}')" class="w-10 h-10 rounded-full flex items-center justify-center transition transform hover:scale-110 shadow-sm ring-2 ring-offset-2 ${isSelected ? 'ring-gray-400 dark:ring-gray-500' : 'ring-transparent'} ring-offset-white dark:ring-offset-darkcard" style="background-color: rgb(${rgb})">
+                ${checkIcon}
+            </button>
+        `;
+    });
+    colorsGridHtml += '</div>';
 
     // Helper de cards
     const createActionCard = (onclick, svgIcon, title, subtitle, colorClass = "text-gray-500 group-hover:text-indigo-500") => `
@@ -2158,7 +2213,7 @@ window.renderSettings = function () {
         <div class="max-w-2xl mx-auto w-full pb-24 space-y-6">
             
             <div class="bg-white dark:bg-darkcard rounded-3xl shadow-sm border border-gray-200 dark:border-darkborder p-6 md:p-8 flex flex-col items-center text-center relative overflow-hidden">
-                 <div class="absolute top-0 left-0 w-full h-24 bg-gradient-to-r from-indigo-500 to-purple-600 opacity-10 dark:opacity-20"></div>
+                 <div class="absolute top-0 left-0 w-full h-24 bg-gradient-to-r from-indigo-500 to-purple-600 opacity-10 dark:opacity-20 transition-colors duration-500" style="background: linear-gradient(to right, rgb(var(--theme-500)), rgb(var(--theme-700))) opacity: 0.1;"></div>
                  
                  <div class="relative group mb-4 mt-4">
                     <div class="w-28 h-28 rounded-full overflow-hidden p-1 border-4 border-white dark:border-darkcard shadow-lg relative z-10 bg-white dark:bg-darkcard">
@@ -2189,6 +2244,25 @@ window.renderSettings = function () {
                          <p class="text-xs text-gray-400 uppercase font-bold mb-1">Membro Desde</p>
                          <p class="font-bold text-gray-800 dark:text-white">${dateStr.split(' de ')[2] || dateStr}</p>
                     </div>
+                </div>
+            </div>
+
+            <div class="bg-white dark:bg-darkcard rounded-2xl border border-gray-200 dark:border-darkborder p-5 shadow-sm">
+                <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                    <i class="fas fa-paint-brush"></i> Personalização
+                </h3>
+                
+                <div class="flex items-center justify-between mb-6">
+                    <span class="text-sm font-bold text-gray-700 dark:text-gray-300">Modo Escuro</span>
+                    <button onclick="toggleTheme(); renderSettings();" class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${document.documentElement.classList.contains('dark') ? 'bg-indigo-600' : 'bg-gray-200'}">
+                        <span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${document.documentElement.classList.contains('dark') ? 'translate-x-6' : 'translate-x-1'}"></span>
+                    </button>
+                </div>
+
+                <div class="space-y-3">
+                    <p class="text-sm font-bold text-gray-700 dark:text-gray-300">Cor de Destaque</p>
+                    ${colorsGridHtml}
+                    <p class="text-[10px] text-gray-400 mt-2">* Algumas cores são exclusivas Premium.</p>
                 </div>
             </div>
 
@@ -2233,7 +2307,7 @@ window.renderSettings = function () {
 
             <div class="text-center pt-4 pb-8">
                  <p class="text-xs text-gray-300 dark:text-gray-600 font-mono">ID: ${currentUser.uid.substring(0, 8)}...</p>
-                 <p class="text-xs text-gray-300 dark:text-gray-600 mt-1">Salve-se UFRB v4.0 (Final)</p>
+                 <p class="text-xs text-gray-300 dark:text-gray-600 mt-1">Salve-se UFRB v4.1</p>
             </div>
         </div>
     `;
@@ -4477,35 +4551,106 @@ window.sendFeedback = async function () {
 let transactions = JSON.parse(localStorage.getItem('salvese_finances')) || [];
 let currentSound = null;
 
+// Função para definir o Saldo/Orçamento Mensal
+window.setMonthlyBudget = function () {
+    // Pega o valor atual para mostrar no input
+    let currentBudget = localStorage.getItem('salvese_finance_budget') || "0";
+
+    openCustomInputModal("Definir Saldo Mensal", "Ex: 800.00 (Bolsa/Mesada)", currentBudget, (val) => {
+        // Converte vírgula para ponto e garante que é número
+        const budget = parseFloat(val.replace(',', '.'));
+
+        if (isNaN(budget)) {
+            return showModal("Valor Inválido", "Por favor, digite um número válido.");
+        }
+
+        localStorage.setItem('salvese_finance_budget', budget);
+        renderFinance(); // Atualiza a tela
+        showModal("Saldo Atualizado", `Seu orçamento mensal agora é R$ ${budget.toFixed(2)}`);
+    });
+}
+
 window.renderFinance = function () {
     if (!requirePremium('Gestor Financeiro')) return; // Bloqueia se não for Premium
 
     const list = document.getElementById('finance-list');
+    // Elementos dos Cards
+    const balanceEl = document.getElementById('fin-balance'); // Card 1: Entradas (Orçamento)
+    const expenseEl = document.getElementById('fin-expense'); // Card 2: Gastos
+    const budgetEl = document.getElementById('fin-budget');   // Card 3: Restante
+
     if (!list) return;
     list.innerHTML = '';
-    let total = 0;
 
-    if (transactions.length === 0) list.innerHTML = '<div class="p-8 text-center text-gray-400">Nenhum gasto.</div>';
+    // 1. Carregar Orçamento Salvo
+    let monthlyBudget = parseFloat(localStorage.getItem('salvese_finance_budget')) || 0;
+    let totalExpenses = 0;
+
+    // 2. Renderizar Lista de Gastos
+    if (transactions.length === 0) {
+        list.innerHTML = '<div class="p-8 text-center text-gray-400">Nenhum gasto registrado este mês.</div>';
+    }
 
     transactions.forEach((t, i) => {
-        total += t.val;
+        totalExpenses += t.val;
         list.innerHTML += `
-            <div class="p-4 flex justify-between items-center">
-                <div><p class="font-bold text-gray-800 dark:text-white">${t.desc}</p><p class="text-xs text-gray-400">${new Date(t.date).toLocaleDateString()}</p></div>
-                <div class="flex items-center gap-3"><span class="font-mono font-bold text-red-500">- R$ ${t.val.toFixed(2)}</span><button onclick="delTrans(${i})" class="text-gray-300 hover:text-red-500"><i class="fas fa-trash"></i></button></div>
+            <div class="p-4 flex justify-between items-center group hover:bg-gray-50 dark:hover:bg-neutral-800/50 transition">
+                <div>
+                    <p class="font-bold text-gray-800 dark:text-white text-sm">${t.desc}</p>
+                    <p class="text-[10px] text-gray-400">${new Date(t.date).toLocaleDateString('pt-BR')} • ${new Date(t.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</p>
+                </div>
+                <div class="flex items-center gap-3">
+                    <span class="font-mono font-bold text-red-500 text-sm">- R$ ${t.val.toFixed(2)}</span>
+                    <button onclick="delTrans(${i})" class="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                </div>
             </div>
         `;
     });
-    document.getElementById('fin-expense').innerText = `R$ ${total.toFixed(2)}`;
+
+    // 3. Cálculos Finais
+    const remaining = monthlyBudget - totalExpenses;
+
+    // 4. Atualizar UI dos Cards
+
+    // CARD 1: Saldo do Mês (Agora clicável)
+    if (balanceEl) {
+        balanceEl.innerHTML = `R$ ${monthlyBudget.toFixed(2)} <i class="fas fa-pen text-[10px] text-gray-400 ml-2 mb-1 align-middle"></i>`;
+        // Adiciona o evento de clique no CARD PAI para facilitar
+        balanceEl.parentElement.onclick = setMonthlyBudget;
+        balanceEl.parentElement.classList.add('cursor-pointer', 'hover:bg-gray-50', 'dark:hover:bg-neutral-800', 'transition', 'group');
+        balanceEl.parentElement.title = "Clique para editar seu orçamento";
+    }
+
+    // CARD 2: Gastos Totais
+    if (expenseEl) {
+        expenseEl.innerText = `R$ ${totalExpenses.toFixed(2)}`;
+    }
+
+    // CARD 3: Orçamento Restante (Muda de cor se negativo)
+    if (budgetEl) {
+        budgetEl.innerText = `R$ ${remaining.toFixed(2)}`;
+        if (remaining < 0) {
+            budgetEl.className = "text-2xl font-black text-red-500 mt-1"; // Vermelho se estourou
+        } else {
+            budgetEl.className = "text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1"; // Verde se ok
+        }
+    }
 }
 
 window.openTransactionModal = function () {
-    openCustomInputModal("Valor", "Ex: 15.50", "", (v) => {
+    openCustomInputModal("Valor do Gasto", "Ex: 15.50", "", (v) => {
         const val = parseFloat(v.replace(',', '.'));
-        if (isNaN(val)) return;
+        if (isNaN(val) || val <= 0) return showModal("Erro", "Digite um valor válido maior que zero.");
+
         setTimeout(() => {
-            openCustomInputModal("Descrição", "Ex: Lanche", "", (d) => {
-                transactions.unshift({ val, desc: d || "Gasto", date: new Date().toISOString() });
+            openCustomInputModal("Descrição", "Ex: Lanche, Xerox...", "", (d) => {
+                transactions.unshift({
+                    val,
+                    desc: d || "Gasto Diverso",
+                    date: new Date().toISOString()
+                });
                 localStorage.setItem('salvese_finances', JSON.stringify(transactions));
                 renderFinance();
             });
@@ -4514,9 +4659,11 @@ window.openTransactionModal = function () {
 }
 
 window.delTrans = function (i) {
-    transactions.splice(i, 1);
-    localStorage.setItem('salvese_finances', JSON.stringify(transactions));
-    renderFinance();
+    openCustomConfirmModal("Excluir Gasto", "Tem certeza que deseja remover este registro?", () => {
+        transactions.splice(i, 1);
+        localStorage.setItem('salvese_finances', JSON.stringify(transactions));
+        renderFinance();
+    });
 }
 
 window.toggleSound = function (type) {
@@ -4528,13 +4675,14 @@ window.toggleSound = function (type) {
 
     if (currentSound === type) {
         audio.pause();
-        card.classList.remove('border-indigo-500', 'ring-2');
+        card.classList.remove('border-indigo-500', 'ring-2', 'ring-indigo-500/50');
         currentSound = null;
     } else {
         document.querySelectorAll('audio').forEach(a => { a.pause(); a.currentTime = 0; });
-        document.querySelectorAll('[id^="card-"]').forEach(c => c.classList.remove('border-indigo-500', 'ring-2'));
+        document.querySelectorAll('[id^="card-"]').forEach(c => c.classList.remove('border-indigo-500', 'ring-2', 'ring-indigo-500/50'));
+
         audio.play();
-        card.classList.add('border-indigo-500', 'ring-2');
+        card.classList.add('border-indigo-500', 'ring-2', 'ring-indigo-500/50');
         currentSound = type;
     }
 }

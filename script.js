@@ -2221,23 +2221,27 @@ window.renderSettings = function () {
         `;
     }
 
-    // --- GERAÇÃO DAS CORES PARA O NOVO PAINEL ---
-    // Cores liberadas (Grátis)
+    // --- GERAÇÃO DAS CORES PARA O NOVO PAINEL (CORRIGIDO) ---
     const freeColors = ['indigo', 'cyan', 'green'];
     let colorsGridHtml = '<div class="grid grid-cols-5 gap-3">';
+
+    // Tenta pegar o nome salvo, ou usa 'indigo' como padrão
+    const savedColorName = localStorage.getItem('salvese_color_name') || 'indigo';
 
     Object.keys(colorPalettes).forEach(color => {
         const rgb = colorPalettes[color][500];
         const isLocked = !isUserPremium() && !freeColors.includes(color);
         const lockIcon = isLocked ? '<i class="fas fa-lock text-white/70 text-[10px]"></i>' : '';
 
-        // Verifica se é a cor atual salva no localStorage ou padrão
-        const currentSaved = JSON.parse(localStorage.getItem('salvese_color') || '{}');
-        const isSelected = currentSaved['500'] === rgb;
-        const checkIcon = isSelected ? '<i class="fas fa-check text-white text-xs"></i>' : lockIcon;
+        // Verifica se é a cor atual comparando os NOMES
+        const isSelected = savedColorName === color;
+        const checkIcon = isSelected ? '<i class="fas fa-check text-white text-xs font-bold"></i>' : lockIcon;
+
+        // Adiciona borda extra se selecionado
+        const ringClass = isSelected ? 'ring-2 ring-offset-2 ring-gray-400 dark:ring-gray-500' : 'ring-transparent';
 
         colorsGridHtml += `
-            <button onclick="setThemeColor('${color}')" class="w-10 h-10 rounded-full flex items-center justify-center transition transform hover:scale-110 shadow-sm ring-2 ring-offset-2 ${isSelected ? 'ring-gray-400 dark:ring-gray-500' : 'ring-transparent'} ring-offset-white dark:ring-offset-darkcard" style="background-color: rgb(${rgb})">
+            <button onclick="setThemeColor('${color}')" class="w-10 h-10 rounded-full flex items-center justify-center transition transform hover:scale-110 shadow-sm ${ringClass} ring-offset-white dark:ring-offset-darkcard" style="background-color: rgb(${rgb})">
                 ${checkIcon}
             </button>
         `;
@@ -2307,7 +2311,7 @@ window.renderSettings = function () {
                 
                 <div class="flex items-center justify-between mb-6">
                     <span class="text-sm font-bold text-gray-700 dark:text-gray-300">Modo Escuro</span>
-                    <button onclick="toggleTheme(); renderSettings();" class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${document.documentElement.classList.contains('dark') ? 'bg-indigo-600' : 'bg-gray-200'}">
+                    <button onclick="toggleTheme()" class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${document.documentElement.classList.contains('dark') ? 'bg-indigo-600' : 'bg-gray-200'}">
                         <span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${document.documentElement.classList.contains('dark') ? 'translate-x-6' : 'translate-x-1'}"></span>
                     </button>
                 </div>
@@ -3634,6 +3638,11 @@ window.toggleTheme = function () {
         document.documentElement.classList.add('dark');
         localStorage.setItem('theme', 'dark');
     }
+
+    // ATUALIZAÇÃO: Força a tela de configurações a redesenhar o botão toggle
+    if (document.getElementById('settings-content') && !document.getElementById('view-config').classList.contains('hidden')) {
+        window.renderSettings();
+    }
 }
 
 window.toggleColorMenu = function (device) {
@@ -3655,10 +3664,9 @@ window.toggleColorMenu = function (device) {
             // Verifica se esta cor deve estar bloqueada
             const isLocked = !isUserPremium() && !freeColors.includes(color);
 
-            // AQUI ESTÁ A MUDANÇA: Ícone de Coroa Dourada
+            // Ícone de Coroa Dourada se bloqueado
             let innerContent = isLocked ? '<i class="fas fa-crown text-amber-300 text-[10px] drop-shadow-sm"></i>' : '';
 
-            // Adicionei 'flex items-center justify-center' para centralizar
             btn.className = `w-6 h-6 rounded-full border border-gray-200 dark:border-gray-700 hover:scale-110 transition transform focus:outline-none ring-2 ring-transparent focus:ring-offset-1 focus:ring-gray-400 flex items-center justify-center`;
             btn.style.backgroundColor = `rgb(${rgb})`;
 
@@ -3674,23 +3682,21 @@ window.toggleColorMenu = function (device) {
     }
 }
 
-function setThemeColor(colorName) {
-    // --- TRAVA PREMIUM (PARTE B) ---
-    // Define quais cores são gratuitas
+window.setThemeColor = function (colorName) {
+    // --- TRAVA PREMIUM ---
     const freeColors = ['indigo', 'cyan', 'green'];
 
-    // Se a cor escolhida NÃO estiver na lista grátis...
     if (!freeColors.includes(colorName)) {
-        // ...verifica se é premium. Se não for, exibe modal e para a execução.
         if (!requirePremium('Temas Coloridos')) return;
     }
-    // -------------------------------
+    // ---------------------
 
     const palette = colorPalettes[colorName];
     if (!palette) return;
 
     const iconColor = colorName === 'black' ? `rgb(${palette[900]})` : `rgb(${palette[600]})`;
 
+    // Atualiza os ícones de tema no cabeçalho
     document.querySelectorAll('#desktop-palette-icon, #mobile-palette-icon').forEach(icon => {
         icon.classList.remove('text-indigo-600');
         icon.style.color = iconColor;
@@ -3699,9 +3705,26 @@ function setThemeColor(colorName) {
         }
     });
 
+    // Aplica a cor no CSS
     updateColorVars(palette);
+
+    // Salva o objeto completo e o nome da cor
     localStorage.setItem('salvese_color', JSON.stringify(palette));
+    localStorage.setItem('salvese_color_name', colorName);
+
     document.querySelectorAll('.color-menu').forEach(m => m.classList.add('hidden'));
+
+    // ATUALIZAÇÃO IMPORTANTE: Redesenha a tela de configurações para mover o "Check"
+    if (document.getElementById('settings-content') && !document.getElementById('view-config').classList.contains('hidden')) {
+        window.renderSettings();
+    }
+
+    // Feedback visual rápido
+    const toast = document.createElement('div');
+    toast.className = "fixed top-20 right-4 bg-white dark:bg-neutral-800 border-l-4 border-green-500 text-gray-700 dark:text-white px-4 py-3 rounded shadow-lg z-[100] animate-fade-in-up flex items-center gap-3";
+    toast.innerHTML = `<div class="w-3 h-3 rounded-full" style="background-color: rgb(${palette[500]})"></div> Tema atualizado!`;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 2000);
 }
 
 function updateColorVars(palette) {

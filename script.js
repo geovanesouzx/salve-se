@@ -2170,18 +2170,26 @@ window.renderSettings = function () {
     const container = document.getElementById('settings-content');
     if (!container || !userProfile) return;
 
-    // --- DADOS DO USUÁRIO ---
-    let dateStr = userProfile.createdAt ? new Date(userProfile.createdAt).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }) : "N/A";
+    // --- PREPARAÇÃO DE DADOS ---
+    const dateStr = userProfile.createdAt ? new Date(userProfile.createdAt).toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' }) : "N/A";
+    const firstName = userProfile.displayName.split(' ')[0];
+
     const photoUrl = userProfile.photoURL || "https://files.catbox.moe/pmdtq6.png";
     const isVideo = photoUrl.match(/\.(mp4|webm)$/i);
-
-    // Mídia (Avatar)
     const mediaHtml = isVideo
         ? `<video src="${photoUrl}" class="w-full h-full object-cover" autoplay loop muted playsinline></video>`
-        : `<img src="${photoUrl}" class="w-full h-full object-cover" onerror="this.src='https://files.catbox.moe/pmdtq6.png'">`;
+        : `<img src="${photoUrl}" class="w-full h-full object-cover transition hover:scale-110 duration-500" onerror="this.src='https://files.catbox.moe/pmdtq6.png'">`;
 
-    // --- LÓGICA DO CARD PREMIUM (REGRAS ESPECÍFICAS) ---
     const isPremium = isUserPremium();
+
+    // --- SAUDAÇÃO ---
+    const hour = new Date().getHours();
+    let greeting = "Olá";
+    if (hour >= 5 && hour < 12) greeting = "Bom dia";
+    else if (hour >= 12 && hour < 18) greeting = "Boa tarde";
+    else greeting = "Boa noite";
+
+    // --- LÓGICA DO CARD PREMIUM (A QUE VOCÊ GOSTOU) ---
     let subscriptionCardHtml = '';
     let shouldStartTimer = false;
 
@@ -2190,202 +2198,200 @@ window.renderSettings = function () {
         const end = new Date(userProfile.subscriptionEndDate).getTime();
         const distance = end - now;
         const oneDay = 1000 * 60 * 60 * 24;
-
         const endFormatted = new Date(userProfile.subscriptionEndDate).toLocaleDateString('pt-BR');
-        const totalDays = 30; // Base de cálculo da barra
+        const totalDays = 30;
         const percent = Math.min(100, Math.max(0, (distance / (oneDay * totalDays)) * 100));
 
-        // Conteúdo dinâmico (Dias ou Timer)
         let mainContent = '';
-
         if (distance > oneDay) {
-            // MAIS DE 24H: Mostra dias (Igual à foto)
             const daysLeft = Math.ceil(distance / oneDay);
             mainContent = `
-                <div class="mt-4 mb-2">
-                    <span class="text-5xl font-bold text-white tracking-tighter">${daysLeft}</span>
-                    <span class="text-gray-400 text-sm font-medium ml-1">dias restantes</span>
+                <div class="mt-6 mb-4">
+                    <span class="text-6xl font-black text-white tracking-tighter">${daysLeft}</span>
+                    <span class="text-gray-400 text-lg font-medium ml-1">dias</span>
                 </div>
             `;
         } else {
-            // MENOS DE 24H: Mostra Timer (Contagem Regressiva)
             shouldStartTimer = true;
             mainContent = `
-                <div class="mt-4 mb-2">
-                    <div id="premium-countdown" class="text-4xl font-mono font-bold text-red-400 tracking-tight flex items-baseline gap-2">
+                <div class="mt-6 mb-4">
+                    <div id="premium-countdown" class="text-5xl font-mono font-bold text-red-400 tracking-tighter flex items-baseline gap-2">
                         --:--:--
                     </div>
-                    <span class="text-red-300/70 text-xs font-bold uppercase tracking-widest animate-pulse">Expirando em breve</span>
+                    <span class="text-red-400/80 text-xs font-bold uppercase tracking-widest animate-pulse">Expirando hoje</span>
                 </div>
             `;
         }
 
         subscriptionCardHtml = `
-            <div class="bg-[#1a1d21] dark:bg-[#0f1113] rounded-2xl p-6 relative overflow-hidden shadow-xl border border-gray-800 group">
-                <div class="absolute right-4 top-8 text-white/5 text-8xl transform rotate-12 pointer-events-none transition group-hover:scale-110 duration-700"><i class="fas fa-crown"></i></div>
-                
-                <div class="relative z-10">
+            <div class="h-full bg-[#0f1113] dark:bg-black rounded-[2rem] p-8 relative overflow-hidden shadow-2xl group border border-gray-800">
+                <div class="absolute right-[-20px] top-[-20px] text-white/5 text-9xl pointer-events-none"><i class="fas fa-crown"></i></div>
+                <div class="relative z-10 flex flex-col h-full justify-between">
                     <div class="flex justify-between items-start">
-                        <div class="flex items-center gap-2">
-                            <i class="fas fa-star text-amber-400 text-xl drop-shadow-[0_0_10px_rgba(251,191,36,0.5)]"></i>
-                            <h3 class="text-lg font-bold text-amber-400">Premium Ativo</h3>
+                        <div>
+                            <h3 class="text-xl font-bold text-amber-400 flex items-center gap-2"><i class="fas fa-star"></i> Premium Ativo</h3>
+                            <p class="text-gray-500 text-xs mt-1">Válido até ${endFormatted}</p>
                         </div>
-                        <span class="bg-white/10 text-gray-300 text-[10px] px-3 py-1 rounded-full font-mono border border-white/5">Vence: ${endFormatted}</span>
+                        <div class="w-10 h-10 rounded-full bg-amber-400/10 flex items-center justify-center text-amber-400"><i class="fas fa-check"></i></div>
                     </div>
-
                     ${mainContent}
-
-                    <div class="w-full bg-gray-700/50 rounded-full h-2.5 mt-4 overflow-hidden">
-                        <div class="bg-gradient-to-r from-green-500 to-emerald-400 h-2.5 rounded-full transition-all duration-1000 shadow-[0_0_15px_rgba(16,185,129,0.4)]" style="width: ${percent}%"></div>
+                    <div>
+                        <div class="w-full bg-gray-800 rounded-full h-3 mb-2 overflow-hidden">
+                            <div class="bg-gradient-to-r from-green-500 to-emerald-400 h-3 rounded-full shadow-[0_0_20px_rgba(16,185,129,0.5)]" style="width: ${percent}%"></div>
+                        </div>
+                        <p class="text-[10px] text-gray-500 text-right uppercase font-bold tracking-wider">Renovação Necessária</p>
                     </div>
-                    
-                    <p class="text-[10px] text-gray-500 text-right mt-2">Renovação necessária ao fim do prazo</p>
                 </div>
             </div>
         `;
     } else {
-        // Card Versão Grátis (Convite)
         subscriptionCardHtml = `
-            <div onclick="switchPage('premium')" class="group cursor-pointer bg-gradient-to-br from-indigo-600 to-violet-700 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden transition transform hover:scale-[1.01]">
-                <div class="absolute right-0 bottom-0 opacity-10 text-8xl transform translate-x-4 translate-y-4"><i class="fas fa-rocket"></i></div>
+            <div onclick="switchPage('premium')" class="h-full cursor-pointer bg-gradient-to-br from-indigo-600 to-violet-700 rounded-[2rem] p-8 text-white shadow-xl relative overflow-hidden transition transform hover:scale-[1.02] group flex flex-col justify-between">
+                <div class="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
                 <div class="relative z-10">
-                    <h3 class="text-2xl font-bold mb-1">Seja Premium 👑</h3>
-                    <p class="text-indigo-100 text-sm mb-4 opacity-90">Desbloqueie IA Gemini, Temas e Widgets.</p>
-                    <button class="bg-white text-indigo-600 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wide shadow-md group-hover:bg-indigo-50 transition">Ver Planos</button>
+                    <span class="bg-white/20 backdrop-blur-sm text-xs font-bold px-3 py-1 rounded-full border border-white/20">RECOMENDADO</span>
+                    <h3 class="text-3xl font-black mt-4 mb-2">Seja Premium 👑</h3>
+                    <p class="text-indigo-100 text-sm leading-relaxed opacity-90">Desbloqueie o potencial máximo do seu assistente universitário.</p>
                 </div>
+                <button class="bg-white text-indigo-600 px-6 py-3 rounded-xl font-bold shadow-lg group-hover:bg-indigo-50 transition flex items-center justify-between w-full mt-6">
+                    <span>Fazer Upgrade</span>
+                    <i class="fas fa-arrow-right"></i>
+                </button>
             </div>
         `;
     }
 
-    // --- CORES DO TEMA ---
+    // --- CORES ---
     const freeColors = ['indigo', 'cyan', 'green'];
     const savedColorName = localStorage.getItem('salvese_color_name') || 'indigo';
-    let colorsGridHtml = '<div class="flex flex-wrap gap-3">';
-
+    let colorsGridHtml = '<div class="flex flex-wrap gap-2">';
     Object.keys(colorPalettes).forEach(color => {
         const rgb = colorPalettes[color][500];
         const isLocked = !isPremium && !freeColors.includes(color);
         const isSelected = savedColorName === color;
         const content = isSelected ? '<i class="fas fa-check text-white text-[10px]"></i>' : (isLocked ? '<i class="fas fa-lock text-white/50 text-[8px]"></i>' : '');
-        const ring = isSelected ? 'ring-2 ring-offset-2 ring-gray-400 dark:ring-gray-600 scale-110' : '';
 
         colorsGridHtml += `
-            <button onclick="setThemeColor('${color}')" class="w-9 h-9 rounded-full flex items-center justify-center transition hover:scale-110 shadow-sm ${ring} ring-offset-white dark:ring-offset-darkcard" style="background-color: rgb(${rgb})">
+            <button onclick="setThemeColor('${color}')" class="w-8 h-8 rounded-full flex items-center justify-center transition hover:scale-110 shadow-sm ${isSelected ? 'ring-2 ring-gray-400 dark:ring-white ring-offset-2 dark:ring-offset-black' : ''}" style="background-color: rgb(${rgb})">
                 ${content}
             </button>
         `;
     });
     colorsGridHtml += '</div>';
 
-    // --- LAYOUT GRID MODERNO ---
+    // --- HTML PRINCIPAL (LAYOUT BENTO GRID) ---
     container.innerHTML = `
-        <div class="max-w-3xl mx-auto pb-24 px-4 pt-6 animate-fade-in">
+        <div class="max-w-5xl mx-auto pb-24 px-4 pt-6 animate-fade-in">
             
-            <div class="flex items-center gap-5 mb-8">
-                <div class="relative group cursor-pointer" onclick="changePhoto()">
-                    <div class="w-20 h-20 rounded-full overflow-hidden border-2 border-gray-200 dark:border-neutral-700 shadow-md bg-gray-100 dark:bg-neutral-800">
-                        ${mediaHtml}
-                    </div>
-                    <div class="absolute bottom-0 right-0 bg-white dark:bg-neutral-800 p-1.5 rounded-full shadow-sm border border-gray-100 dark:border-neutral-700 text-gray-500 dark:text-gray-400">
-                        <i class="fas fa-camera text-xs"></i>
-                    </div>
-                </div>
+            <div class="mb-8 flex items-end justify-between">
                 <div>
-                    <h1 class="text-2xl font-bold text-gray-900 dark:text-white leading-tight flex items-center gap-2">
-                        ${userProfile.displayName}
-                        ${isPremium ? '<i class="fas fa-check-circle text-blue-500 text-base" title="Verificado"></i>' : ''}
-                    </h1>
-                    <p class="text-gray-500 dark:text-gray-400 text-sm mb-2">@${userProfile.handle}</p>
-                    <div class="flex gap-2">
-                        <span class="bg-gray-100 dark:bg-neutral-800 text-gray-600 dark:text-gray-300 text-[10px] font-bold px-2 py-1 rounded border border-gray-200 dark:border-neutral-700">Membro desde ${dateStr.split(' de ')[2] || '2025'}</span>
-                        <span class="bg-indigo-50 text-indigo-600 dark:bg-indigo-900/20 dark:text-indigo-400 text-[10px] font-bold px-2 py-1 rounded border border-indigo-100 dark:border-indigo-900/30">Nível ${userProfile.level || 1}</span>
-                    </div>
+                    <p class="text-gray-500 dark:text-gray-400 text-sm font-medium mb-1">${greeting}, ${firstName}</p>
+                    <h1 class="text-3xl md:text-4xl font-black text-gray-900 dark:text-white tracking-tight">Configurações</h1>
+                </div>
+                <div class="hidden md:block">
+                    <span class="text-xs font-mono text-gray-400 bg-gray-100 dark:bg-neutral-800 px-3 py-1 rounded-full">v4.5 Stable</span>
                 </div>
             </div>
 
-            <div class="mb-8">
-                <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Sua Assinatura</h3>
-                ${subscriptionCardHtml}
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                 
-                <div class="space-y-6">
-                    <div>
-                        <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Aparência</h3>
-                        <div class="bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder rounded-2xl p-5 shadow-sm">
-                            <div class="flex justify-between items-center mb-5">
-                                <span class="font-bold text-gray-700 dark:text-gray-200 text-sm"><i class="fas fa-moon mr-2 text-indigo-500"></i> Modo Escuro</span>
-                                <button onclick="toggleTheme()" class="w-12 h-6 rounded-full transition-colors duration-300 focus:outline-none ${document.documentElement.classList.contains('dark') ? 'bg-indigo-600' : 'bg-gray-200'} relative">
-                                    <span class="absolute top-1 left-1 bg-white w-4 h-4 rounded-full transition-transform duration-300 ${document.documentElement.classList.contains('dark') ? 'translate-x-6' : ''}"></span>
-                                </button>
-                            </div>
-                            <div>
-                                <p class="text-xs text-gray-500 dark:text-gray-400 mb-3 font-medium">Cor do Sistema</p>
-                                ${colorsGridHtml}
-                            </div>
+                <div class="md:col-span-2 bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder rounded-[2rem] p-6 md:p-8 shadow-sm flex flex-col md:flex-row items-center md:items-start gap-6 relative overflow-hidden group">
+                    <div class="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-indigo-500/10 to-transparent rounded-bl-full -mr-10 -mt-10 pointer-events-none"></div>
+                    
+                    <div class="relative cursor-pointer group-hover:scale-105 transition duration-500" onclick="changePhoto()">
+                        <div class="w-28 h-28 rounded-full overflow-hidden border-4 border-white dark:border-neutral-800 shadow-xl">
+                            ${mediaHtml}
                         </div>
-                    </div>
-
-                    <div>
-                        <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Conta</h3>
-                        <div class="bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder rounded-2xl overflow-hidden shadow-sm">
-                            <button onclick="editName()" class="w-full text-left px-5 py-4 border-b border-gray-100 dark:border-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-800/50 transition flex justify-between items-center group">
-                                <span class="text-sm font-medium text-gray-700 dark:text-gray-200"><i class="fas fa-user mr-3 text-gray-400 group-hover:text-indigo-500 transition"></i> Alterar Nome</span>
-                                <i class="fas fa-chevron-right text-gray-300 text-xs"></i>
-                            </button>
-                            <button onclick="editHandle()" class="w-full text-left px-5 py-4 border-b border-gray-100 dark:border-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-800/50 transition flex justify-between items-center group">
-                                <span class="text-sm font-medium text-gray-700 dark:text-gray-200"><i class="fas fa-at mr-3 text-gray-400 group-hover:text-indigo-500 transition"></i> Alterar Usuário</span>
-                                <i class="fas fa-chevron-right text-gray-300 text-xs"></i>
-                            </button>
-                            <button onclick="editSemester()" class="w-full text-left px-5 py-4 hover:bg-gray-50 dark:hover:bg-neutral-800/50 transition flex justify-between items-center group">
-                                <span class="text-sm font-medium text-gray-700 dark:text-gray-200"><i class="fas fa-graduation-cap mr-3 text-gray-400 group-hover:text-indigo-500 transition"></i> Semestre Atual</span>
-                                <span class="text-xs text-gray-400 bg-gray-100 dark:bg-neutral-800 px-2 py-1 rounded">${userProfile.semester || 'N/A'}</span>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="space-y-6">
-                    <div>
-                        <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Ajustes do App</h3>
-                        <div class="grid grid-cols-2 gap-3">
-                            <button onclick="switchPage('ocultos')" class="bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder p-4 rounded-2xl hover:border-indigo-500 dark:hover:border-indigo-500 transition text-left group shadow-sm">
-                                <div class="w-8 h-8 rounded-lg bg-teal-50 dark:bg-teal-900/20 text-teal-600 flex items-center justify-center mb-3 group-hover:scale-110 transition"><i class="fas fa-eye-slash"></i></div>
-                                <span class="block text-sm font-bold text-gray-800 dark:text-white">Widgets</span>
-                                <span class="text-[10px] text-gray-400">Gerenciar ocultos</span>
-                            </button>
-                            
-                            <button onclick="manualBackup()" class="bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder p-4 rounded-2xl hover:border-indigo-500 dark:hover:border-indigo-500 transition text-left group shadow-sm">
-                                <div class="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-600 flex items-center justify-center mb-3 group-hover:scale-110 transition"><i class="fas fa-cloud-upload-alt"></i></div>
-                                <span class="block text-sm font-bold text-gray-800 dark:text-white">Backup</span>
-                                <span class="text-[10px] text-gray-400">Sincronizar agora</span>
-                            </button>
-                        </div>
-                    </div>
-
-                    <div>
-                        <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Privacidade</h3>
-                        <div class="bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder rounded-2xl overflow-hidden shadow-sm">
-                            <button onclick="changePassword()" class="w-full text-left px-5 py-4 border-b border-gray-100 dark:border-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-800/50 transition flex justify-between items-center group">
-                                <span class="text-sm font-medium text-gray-700 dark:text-gray-200"><i class="fas fa-lock mr-3 text-gray-400 group-hover:text-yellow-500 transition"></i> Redefinir Senha</span>
-                                <i class="fas fa-chevron-right text-gray-300 text-xs"></i>
-                            </button>
-                            <button onclick="logoutApp()" class="w-full text-left px-5 py-4 hover:bg-red-50 dark:hover:bg-red-900/10 transition flex justify-between items-center group">
-                                <span class="text-sm font-medium text-red-600 dark:text-red-400"><i class="fas fa-sign-out-alt mr-3 opacity-70"></i> Sair da Conta</span>
-                            </button>
+                        <div class="absolute bottom-1 right-1 bg-black text-white w-8 h-8 rounded-full flex items-center justify-center border-2 border-white dark:border-darkcard shadow-md">
+                            <i class="fas fa-camera text-xs"></i>
                         </div>
                     </div>
                     
-                    <div class="text-center pt-2">
-                        <p class="text-[10px] text-gray-300 dark:text-neutral-700 font-mono">ID: ${currentUser.uid.substring(0, 8)}... | v4.5</p>
+                    <div class="text-center md:text-left flex-1 z-10">
+                        <div class="flex flex-col md:flex-row items-center gap-3 mb-2">
+                            <h2 class="text-2xl font-black text-gray-900 dark:text-white">${userProfile.displayName}</h2>
+                            ${isPremium ? '<span class="bg-amber-100 text-amber-700 text-[10px] font-bold px-2 py-1 rounded-md border border-amber-200"><i class="fas fa-check-circle"></i> VERIFICADO</span>' : ''}
+                        </div>
+                        <p class="text-gray-500 dark:text-gray-400 font-medium mb-4">@${userProfile.handle}</p>
+                        
+                        <div class="flex flex-wrap justify-center md:justify-start gap-3">
+                            <div class="bg-gray-50 dark:bg-neutral-800 px-4 py-2 rounded-xl border border-gray-100 dark:border-neutral-700">
+                                <span class="block text-[10px] text-gray-400 uppercase font-bold">Nível</span>
+                                <span class="text-lg font-bold text-indigo-600 dark:text-indigo-400">${userProfile.level || 1}</span>
+                            </div>
+                            <div class="bg-gray-50 dark:bg-neutral-800 px-4 py-2 rounded-xl border border-gray-100 dark:border-neutral-700">
+                                <span class="block text-[10px] text-gray-400 uppercase font-bold">Semestre</span>
+                                <span class="text-lg font-bold text-gray-800 dark:text-white">${userProfile.semester || '-'}</span>
+                            </div>
+                            <div class="bg-gray-50 dark:bg-neutral-800 px-4 py-2 rounded-xl border border-gray-100 dark:border-neutral-700">
+                                <span class="block text-[10px] text-gray-400 uppercase font-bold">Desde</span>
+                                <span class="text-lg font-bold text-gray-800 dark:text-white capitalize">${dateStr.split('/')[0]}</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <button onclick="editName()" class="absolute top-6 right-6 text-gray-400 hover:text-indigo-600 transition hidden md:block"><i class="fas fa-pen"></i></button>
+                </div>
+
+                <div class="md:col-span-1 bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder rounded-[2rem] p-6 shadow-sm flex flex-col justify-between">
+                    <div>
+                        <h3 class="font-bold text-lg text-gray-900 dark:text-white mb-4 flex items-center gap-2"><i class="fas fa-swatchbook text-pink-500"></i> Estilo</h3>
+                        <div class="flex items-center justify-between mb-6 bg-gray-50 dark:bg-neutral-800 p-3 rounded-xl">
+                            <span class="text-sm font-medium text-gray-600 dark:text-gray-300">Modo Escuro</span>
+                            <button onclick="toggleTheme()" class="w-10 h-6 rounded-full transition-colors focus:outline-none ${document.documentElement.classList.contains('dark') ? 'bg-indigo-600' : 'bg-gray-300'} relative">
+                                <span class="absolute top-1 left-1 bg-white w-4 h-4 rounded-full transition-transform ${document.documentElement.classList.contains('dark') ? 'translate-x-4' : ''}"></span>
+                            </button>
+                        </div>
+                        <p class="text-xs font-bold text-gray-400 uppercase mb-3">Cores do Sistema</p>
+                        ${colorsGridHtml}
                     </div>
                 </div>
+
+                <div class="md:col-span-1">
+                    ${subscriptionCardHtml}
+                </div>
+
+                <div class="md:col-span-2 grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <button onclick="editHandle()" class="bg-white dark:bg-darkcard p-4 rounded-2xl border border-gray-200 dark:border-darkborder shadow-sm hover:border-indigo-500 dark:hover:border-indigo-500 hover:-translate-y-1 transition-all flex flex-col items-center justify-center gap-2 h-32">
+                        <div class="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-900/20 text-purple-600 flex items-center justify-center text-lg"><i class="fas fa-at"></i></div>
+                        <span class="text-xs font-bold text-gray-700 dark:text-white">Alterar @User</span>
+                    </button>
+
+                    <button onclick="editSemester()" class="bg-white dark:bg-darkcard p-4 rounded-2xl border border-gray-200 dark:border-darkborder shadow-sm hover:border-orange-500 dark:hover:border-orange-500 hover:-translate-y-1 transition-all flex flex-col items-center justify-center gap-2 h-32">
+                        <div class="w-10 h-10 rounded-full bg-orange-100 dark:bg-orange-900/20 text-orange-600 flex items-center justify-center text-lg"><i class="fas fa-graduation-cap"></i></div>
+                        <span class="text-xs font-bold text-gray-700 dark:text-white">Alterar Semestre</span>
+                    </button>
+
+                    <button onclick="manualBackup()" class="bg-white dark:bg-darkcard p-4 rounded-2xl border border-gray-200 dark:border-darkborder shadow-sm hover:border-blue-500 dark:hover:border-blue-500 hover:-translate-y-1 transition-all flex flex-col items-center justify-center gap-2 h-32">
+                        <div class="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/20 text-blue-600 flex items-center justify-center text-lg"><i class="fas fa-cloud-upload-alt"></i></div>
+                        <span class="text-xs font-bold text-gray-700 dark:text-white">Fazer Backup</span>
+                    </button>
+
+                    <button onclick="switchPage('ocultos')" class="bg-white dark:bg-darkcard p-4 rounded-2xl border border-gray-200 dark:border-darkborder shadow-sm hover:border-teal-500 dark:hover:border-teal-500 hover:-translate-y-1 transition-all flex flex-col items-center justify-center gap-2 h-32">
+                        <div class="w-10 h-10 rounded-full bg-teal-100 dark:bg-teal-900/20 text-teal-600 flex items-center justify-center text-lg"><i class="fas fa-eye-slash"></i></div>
+                        <span class="text-xs font-bold text-gray-700 dark:text-white">Widgets Ocultos</span>
+                    </button>
+                </div>
+
+                <div class="md:col-span-3 bg-red-50 dark:bg-red-900/10 rounded-2xl p-4 flex flex-col sm:flex-row justify-between items-center gap-4 border border-red-100 dark:border-red-900/30">
+                    <div class="flex items-center gap-4">
+                        <div class="w-10 h-10 rounded-full bg-white dark:bg-red-900/30 text-red-500 flex items-center justify-center shadow-sm"><i class="fas fa-shield-alt"></i></div>
+                        <div>
+                            <h4 class="font-bold text-red-700 dark:text-red-400 text-sm">Segurança da Conta</h4>
+                            <p class="text-xs text-red-500/80">Gerencie sua senha ou saia do dispositivo.</p>
+                        </div>
+                    </div>
+                    <div class="flex gap-3 w-full sm:w-auto">
+                        <button onclick="changePassword()" class="flex-1 sm:flex-none px-4 py-2 bg-white dark:bg-red-900/20 text-red-600 rounded-lg text-xs font-bold border border-red-200 dark:border-red-800 hover:bg-red-50 transition">Nova Senha</button>
+                        <button onclick="logoutApp()" class="flex-1 sm:flex-none px-4 py-2 bg-red-600 text-white rounded-lg text-xs font-bold hover:bg-red-700 shadow-md transition">Sair</button>
+                    </div>
+                </div>
+
             </div>
         </div>
     `;
 
-    // --- SCRIPT DA CONTAGEM REGRESSIVA (SÓ RODA SE < 24H) ---
+    // --- SCRIPT DA CONTAGEM (SÓ RODA SE < 24H) ---
     if (isPremium && userProfile.subscriptionEndDate && shouldStartTimer) {
         if (window.premiumInterval) clearInterval(window.premiumInterval);
 
@@ -2399,7 +2405,6 @@ window.renderSettings = function () {
 
             if (distance < 0) {
                 el.innerHTML = "EXPIRADO";
-                el.classList.add('text-red-600');
                 return;
             }
 
@@ -2407,7 +2412,6 @@ window.renderSettings = function () {
             const m = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
             const s = Math.floor((distance % (1000 * 60)) / 1000);
 
-            // Formato HH:MM:SS
             el.innerText = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
         };
 

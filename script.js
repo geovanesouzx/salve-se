@@ -18,6 +18,7 @@ import {
     getFirestore,
     doc,
     setDoc,
+    addDoc,
     getDoc,
     deleteDoc,
     onSnapshot,
@@ -389,6 +390,7 @@ window.switchPage = function (pageId, addToHistory = true) {
         notas: 'Anotações',
         ia: 'Salve-se IA',
         ocultos: 'Widgets Ocultos',
+        feedback: 'Central de Feedback',
         premium: 'Planos & Assinatura'
     };
     const pageTitleEl = document.getElementById('page-title');
@@ -4424,4 +4426,46 @@ function getFullBusScheduleForAI() {
     text += `- Recolhendo (Volta p/ Garagem/Centro): ${voltas}\n`;
 
     return text;
+}
+
+// ============================================================
+// --- NOVA FUNÇÃO: ENVIAR FEEDBACK ---
+// ============================================================
+window.sendFeedback = async function () {
+    const typeSelect = document.getElementById('feedback-type');
+    const messageInput = document.getElementById('feedback-message');
+    const btn = document.getElementById('btn-send-feedback');
+
+    const message = messageInput.value.trim();
+
+    if (!message) return showModal("Atenção", "Escreva uma mensagem antes de enviar.");
+    if (!currentUser) return showModal("Erro", "Faça login para enviar feedback.");
+
+    const originalHTML = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Enviando...';
+    btn.disabled = true;
+
+    try {
+        // Salva no Firebase na coleção "feedbacks"
+        await addDoc(collection(db, "feedbacks"), {
+            uid: currentUser.uid,
+            email: userProfile.email || currentUser.email,
+            name: userProfile.displayName,
+            type: typeSelect.value,
+            message: message,
+            date: new Date().toISOString(),
+            device: navigator.userAgent
+        });
+
+        showModal("Sucesso! 🚀", "Seu feedback foi enviado. Obrigado por contribuir!");
+        messageInput.value = ''; // Limpa o campo
+        typeSelect.value = 'suggestion';
+
+    } catch (error) {
+        console.error(error);
+        showModal("Erro", "Falha ao enviar. Tente novamente.");
+    } finally {
+        btn.innerHTML = originalHTML;
+        btn.disabled = false;
+    }
 }

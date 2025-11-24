@@ -746,10 +746,10 @@ window.sendIAMessage = async function () {
         const dataHora = now.toLocaleString('pt-BR');
         const statusBus = getBusStatusForAI();
         const gradeContext = getClassContextForAI();
-        
+
         // Contexto de Tarefas (Resumido)
         const tasksList = tasksData.map(t => `- "${t.text}" (${t.done ? 'Feita' : 'Pendente'})`).join('\n') || "Nenhuma tarefa.";
-        
+
         // Contexto de Notas (Títulos)
         const notesList = notesData.map(n => `- "${n.title}"`).join('\n') || "Nenhuma nota.";
 
@@ -856,6 +856,65 @@ ${notesList}
         scrollToBottom();
     }
 };
+
+// ============================================================
+// --- FUNÇÕES AUXILIARES DO CHAT (QUE ESTAVAM FALTANDO) ---
+// ============================================================
+
+function appendMessage(sender, text) {
+    const container = document.getElementById('chat-messages-container');
+    if (!container) return;
+
+    // Adiciona ao histórico global
+    chatHistory.push({ role: sender === 'user' ? 'user' : 'assistant', text: text });
+    if (chatHistory.length > 30) chatHistory.shift();
+
+    const div = document.createElement('div');
+    div.className = `flex w-full ${sender === 'user' ? 'justify-end' : 'justify-start'} mb-4 animate-scale-in group`;
+
+    const time = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+    // Formatação básica de Markdown (Negrito e quebra de linha)
+    const formattedText = text
+        .replace(/\n/g, '<br>')
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/`([^`]+)`/g, '<code class="bg-gray-200 dark:bg-neutral-700 px-1 rounded text-xs font-mono">$1</code>');
+
+    if (sender === 'user') {
+        div.innerHTML = `
+            <div class="flex flex-col items-end max-w-[85%]">
+                <div class="bg-indigo-600 text-white rounded-2xl rounded-br-sm px-4 py-3 shadow-md text-sm leading-relaxed relative">
+                    ${formattedText}
+                </div>
+                <span class="text-[10px] text-gray-400 mt-1 mr-1 opacity-0 group-hover:opacity-100 transition-opacity">${time}</span>
+            </div>
+        `;
+    } else {
+        const providerLabel = currentAIProvider === 'gemini' ? 'Gemini' : 'Llama';
+        div.innerHTML = `
+            <div class="flex gap-3 max-w-[90%]">
+                <div class="flex-shrink-0 flex flex-col justify-end">
+                    <div class="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-xs shadow-sm">
+                        <i class="fas fa-robot"></i>
+                    </div>
+                </div>
+                <div class="flex flex-col items-start">
+                    <div class="bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder text-gray-800 dark:text-gray-200 rounded-2xl rounded-bl-sm px-4 py-3 shadow-sm text-sm leading-relaxed">
+                        ${formattedText}
+                    </div>
+                    <span class="text-[10px] text-gray-400 mt-1 ml-1 opacity-0 group-hover:opacity-100 transition-opacity">${providerLabel} • ${time}</span>
+                </div>
+            </div>
+        `;
+    }
+    container.appendChild(div);
+    scrollToBottom();
+}
+
+function hideTypingIndicator() {
+    const existing = document.getElementById('dynamic-typing-indicator');
+    if (existing) existing.remove();
+}
 
 // ============================================================
 // --- EXECUTOR DE COMANDOS (Completo + Suporte ABNT) ---

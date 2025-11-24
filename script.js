@@ -391,7 +391,9 @@ window.switchPage = function (pageId, addToHistory = true) {
         ia: 'Salve-se IA',
         ocultos: 'Widgets Ocultos',
         feedback: 'Central de Feedback',
-        premium: 'Planos & Assinatura'
+        premium: 'Planos & Assinatura',
+        financeiro: 'Gestor Financeiro', // <--- ADICIONADO
+        sounds: 'Estúdio de Foco'        // <--- ADICIONADO
     };
     const pageTitleEl = document.getElementById('page-title');
     if (pageTitleEl) pageTitleEl.innerText = titles[pageId] || 'Salve-se UFRB';
@@ -402,6 +404,15 @@ window.switchPage = function (pageId, addToHistory = true) {
     if (pageId === 'notas' && window.renderNotes) window.renderNotes();
     if (pageId === 'ocultos' && window.renderHiddenWidgetsPage) window.renderHiddenWidgetsPage();
     if (pageId === 'premium' && window.renderPremiumPage) window.renderPremiumPage();
+
+    // --- NOVAS RENDERIZAÇÕES ---
+    if (pageId === 'financeiro' && window.renderFinance) window.renderFinance();
+    if (pageId === 'sounds') {
+        // Trava de segurança extra ao tentar abrir a página direto
+        if (!requirePremium('Sons de Foco')) return;
+    }
+    // ---------------------------
+
     if (pageId === 'home') {
         applyWidgetVisibility();
         refreshAllUI();
@@ -4456,5 +4467,74 @@ window.sendFeedback = async function () {
     } finally {
         btn.innerHTML = originalHTML;
         btn.disabled = false;
+    }
+}
+
+// ============================================================
+// --- FUNÇÕES NOVAS (FINANCEIRO E SONS) ---
+// ============================================================
+
+let transactions = JSON.parse(localStorage.getItem('salvese_finances')) || [];
+let currentSound = null;
+
+window.renderFinance = function () {
+    if (!requirePremium('Gestor Financeiro')) return; // Bloqueia se não for Premium
+
+    const list = document.getElementById('finance-list');
+    if (!list) return;
+    list.innerHTML = '';
+    let total = 0;
+
+    if (transactions.length === 0) list.innerHTML = '<div class="p-8 text-center text-gray-400">Nenhum gasto.</div>';
+
+    transactions.forEach((t, i) => {
+        total += t.val;
+        list.innerHTML += `
+            <div class="p-4 flex justify-between items-center">
+                <div><p class="font-bold text-gray-800 dark:text-white">${t.desc}</p><p class="text-xs text-gray-400">${new Date(t.date).toLocaleDateString()}</p></div>
+                <div class="flex items-center gap-3"><span class="font-mono font-bold text-red-500">- R$ ${t.val.toFixed(2)}</span><button onclick="delTrans(${i})" class="text-gray-300 hover:text-red-500"><i class="fas fa-trash"></i></button></div>
+            </div>
+        `;
+    });
+    document.getElementById('fin-expense').innerText = `R$ ${total.toFixed(2)}`;
+}
+
+window.openTransactionModal = function () {
+    openCustomInputModal("Valor", "Ex: 15.50", "", (v) => {
+        const val = parseFloat(v.replace(',', '.'));
+        if (isNaN(val)) return;
+        setTimeout(() => {
+            openCustomInputModal("Descrição", "Ex: Lanche", "", (d) => {
+                transactions.unshift({ val, desc: d || "Gasto", date: new Date().toISOString() });
+                localStorage.setItem('salvese_finances', JSON.stringify(transactions));
+                renderFinance();
+            });
+        }, 300);
+    });
+}
+
+window.delTrans = function (i) {
+    transactions.splice(i, 1);
+    localStorage.setItem('salvese_finances', JSON.stringify(transactions));
+    renderFinance();
+}
+
+window.toggleSound = function (type) {
+    if (!requirePremium('Sons de Foco')) return; // Bloqueia se não for Premium
+
+    const audio = document.getElementById(`audio-${type}`);
+    const card = document.getElementById(`card-${type}`);
+    if (!audio) return;
+
+    if (currentSound === type) {
+        audio.pause();
+        card.classList.remove('border-indigo-500', 'ring-2');
+        currentSound = null;
+    } else {
+        document.querySelectorAll('audio').forEach(a => { a.pause(); a.currentTime = 0; });
+        document.querySelectorAll('[id^="card-"]').forEach(c => c.classList.remove('border-indigo-500', 'ring-2'));
+        audio.play();
+        card.classList.add('border-indigo-500', 'ring-2');
+        currentSound = type;
     }
 }

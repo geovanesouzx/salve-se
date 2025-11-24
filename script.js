@@ -715,147 +715,62 @@ function formatAIContent(text) {
 }
 
 // ============================================================
-// --- INTEGRAÇÃO IA SUPREMA (TODAS AS FUNÇÕES + TEMA/COR) ---
+// --- FUNÇÕES AUXILIARES DO CHAT (QUE ESTAVAM FALTANDO) ---
 // ============================================================
 
-window.sendIAMessage = async function () {
-    const input = document.getElementById('chat-input');
-    const message = input.value.trim();
-    const sendBtn = document.getElementById('chat-send-btn');
+function appendMessage(sender, text) {
+    const container = document.getElementById('chat-messages-container');
+    if (!container) return;
 
-    if (!message) return;
+    chatHistory.push({ role: sender === 'user' ? 'user' : 'assistant', text: text });
+    if (chatHistory.length > 30) chatHistory.shift();
 
-    // 🔒 TRAVA PREMIUM
-    if (currentAIProvider === 'gemini' && !isUserPremium()) {
-        requirePremium('IA Gemini (Google)');
-        updateAISelectorUI();
-        const btnGroq = document.getElementById('btn-ai-groq');
-        if (btnGroq) btnGroq.click();
-        return;
+    const div = document.createElement('div');
+    div.className = `flex w-full ${sender === 'user' ? 'justify-end' : 'justify-start'} mb-4 animate-scale-in group`;
+
+    const time = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+    // Formatação básica de Markdown
+    const formattedText = text
+        .replace(/\n/g, '<br>')
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/`([^`]+)`/g, '<code class="bg-gray-200 dark:bg-neutral-700 px-1 rounded text-xs font-mono">$1</code>');
+
+    if (sender === 'user') {
+        div.innerHTML = `
+            <div class="flex flex-col items-end max-w-[85%]">
+                <div class="bg-indigo-600 text-white rounded-2xl rounded-br-sm px-4 py-3 shadow-md text-sm leading-relaxed relative">
+                    ${formattedText}
+                </div>
+                <span class="text-[10px] text-gray-400 mt-1 mr-1 opacity-0 group-hover:opacity-100 transition-opacity">${time}</span>
+            </div>
+        `;
+    } else {
+        const providerLabel = currentAIProvider === 'gemini' ? 'Gemini' : 'Llama';
+        div.innerHTML = `
+            <div class="flex gap-3 max-w-[90%]">
+                <div class="flex-shrink-0 flex flex-col justify-end">
+                    <div class="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-xs shadow-sm">
+                        <i class="fas fa-robot"></i>
+                    </div>
+                </div>
+                <div class="flex flex-col items-start">
+                    <div class="bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder text-gray-800 dark:text-gray-200 rounded-2xl rounded-bl-sm px-4 py-3 shadow-sm text-sm leading-relaxed">
+                        ${formattedText}
+                    </div>
+                    <span class="text-[10px] text-gray-400 mt-1 ml-1 opacity-0 group-hover:opacity-100 transition-opacity">${providerLabel} • ${time}</span>
+                </div>
+            </div>
+        `;
     }
-
-    appendMessage('user', message);
-    input.value = '';
-    input.disabled = true;
-    sendBtn.disabled = true;
-    showTypingIndicator();
-
-    try {
-        // --- 1. COLETAR CONTEXTO (O que a IA vê) ---
-        const now = new Date();
-        const dataHora = now.toLocaleString('pt-BR');
-
-        // Contexto de Aulas e Ônibus
-        const statusBus = getBusStatusForAI();
-        const gradeContext = getClassContextForAI();
-
-        // Contexto de Tarefas e Notas (Resumido para não estourar limite)
-        const tasksList = tasksData.map(t => `- "${t.text}" (${t.done ? 'Feita' : 'Pendente'})`).join('\n') || "Vazio.";
-        const notesList = notesData.map(n => `- "${n.title}" (ID: ${n.id})`).join('\n') || "Vazio.";
-
-        // --- 2. PROMPT DO SISTEMA (TODAS AS REGRAS ANTIGAS + NOVAS) ---
-        let systemInstructionText = `
-VOCÊ É A "SALVE-SE IA". Responda APENAS com JSON.
-Você controla o app do estudante.
-
---- DADOS DO USUÁRIO ---
-Agora: ${dataHora}
-Ônibus: ${statusBus}
-Aulas:
-${gradeContext}
-Tarefas:
-${tasksList}
-Notas:
-${notesList}
-
---- COMANDOS DISPONÍVEIS (JSON) ---
-
-1. **VISUAL & TEMA (NOVO!)**:
-   - "change_theme": { "mode": "dark" | "light" }
-   - "change_color": { "color": "indigo" | "blue" | "green" | "red" | "purple" | "pink" | "orange" | "cyan" | "black" }
-   - "toggle_zen_mode": { "active": true } (Oculta widgets)
-
-2. **TAREFAS & ESTUDOS**:
-   - "create_task": { "text": "...", "priority": "high/medium/normal" }
-   - "bulk_create_tasks": { "tasks": [ {"text": "...", "priority": "high"} ] }
-   - "delete_task": { "text": "texto exato para apagar" }
-   - "edit_task": { "old_text": "...", "new_text": "...", "done": true/false }
-
-3. **AULAS (GRADE)**:
-   - "create_class": { "name": "...", "day": "seg/ter...", "start": "08:00", "end": "10:00", "room": "..." }
-   - "delete_class": { "name": "nome da materia" }
-
-4. **CRONÔMETRO (POMODORO)**:
-   - "timer_control": { "action": "start" | "stop" | "reset" }
-   - "timer_set": { "mode": "pomodoro" | "short" | "long" | "custom", "minutes": 30 }
-
-5. **CALCULADORA**:
-   - "fill_calculator": { "grades": [8.5, 7.0], "weights": [1, 2] }
-
-6. **NOTAS & ABNT**:
-   - "create_note": { "title": "...", "content": "HTML permitido (<b>, <br>, <h3>)" }
-   - "delete_note": { "title": "..." }
-   - "append_note": { "title": "...", "text_to_add": "..." }
-
-7. **LEMBRETES & RESUMO**:
-   - "create_reminder": { "desc": "...", "date": "YYYY-MM-DD", "prio": "high/medium" }
-   - "set_summary": { "text": "Texto motivacional para o widget" }
-
-8. **OUTROS**:
-   - "generate_template": { "content": "..." }
-   - "navigate": { "page": "home/aulas/todo/calc/..." }
-
---- RESPOSTA JSON OBRIGATÓRIA ---
-{
-  "message": "Texto de resposta para o usuário.",
-  "commands": [ { "action": "...", "params": { ... } } ]
+    container.appendChild(div);
+    scrollToBottom();
 }
-`;
 
-        let historyPayload = [{ role: 'system', text: systemInstructionText }];
-        const recentHistory = chatHistory.slice(0, -1).slice(-6);
-        recentHistory.forEach(msg => { historyPayload.push({ role: msg.role, text: msg.text }); });
-
-        const response = await fetch('/api/chat', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                provider: currentAIProvider,
-                message: message,
-                history: historyPayload
-            })
-        });
-
-        const data = await response.json();
-        if (data.error) throw new Error(data.error);
-
-        let cleanText = data.text.replace(/```json/g, '').replace(/```/g, '').trim();
-        const first = cleanText.indexOf('{');
-        const last = cleanText.lastIndexOf('}');
-        if (first !== -1 && last !== -1) cleanText = cleanText.substring(first, last + 1);
-
-        let responseJson = JSON.parse(cleanText);
-
-        if (responseJson.message) appendMessage('ai', responseJson.message);
-
-        if (responseJson.commands && Array.isArray(responseJson.commands)) {
-            for (const cmd of responseJson.commands) {
-                await executeAICommand(cmd);
-                await new Promise(r => setTimeout(r, 500));
-            }
-        }
-
-    } catch (error) {
-        console.error("Erro IA:", error);
-        appendMessage('ai', `Erro: ${error.message}.`);
-    } finally {
-        hideTypingIndicator();
-        input.disabled = false;
-        sendBtn.disabled = false;
-        input.focus();
-        scrollToBottom();
-    }
-};
+function hideTypingIndicator() {
+    const existing = document.getElementById('dynamic-typing-indicator');
+    if (existing) existing.remove();
+}
 
 // ============================================================
 // --- EXECUTOR DE COMANDOS (Completo + Suporte ABNT) ---

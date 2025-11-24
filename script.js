@@ -2187,7 +2187,7 @@ window.renderSettings = function () {
         ? `<span class="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-200 dark:border-amber-800 flex items-center gap-1"><i class="fas fa-crown"></i> PRO</span>`
         : `<span class="bg-gray-100 text-gray-600 dark:bg-neutral-800 dark:text-gray-400 text-[10px] font-bold px-2 py-0.5 rounded-full">GRÁTIS</span>`;
 
-    // --- CORES (Lógica Mantida) ---
+    // --- CORES ---
     const freeColors = ['indigo', 'cyan', 'green'];
     const savedColorName = localStorage.getItem('salvese_color_name') || 'indigo';
     let colorsGridHtml = '<div class="flex flex-wrap gap-3 justify-center py-2">';
@@ -2239,7 +2239,6 @@ window.renderSettings = function () {
 
             <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 ml-2">Minha Conta</h3>
             <div class="bg-white dark:bg-darkcard rounded-2xl shadow-sm border border-gray-200 dark:border-darkborder overflow-hidden mb-6">
-                
                 <div onclick="editName()" class="flex items-center justify-between p-4 border-b border-gray-100 dark:border-neutral-800 cursor-pointer hover:bg-gray-50 dark:hover:bg-neutral-800/50 transition">
                     <div class="flex items-center gap-3">
                         <div class="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600 flex items-center justify-center"><i class="fas fa-user"></i></div>
@@ -2250,7 +2249,6 @@ window.renderSettings = function () {
                         <i class="fas fa-chevron-right text-gray-300 text-xs"></i>
                     </div>
                 </div>
-
                 <div onclick="editHandle()" class="flex items-center justify-between p-4 border-b border-gray-100 dark:border-neutral-800 cursor-pointer hover:bg-gray-50 dark:hover:bg-neutral-800/50 transition">
                     <div class="flex items-center gap-3">
                         <div class="w-8 h-8 rounded-lg bg-purple-100 dark:bg-purple-900/30 text-purple-600 flex items-center justify-center"><i class="fas fa-at"></i></div>
@@ -2261,7 +2259,6 @@ window.renderSettings = function () {
                         <i class="fas fa-chevron-right text-gray-300 text-xs"></i>
                     </div>
                 </div>
-
                 <div onclick="editSemester()" class="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-neutral-800/50 transition">
                     <div class="flex items-center gap-3">
                         <div class="w-8 h-8 rounded-lg bg-orange-100 dark:bg-orange-900/30 text-orange-600 flex items-center justify-center"><i class="fas fa-graduation-cap"></i></div>
@@ -2276,7 +2273,6 @@ window.renderSettings = function () {
 
             <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 ml-2">Aparência</h3>
             <div class="bg-white dark:bg-darkcard rounded-2xl shadow-sm border border-gray-200 dark:border-darkborder overflow-hidden mb-6 p-4">
-                
                 <div class="flex items-center justify-between mb-4">
                     <div class="flex items-center gap-3">
                         <div class="w-8 h-8 rounded-lg bg-gray-100 dark:bg-neutral-700 text-gray-600 dark:text-gray-300 flex items-center justify-center"><i class="fas fa-moon"></i></div>
@@ -2286,7 +2282,6 @@ window.renderSettings = function () {
                         <span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${document.documentElement.classList.contains('dark') ? 'translate-x-6' : 'translate-x-1'}"></span>
                     </button>
                 </div>
-
                 <div class="border-t border-gray-100 dark:border-neutral-800 pt-4">
                     <p class="text-xs text-gray-500 mb-3 font-medium">Cor do Tema</p>
                     ${colorsGridHtml}
@@ -2295,23 +2290,35 @@ window.renderSettings = function () {
 
             <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 ml-2">Plano</h3>
             ${isPremium ? `
-                <div class="bg-gradient-to-r from-gray-900 to-gray-800 dark:from-black dark:to-neutral-900 rounded-2xl p-5 text-white shadow-lg mb-6 relative overflow-hidden">
+                <div class="bg-gradient-to-br from-gray-900 to-black rounded-2xl p-5 text-white shadow-lg mb-6 relative overflow-hidden border border-gray-700">
                     <div class="absolute right-0 top-0 opacity-10 text-6xl transform translate-x-2 -translate-y-2"><i class="fas fa-crown"></i></div>
+                    
                     <div class="relative z-10">
-                        <h4 class="font-bold text-lg mb-1 flex items-center gap-2"><i class="fas fa-star text-yellow-400"></i> Premium Ativo</h4>
-                        <p class="text-xs text-gray-400 mb-4">Aproveite todos os recursos exclusivos.</p>
-                        <div class="w-full bg-white/10 rounded-full h-1.5 mb-2">
-                            <div class="bg-gradient-to-r from-yellow-400 to-orange-500 h-1.5 rounded-full" style="width: ${Math.min(100, ((new Date(userProfile.subscriptionEndDate) - new Date()) / (1000 * 60 * 60 * 24 * 30)) * 100)}%"></div>
+                        <div class="flex justify-between items-start">
+                            <h4 class="font-bold text-lg mb-1 flex items-center gap-2 text-amber-400"><i class="fas fa-star"></i> Premium Ativo</h4>
+                            <span class="bg-white/10 text-[10px] px-2 py-1 rounded font-mono">Renova em: ${new Date(userProfile.subscriptionEndDate).getDate()}</span>
                         </div>
-                        <p class="text-[10px] text-gray-400 text-right">Vence em ${new Date(userProfile.subscriptionEndDate).toLocaleDateString()}</p>
+                        
+                        <p class="text-xs text-gray-400 mb-6">Todos os recursos estão liberados.</p>
+                        
+                        <div class="bg-white/5 rounded-xl p-3 border border-white/10 backdrop-blur-sm">
+                            <p class="text-[10px] text-gray-400 uppercase tracking-widest text-center mb-1">Tempo Restante</p>
+                            <div id="premium-countdown" class="text-center font-mono text-xl md:text-2xl font-bold text-white tracking-tight flex justify-center gap-2">
+                                --d --h --m --s
+                            </div>
+                        </div>
+
+                        <div class="w-full bg-gray-800 rounded-full h-1 mt-4">
+                            <div class="bg-gradient-to-r from-amber-400 to-orange-600 h-1 rounded-full transition-all duration-1000" style="width: ${Math.min(100, ((new Date(userProfile.subscriptionEndDate) - new Date()) / (1000 * 60 * 60 * 24 * 30)) * 100)}%"></div>
+                        </div>
                     </div>
                 </div>
             ` : `
-                <div onclick="switchPage('premium')" class="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl p-5 text-white shadow-lg mb-6 cursor-pointer hover:scale-[1.02] transition">
+                <div onclick="switchPage('premium')" class="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl p-5 text-white shadow-lg mb-6 cursor-pointer hover:scale-[1.02] transition group">
                     <div class="flex justify-between items-center">
                         <div>
                             <h4 class="font-bold text-lg">Seja Premium 👑</h4>
-                            <p class="text-xs text-indigo-100">Desbloqueie IA Gemini, Temas e mais.</p>
+                            <p class="text-xs text-indigo-100 group-hover:text-white transition">Desbloqueie IA Gemini, Temas e mais.</p>
                         </div>
                         <div class="bg-white/20 w-8 h-8 rounded-full flex items-center justify-center"><i class="fas fa-arrow-right"></i></div>
                     </div>
@@ -2320,7 +2327,6 @@ window.renderSettings = function () {
 
             <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 ml-2">Sistema</h3>
             <div class="bg-white dark:bg-darkcard rounded-2xl shadow-sm border border-gray-200 dark:border-darkborder overflow-hidden mb-8">
-                
                 <div onclick="switchPage('ocultos')" class="flex items-center justify-between p-4 border-b border-gray-100 dark:border-neutral-800 cursor-pointer hover:bg-gray-50 dark:hover:bg-neutral-800/50 transition">
                     <div class="flex items-center gap-3">
                         <div class="w-8 h-8 rounded-lg bg-teal-100 dark:bg-teal-900/30 text-teal-600 flex items-center justify-center"><i class="fas fa-eye-slash"></i></div>
@@ -2328,7 +2334,6 @@ window.renderSettings = function () {
                     </div>
                     <i class="fas fa-chevron-right text-gray-300 text-xs"></i>
                 </div>
-
                 <div onclick="manualBackup()" class="flex items-center justify-between p-4 border-b border-gray-100 dark:border-neutral-800 cursor-pointer hover:bg-gray-50 dark:hover:bg-neutral-800/50 transition">
                     <div class="flex items-center gap-3">
                         <div class="w-8 h-8 rounded-lg bg-gray-100 dark:bg-neutral-700 text-gray-600 flex items-center justify-center"><i class="fas fa-cloud-upload-alt"></i></div>
@@ -2336,7 +2341,6 @@ window.renderSettings = function () {
                     </div>
                     <i class="fas fa-chevron-right text-gray-300 text-xs"></i>
                 </div>
-
                 <div onclick="changePassword()" class="flex items-center justify-between p-4 border-b border-gray-100 dark:border-neutral-800 cursor-pointer hover:bg-gray-50 dark:hover:bg-neutral-800/50 transition">
                     <div class="flex items-center gap-3">
                         <div class="w-8 h-8 rounded-lg bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 flex items-center justify-center"><i class="fas fa-lock"></i></div>
@@ -2344,7 +2348,6 @@ window.renderSettings = function () {
                     </div>
                     <i class="fas fa-chevron-right text-gray-300 text-xs"></i>
                 </div>
-
                 <div onclick="logoutApp()" class="flex items-center justify-between p-4 cursor-pointer hover:bg-red-50 dark:hover:bg-red-900/10 transition group">
                     <div class="flex items-center gap-3">
                         <div class="w-8 h-8 rounded-lg bg-red-100 dark:bg-red-900/30 text-red-600 flex items-center justify-center group-hover:bg-red-200 transition"><i class="fas fa-sign-out-alt"></i></div>
@@ -2354,11 +2357,52 @@ window.renderSettings = function () {
             </div>
 
             <div class="text-center pb-4">
-                <p class="text-[10px] text-gray-400 uppercase font-bold">Salve-se UFRB v4.2</p>
+                <p class="text-[10px] text-gray-400 uppercase font-bold">Salve-se UFRB v4.3</p>
                 <p class="text-[10px] text-gray-300 dark:text-neutral-700 font-mono mt-1">UID: ${currentUser.uid.substring(0, 6)}...</p>
             </div>
         </div>
     `;
+
+    // --- LÓGICA DA CONTAGEM REGRESSIVA (LIVE) ---
+    if (isPremium && userProfile.subscriptionEndDate) {
+        // Limpa o intervalo antigo para não acumular
+        if (window.premiumInterval) clearInterval(window.premiumInterval);
+
+        const updateTimer = () => {
+            const now = new Date().getTime();
+            const end = new Date(userProfile.subscriptionEndDate).getTime();
+            const distance = end - now;
+
+            const el = document.getElementById('premium-countdown');
+            // Se saiu da página, para o timer
+            if (!el) { clearInterval(window.premiumInterval); return; }
+
+            if (distance < 0) {
+                el.innerHTML = "<span class='text-red-400'>EXPIRADO</span>";
+                el.classList.add('animate-pulse');
+                return;
+            }
+
+            const d = Math.floor(distance / (1000 * 60 * 60 * 24));
+            const h = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const m = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+            const s = Math.floor((distance % (1000 * 60)) / 1000);
+
+            el.innerHTML = `
+                <div class="flex flex-col"><span class="text-xl">${d}</span><span class="text-[8px] font-normal opacity-50">DIAS</span></div>
+                <span class="opacity-30">:</span>
+                <div class="flex flex-col"><span class="text-xl">${h.toString().padStart(2, '0')}</span><span class="text-[8px] font-normal opacity-50">HRS</span></div>
+                <span class="opacity-30">:</span>
+                <div class="flex flex-col"><span class="text-xl">${m.toString().padStart(2, '0')}</span><span class="text-[8px] font-normal opacity-50">MIN</span></div>
+                <span class="opacity-30">:</span>
+                <div class="flex flex-col"><span class="text-xl text-amber-400">${s.toString().padStart(2, '0')}</span><span class="text-[8px] font-normal opacity-50">SEG</span></div>
+            `;
+        };
+
+        // Inicia o loop a cada 1 segundo
+        window.premiumInterval = setInterval(updateTimer, 1000);
+        updateTimer(); // Roda imediatamente
+    }
 }
 // ============================================================
 // --- FUNCIONALIDADE: TAREFAS (TODO LIST) ---

@@ -2186,18 +2186,10 @@ window.renderSettings = function () {
         ? `<i class="fas fa-crown text-amber-500 ml-2 text-2xl drop-shadow-md animate-pulse" title="Membro Premium"></i>`
         : ``;
 
-    // --- LÓGICA DO CARTÃO DE ASSINATURA ---
+    // --- LÓGICA DO CARTÃO DE ASSINATURA (COM CONTAGEM) ---
     let subscriptionCardHtml = '';
     if (isUserPremium() && userProfile.subscriptionEndDate) {
-        const now = new Date();
-        const end = new Date(userProfile.subscriptionEndDate);
-        const remainingTime = end - now;
-        const daysLeft = Math.ceil(remainingTime / (1000 * 60 * 60 * 24));
-        let percent = Math.min(100, Math.max(0, (daysLeft / 30) * 100));
-        const endFormatted = end.toLocaleDateString('pt-BR');
-        let barColor = "bg-indigo-500";
-        if (daysLeft <= 5) barColor = "bg-red-500";
-        else if (daysLeft <= 10) barColor = "bg-orange-500";
+        const endFormatted = new Date(userProfile.subscriptionEndDate).toLocaleDateString('pt-BR');
 
         subscriptionCardHtml = `
             <div class="bg-gradient-to-br from-gray-900 to-gray-800 dark:from-black dark:to-neutral-900 rounded-2xl p-5 text-white shadow-lg relative overflow-hidden border border-gray-700">
@@ -2207,11 +2199,16 @@ window.renderSettings = function () {
                         <h3 class="font-bold text-lg text-amber-400 flex items-center gap-2"><i class="fas fa-star"></i> Premium Ativo</h3>
                         <span class="text-xs font-mono bg-white/10 px-2 py-1 rounded">Vence: ${endFormatted}</span>
                     </div>
-                    <div class="flex justify-between items-end mb-2">
-                        <span class="text-3xl font-bold">${daysLeft} <span class="text-sm font-normal text-gray-400">dias restantes</span></span>
+                    
+                    <div class="bg-black/30 rounded-xl p-3 border border-white/10 backdrop-blur-sm mb-4">
+                        <p class="text-[10px] text-gray-400 uppercase tracking-widest text-center mb-1">Tempo Restante</p>
+                        <div id="premium-countdown" class="text-center font-mono text-xl md:text-2xl font-bold text-white tracking-tight flex justify-center gap-2">
+                            --d --h --m --s
+                        </div>
                     </div>
+
                     <div class="w-full bg-gray-700 rounded-full h-2.5 mb-2 overflow-hidden">
-                        <div class="${barColor} h-2.5 rounded-full transition-all duration-1000 shadow-[0_0_10px_rgba(255,255,255,0.3)]" style="width: ${percent}%"></div>
+                        <div class="bg-indigo-500 h-2.5 rounded-full transition-all duration-1000 shadow-[0_0_10px_rgba(255,255,255,0.3)]" style="width: ${Math.min(100, ((new Date(userProfile.subscriptionEndDate) - new Date()) / (1000 * 60 * 60 * 24 * 30)) * 100)}%"></div>
                     </div>
                     <p class="text-xs text-gray-400 text-right">Renovação necessária ao fim do prazo</p>
                 </div>
@@ -2233,23 +2230,17 @@ window.renderSettings = function () {
         `;
     }
 
-    // --- GERAÇÃO DAS CORES PARA O NOVO PAINEL (CORRIGIDO) ---
+    // --- GERAÇÃO DAS CORES (Mantendo a correção do Check) ---
     const freeColors = ['indigo', 'cyan', 'green'];
     let colorsGridHtml = '<div class="grid grid-cols-5 gap-3">';
-
-    // Tenta pegar o nome salvo, ou usa 'indigo' como padrão
     const savedColorName = localStorage.getItem('salvese_color_name') || 'indigo';
 
     Object.keys(colorPalettes).forEach(color => {
         const rgb = colorPalettes[color][500];
         const isLocked = !isUserPremium() && !freeColors.includes(color);
         const lockIcon = isLocked ? '<i class="fas fa-lock text-white/70 text-[10px]"></i>' : '';
-
-        // Verifica se é a cor atual comparando os NOMES
         const isSelected = savedColorName === color;
         const checkIcon = isSelected ? '<i class="fas fa-check text-white text-xs font-bold"></i>' : lockIcon;
-
-        // Adiciona borda extra se selecionado
         const ringClass = isSelected ? 'ring-2 ring-offset-2 ring-gray-400 dark:ring-gray-500' : 'ring-transparent';
 
         colorsGridHtml += `
@@ -2260,7 +2251,7 @@ window.renderSettings = function () {
     });
     colorsGridHtml += '</div>';
 
-    // Helper de cards
+    // Helper de cards (Estilo Original com Chevron)
     const createActionCard = (onclick, svgIcon, title, subtitle, colorClass = "text-gray-500 group-hover:text-indigo-500") => `
         <button onclick="${onclick}" class="group w-full bg-white dark:bg-darkcard border border-gray-100 dark:border-darkborder p-4 rounded-2xl flex items-center justify-between hover:border-indigo-500 dark:hover:border-indigo-500 hover:shadow-md transition-all duration-200 mb-3 text-left">
             <div class="flex items-center gap-4">
@@ -2278,6 +2269,7 @@ window.renderSettings = function () {
         </button>
     `;
 
+    // --- HTML DA PÁGINA (LAYOUT ORIGINAL) ---
     container.innerHTML = `
         <div class="max-w-2xl mx-auto w-full pb-24 space-y-6">
             
@@ -2374,12 +2366,53 @@ window.renderSettings = function () {
                 </button>
             </div>
 
-            <div class="text-center pt-4 pb-8">
+            <div class="text-center pb-4">
                  <p class="text-xs text-gray-300 dark:text-gray-600 font-mono">ID: ${currentUser.uid.substring(0, 8)}...</p>
-                 <p class="text-xs text-gray-300 dark:text-gray-600 mt-1">Salve-se UFRB v4.1</p>
+                 <p class="text-xs text-gray-300 dark:text-gray-600 mt-1">Salve-se UFRB v4.3</p>
             </div>
         </div>
     `;
+
+    // --- LÓGICA DA CONTAGEM REGRESSIVA (LIVE) ---
+    if (isPremium && userProfile.subscriptionEndDate) {
+        // Limpa o intervalo antigo para não acumular
+        if (window.premiumInterval) clearInterval(window.premiumInterval);
+
+        const updateTimer = () => {
+            const now = new Date().getTime();
+            const end = new Date(userProfile.subscriptionEndDate).getTime();
+            const distance = end - now;
+
+            const el = document.getElementById('premium-countdown');
+            // Se saiu da página, para o timer
+            if (!el) { clearInterval(window.premiumInterval); return; }
+
+            if (distance < 0) {
+                el.innerHTML = "<span class='text-red-400'>EXPIRADO</span>";
+                el.classList.add('animate-pulse');
+                return;
+            }
+
+            const d = Math.floor(distance / (1000 * 60 * 60 * 24));
+            const h = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const m = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+            const s = Math.floor((distance % (1000 * 60)) / 1000);
+
+            el.innerHTML = `
+                <div class="flex flex-col"><span class="text-xl">${d}</span><span class="text-[8px] font-normal opacity-50">DIAS</span></div>
+                <span class="opacity-30">:</span>
+                <div class="flex flex-col"><span class="text-xl">${h.toString().padStart(2, '0')}</span><span class="text-[8px] font-normal opacity-50">HRS</span></div>
+                <span class="opacity-30">:</span>
+                <div class="flex flex-col"><span class="text-xl">${m.toString().padStart(2, '0')}</span><span class="text-[8px] font-normal opacity-50">MIN</span></div>
+                <span class="opacity-30">:</span>
+                <div class="flex flex-col"><span class="text-xl text-amber-400">${s.toString().padStart(2, '0')}</span><span class="text-[8px] font-normal opacity-50">SEG</span></div>
+            `;
+        };
+
+        // Inicia o loop a cada 1 segundo
+        window.premiumInterval = setInterval(updateTimer, 1000);
+        updateTimer(); // Roda imediatamente
+    }
 }
 // ============================================================
 // --- FUNCIONALIDADE: TAREFAS (TODO LIST) ---

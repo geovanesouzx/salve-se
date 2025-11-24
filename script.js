@@ -2171,25 +2171,23 @@ window.renderSettings = function () {
     if (!container || !userProfile) return;
 
     // --- PREPARAÇÃO DE DADOS ---
-    const dateStr = userProfile.createdAt ? new Date(userProfile.createdAt).toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' }) : "N/A";
-    const firstName = userProfile.displayName.split(' ')[0];
-
+    const dateStr = userProfile.createdAt ? new Date(userProfile.createdAt).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }) : "N/A";
     const photoUrl = userProfile.photoURL || "https://files.catbox.moe/pmdtq6.png";
     const isVideo = photoUrl.match(/\.(mp4|webm)$/i);
     const mediaHtml = isVideo
         ? `<video src="${photoUrl}" class="w-full h-full object-cover" autoplay loop muted playsinline></video>`
-        : `<img src="${photoUrl}" class="w-full h-full object-cover transition hover:scale-110 duration-500" onerror="this.src='https://files.catbox.moe/pmdtq6.png'">`;
+        : `<img src="${photoUrl}" class="w-full h-full object-cover" onerror="this.src='https://files.catbox.moe/pmdtq6.png'">`;
 
     const isPremium = isUserPremium();
 
-    // --- SAUDAÇÃO ---
-    const hour = new Date().getHours();
-    let greeting = "Olá";
-    if (hour >= 5 && hour < 12) greeting = "Bom dia";
-    else if (hour >= 12 && hour < 18) greeting = "Boa tarde";
-    else greeting = "Boa noite";
+    // Badge de Nível e Premium para o Cabeçalho
+    const levelBadge = `<span class="bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400 text-[10px] font-bold px-3 py-1 rounded-full border border-indigo-100 dark:border-indigo-800">Nível ${userProfile.level || 1}</span>`;
+    const premiumStatusBadge = isPremium
+        ? `<span class="bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-400 text-[10px] font-bold px-3 py-1 rounded-full border border-amber-100 dark:border-amber-800 flex items-center gap-1"><i class="fas fa-crown text-[9px]"></i> Premium</span>`
+        : `<span class="bg-gray-50 text-gray-600 dark:bg-neutral-800 dark:text-gray-400 text-[10px] font-bold px-3 py-1 rounded-full border border-gray-100 dark:border-neutral-700">Grátis</span>`;
 
-    // --- LÓGICA DO CARD PREMIUM (A QUE VOCÊ GOSTOU) ---
+
+    // --- LÓGICA DO CARD PREMIUM (SEU MODELO FAVORITO) ---
     let subscriptionCardHtml = '';
     let shouldStartTimer = false;
 
@@ -2199,64 +2197,67 @@ window.renderSettings = function () {
         const distance = end - now;
         const oneDay = 1000 * 60 * 60 * 24;
         const endFormatted = new Date(userProfile.subscriptionEndDate).toLocaleDateString('pt-BR');
+
+        // Cálculo da barra verde (base 30 dias)
         const totalDays = 30;
         const percent = Math.min(100, Math.max(0, (distance / (oneDay * totalDays)) * 100));
 
         let mainContent = '';
+
         if (distance > oneDay) {
+            // MAIS DE 24H: Mostra dias
             const daysLeft = Math.ceil(distance / oneDay);
             mainContent = `
-                <div class="mt-6 mb-4">
-                    <span class="text-6xl font-black text-white tracking-tighter">${daysLeft}</span>
-                    <span class="text-gray-400 text-lg font-medium ml-1">dias</span>
+                <div>
+                    <span class="text-4xl font-bold text-white tracking-tight">${daysLeft}</span>
+                    <span class="text-gray-400 text-sm font-medium ml-1">dias restantes</span>
                 </div>
             `;
         } else {
+            // MENOS DE 24H: Mostra Timer
             shouldStartTimer = true;
             mainContent = `
-                <div class="mt-6 mb-4">
-                    <div id="premium-countdown" class="text-5xl font-mono font-bold text-red-400 tracking-tighter flex items-baseline gap-2">
+                <div>
+                    <div id="premium-countdown" class="text-3xl font-mono font-bold text-red-400 tracking-tight flex items-baseline gap-2">
                         --:--:--
                     </div>
-                    <span class="text-red-400/80 text-xs font-bold uppercase tracking-widest animate-pulse">Expirando hoje</span>
+                    <span class="text-red-400/80 text-[10px] font-bold uppercase tracking-widest animate-pulse">Expirando hoje</span>
                 </div>
             `;
         }
 
         subscriptionCardHtml = `
-            <div class="h-full bg-[#0f1113] dark:bg-black rounded-[2rem] p-8 relative overflow-hidden shadow-2xl group border border-gray-800">
-                <div class="absolute right-[-20px] top-[-20px] text-white/5 text-9xl pointer-events-none"><i class="fas fa-crown"></i></div>
-                <div class="relative z-10 flex flex-col h-full justify-between">
-                    <div class="flex justify-between items-start">
-                        <div>
-                            <h3 class="text-xl font-bold text-amber-400 flex items-center gap-2"><i class="fas fa-star"></i> Premium Ativo</h3>
-                            <p class="text-gray-500 text-xs mt-1">Válido até ${endFormatted}</p>
+            <div class="bg-[#1a1d21] dark:bg-[#0f1113] rounded-2xl p-5 relative overflow-hidden shadow-lg border border-gray-800 group my-6">
+                <div class="absolute right-2 top-2 text-white/5 text-7xl transform rotate-12 pointer-events-none"><i class="fas fa-crown"></i></div>
+                <div class="relative z-10">
+                    <div class="flex justify-between items-start mb-4">
+                        <div class="flex items-center gap-2">
+                            <i class="fas fa-star text-amber-400 text-base drop-shadow-[0_0_8px_rgba(251,191,36,0.4)]"></i>
+                            <h3 class="text-base font-bold text-amber-400">Premium Ativo</h3>
                         </div>
-                        <div class="w-10 h-10 rounded-full bg-amber-400/10 flex items-center justify-center text-amber-400"><i class="fas fa-check"></i></div>
+                        <span class="bg-white/10 text-gray-300 text-[10px] px-2 py-1 rounded-md font-mono border border-white/5">Vence: ${endFormatted}</span>
                     </div>
+                    
                     ${mainContent}
-                    <div>
-                        <div class="w-full bg-gray-800 rounded-full h-3 mb-2 overflow-hidden">
-                            <div class="bg-gradient-to-r from-green-500 to-emerald-400 h-3 rounded-full shadow-[0_0_20px_rgba(16,185,129,0.5)]" style="width: ${percent}%"></div>
-                        </div>
-                        <p class="text-[10px] text-gray-500 text-right uppercase font-bold tracking-wider">Renovação Necessária</p>
+
+                    <div class="w-full bg-gray-700/50 rounded-full h-2 mt-4 overflow-hidden">
+                        <div class="bg-gradient-to-r from-green-500 to-emerald-400 h-2 rounded-full transition-all duration-1000 shadow-[0_0_12px_rgba(16,185,129,0.4)]" style="width: ${percent}%"></div>
                     </div>
+                    <p class="text-[9px] text-gray-500 text-right mt-1.5">Renovação necessária ao fim do prazo</p>
                 </div>
             </div>
         `;
     } else {
+        // Card de Venda (se não for premium)
         subscriptionCardHtml = `
-            <div onclick="switchPage('premium')" class="h-full cursor-pointer bg-gradient-to-br from-indigo-600 to-violet-700 rounded-[2rem] p-8 text-white shadow-xl relative overflow-hidden transition transform hover:scale-[1.02] group flex flex-col justify-between">
-                <div class="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
-                <div class="relative z-10">
-                    <span class="bg-white/20 backdrop-blur-sm text-xs font-bold px-3 py-1 rounded-full border border-white/20">RECOMENDADO</span>
-                    <h3 class="text-3xl font-black mt-4 mb-2">Seja Premium 👑</h3>
-                    <p class="text-indigo-100 text-sm leading-relaxed opacity-90">Desbloqueie o potencial máximo do seu assistente universitário.</p>
+            <div onclick="switchPage('premium')" class="group cursor-pointer bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl p-5 text-white shadow-lg my-6 relative overflow-hidden hover:scale-[1.01] transition">
+                <div class="flex justify-between items-center relative z-10">
+                    <div>
+                        <h4 class="font-bold text-lg flex items-center gap-2">Seja Premium 👑</h4>
+                        <p class="text-xs text-indigo-100 mt-1">Desbloqueie IA ilimitada, temas e mais.</p>
+                    </div>
+                    <div class="bg-white/20 w-10 h-10 rounded-full flex items-center justify-center group-hover:bg-white group-hover:text-indigo-600 transition"><i class="fas fa-arrow-right"></i></div>
                 </div>
-                <button class="bg-white text-indigo-600 px-6 py-3 rounded-xl font-bold shadow-lg group-hover:bg-indigo-50 transition flex items-center justify-between w-full mt-6">
-                    <span>Fazer Upgrade</span>
-                    <i class="fas fa-arrow-right"></i>
-                </button>
             </div>
         `;
     }
@@ -2264,129 +2265,114 @@ window.renderSettings = function () {
     // --- CORES ---
     const freeColors = ['indigo', 'cyan', 'green'];
     const savedColorName = localStorage.getItem('salvese_color_name') || 'indigo';
-    let colorsGridHtml = '<div class="flex flex-wrap gap-2">';
+    let colorsGridHtml = '<div class="flex flex-wrap gap-3 py-2 justify-end">';
     Object.keys(colorPalettes).forEach(color => {
         const rgb = colorPalettes[color][500];
         const isLocked = !isPremium && !freeColors.includes(color);
         const isSelected = savedColorName === color;
         const content = isSelected ? '<i class="fas fa-check text-white text-[10px]"></i>' : (isLocked ? '<i class="fas fa-lock text-white/50 text-[8px]"></i>' : '');
-
         colorsGridHtml += `
-            <button onclick="setThemeColor('${color}')" class="w-8 h-8 rounded-full flex items-center justify-center transition hover:scale-110 shadow-sm ${isSelected ? 'ring-2 ring-gray-400 dark:ring-white ring-offset-2 dark:ring-offset-black' : ''}" style="background-color: rgb(${rgb})">
+            <button onclick="setThemeColor('${color}')" class="w-8 h-8 rounded-full flex items-center justify-center transition hover:scale-110 shadow-sm ${isSelected ? 'ring-2 ring-gray-400 dark:ring-gray-500 ring-offset-2 dark:ring-offset-darkcard' : ''}" style="background-color: rgb(${rgb})">
                 ${content}
             </button>
         `;
     });
     colorsGridHtml += '</div>';
 
-    // --- HTML PRINCIPAL (LAYOUT BENTO GRID) ---
-    container.innerHTML = `
-        <div class="max-w-5xl mx-auto pb-24 px-4 pt-6 animate-fade-in">
-            
-            <div class="mb-8 flex items-end justify-between">
-                <div>
-                    <p class="text-gray-500 dark:text-gray-400 text-sm font-medium mb-1">${greeting}, ${firstName}</p>
-                    <h1 class="text-3xl md:text-4xl font-black text-gray-900 dark:text-white tracking-tight">Configurações</h1>
+    // Helper para itens de lista estilo iOS (Melhorado com ícones coloridos)
+    const iOSListItem = (onclick, iconColorBg, iconColorText, iconClass, title, value = "", isLink = true) => `
+        <div onclick="${onclick}" class="flex items-center justify-between p-4 ${isLink ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-neutral-800/70' : ''} transition group bg-white dark:bg-darkcard first:rounded-t-2xl last:rounded-b-2xl border-b border-gray-100 dark:border-neutral-800 last:border-b-0">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-md ${iconColorBg} ${iconColorText} flex items-center justify-center shadow-sm">
+                    <i class="${iconClass}"></i>
                 </div>
-                <div class="hidden md:block">
-                    <span class="text-xs font-mono text-gray-400 bg-gray-100 dark:bg-neutral-800 px-3 py-1 rounded-full">v4.5 Stable</span>
+                <span class="text-sm font-medium text-gray-900 dark:text-white">${title}</span>
+            </div>
+            <div class="flex items-center gap-2">
+                ${value ? `<span class="text-sm text-gray-500 dark:text-gray-400">${value}</span>` : ''}
+                ${isLink ? `<i class="fas fa-chevron-right text-gray-300 text-xs group-hover:text-gray-400 transition"></i>` : ''}
+            </div>
+        </div>
+    `;
+
+    // --- HTML PRINCIPAL (LAYOUT IOS MELHORADO) ---
+    container.innerHTML = `
+        <div class="max-w-2xl mx-auto pb-24 px-4 md:px-0 pt-6">
+            
+            <div class="flex flex-col items-center mb-8">
+                <div class="relative group cursor-pointer" onclick="changePhoto()">
+                    <div class="w-24 h-24 rounded-full overflow-hidden border-4 border-white dark:border-neutral-800 shadow-lg bg-gray-100 dark:bg-neutral-900">
+                        ${mediaHtml}
+                    </div>
+                    <div class="absolute bottom-0 right-0 bg-indigo-600 text-white w-8 h-8 rounded-full flex items-center justify-center border-4 border-white dark:border-darkbg shadow-sm">
+                        <i class="fas fa-camera text-xs"></i>
+                    </div>
+                </div>
+                
+                <div class="mt-4 text-center">
+                    <h2 class="text-xl font-bold text-gray-900 dark:text-white flex items-center justify-center gap-2">
+                        ${userProfile.displayName}
+                        ${isPremium ? '<i class="fas fa-check-circle text-blue-500 text-sm"></i>' : ''}
+                    </h2>
+                    <p class="text-gray-500 dark:text-gray-400 text-sm mb-3">@${userProfile.handle}</p>
+                    <div class="flex justify-center gap-2">
+                        ${levelBadge}
+                        ${premiumStatusBadge}
+                    </div>
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                
-                <div class="md:col-span-2 bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder rounded-[2rem] p-6 md:p-8 shadow-sm flex flex-col md:flex-row items-center md:items-start gap-6 relative overflow-hidden group">
-                    <div class="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-indigo-500/10 to-transparent rounded-bl-full -mr-10 -mt-10 pointer-events-none"></div>
-                    
-                    <div class="relative cursor-pointer group-hover:scale-105 transition duration-500" onclick="changePhoto()">
-                        <div class="w-28 h-28 rounded-full overflow-hidden border-4 border-white dark:border-neutral-800 shadow-xl">
-                            ${mediaHtml}
-                        </div>
-                        <div class="absolute bottom-1 right-1 bg-black text-white w-8 h-8 rounded-full flex items-center justify-center border-2 border-white dark:border-darkcard shadow-md">
-                            <i class="fas fa-camera text-xs"></i>
-                        </div>
+            ${subscriptionCardHtml}
+
+            <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 ml-4">Conta</h3>
+            <div class="rounded-2xl shadow-sm border border-gray-200 dark:border-neutral-800 overflow-hidden mb-6">
+                ${iOSListItem('editName()', 'bg-blue-100 dark:bg-blue-900/30', 'text-blue-600', 'fas fa-user', 'Nome', userProfile.displayName)}
+                ${iOSListItem('editHandle()', 'bg-purple-100 dark:bg-purple-900/30', 'text-purple-600', 'fas fa-at', 'Usuário', '@' + userProfile.handle)}
+                ${iOSListItem('editSemester()', 'bg-orange-100 dark:bg-orange-900/30', 'text-orange-600', 'fas fa-graduation-cap', 'Semestre', userProfile.semester || 'Indefinido')}
+            </div>
+
+            <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 ml-4">Aparência</h3>
+            <div class="rounded-2xl shadow-sm border border-gray-200 dark:border-neutral-800 overflow-hidden mb-6 bg-white dark:bg-darkcard">
+                <div class="flex items-center justify-between p-4 border-b border-gray-100 dark:border-neutral-800">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-md bg-gray-100 dark:bg-neutral-700 text-gray-600 dark:text-gray-300 flex items-center justify-center shadow-sm"><i class="fas fa-moon"></i></div>
+                        <span class="text-sm font-medium text-gray-900 dark:text-white">Modo Escuro</span>
                     </div>
-                    
-                    <div class="text-center md:text-left flex-1 z-10">
-                        <div class="flex flex-col md:flex-row items-center gap-3 mb-2">
-                            <h2 class="text-2xl font-black text-gray-900 dark:text-white">${userProfile.displayName}</h2>
-                            ${isPremium ? '<span class="bg-amber-100 text-amber-700 text-[10px] font-bold px-2 py-1 rounded-md border border-amber-200"><i class="fas fa-check-circle"></i> VERIFICADO</span>' : ''}
-                        </div>
-                        <p class="text-gray-500 dark:text-gray-400 font-medium mb-4">@${userProfile.handle}</p>
-                        
-                        <div class="flex flex-wrap justify-center md:justify-start gap-3">
-                            <div class="bg-gray-50 dark:bg-neutral-800 px-4 py-2 rounded-xl border border-gray-100 dark:border-neutral-700">
-                                <span class="block text-[10px] text-gray-400 uppercase font-bold">Nível</span>
-                                <span class="text-lg font-bold text-indigo-600 dark:text-indigo-400">${userProfile.level || 1}</span>
-                            </div>
-                            <div class="bg-gray-50 dark:bg-neutral-800 px-4 py-2 rounded-xl border border-gray-100 dark:border-neutral-700">
-                                <span class="block text-[10px] text-gray-400 uppercase font-bold">Semestre</span>
-                                <span class="text-lg font-bold text-gray-800 dark:text-white">${userProfile.semester || '-'}</span>
-                            </div>
-                            <div class="bg-gray-50 dark:bg-neutral-800 px-4 py-2 rounded-xl border border-gray-100 dark:border-neutral-700">
-                                <span class="block text-[10px] text-gray-400 uppercase font-bold">Desde</span>
-                                <span class="text-lg font-bold text-gray-800 dark:text-white capitalize">${dateStr.split('/')[0]}</span>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <button onclick="editName()" class="absolute top-6 right-6 text-gray-400 hover:text-indigo-600 transition hidden md:block"><i class="fas fa-pen"></i></button>
-                </div>
-
-                <div class="md:col-span-1 bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder rounded-[2rem] p-6 shadow-sm flex flex-col justify-between">
-                    <div>
-                        <h3 class="font-bold text-lg text-gray-900 dark:text-white mb-4 flex items-center gap-2"><i class="fas fa-swatchbook text-pink-500"></i> Estilo</h3>
-                        <div class="flex items-center justify-between mb-6 bg-gray-50 dark:bg-neutral-800 p-3 rounded-xl">
-                            <span class="text-sm font-medium text-gray-600 dark:text-gray-300">Modo Escuro</span>
-                            <button onclick="toggleTheme()" class="w-10 h-6 rounded-full transition-colors focus:outline-none ${document.documentElement.classList.contains('dark') ? 'bg-indigo-600' : 'bg-gray-300'} relative">
-                                <span class="absolute top-1 left-1 bg-white w-4 h-4 rounded-full transition-transform ${document.documentElement.classList.contains('dark') ? 'translate-x-4' : ''}"></span>
-                            </button>
-                        </div>
-                        <p class="text-xs font-bold text-gray-400 uppercase mb-3">Cores do Sistema</p>
-                        ${colorsGridHtml}
-                    </div>
-                </div>
-
-                <div class="md:col-span-1">
-                    ${subscriptionCardHtml}
-                </div>
-
-                <div class="md:col-span-2 grid grid-cols-2 sm:grid-cols-4 gap-4">
-                    <button onclick="editHandle()" class="bg-white dark:bg-darkcard p-4 rounded-2xl border border-gray-200 dark:border-darkborder shadow-sm hover:border-indigo-500 dark:hover:border-indigo-500 hover:-translate-y-1 transition-all flex flex-col items-center justify-center gap-2 h-32">
-                        <div class="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-900/20 text-purple-600 flex items-center justify-center text-lg"><i class="fas fa-at"></i></div>
-                        <span class="text-xs font-bold text-gray-700 dark:text-white">Alterar @User</span>
-                    </button>
-
-                    <button onclick="editSemester()" class="bg-white dark:bg-darkcard p-4 rounded-2xl border border-gray-200 dark:border-darkborder shadow-sm hover:border-orange-500 dark:hover:border-orange-500 hover:-translate-y-1 transition-all flex flex-col items-center justify-center gap-2 h-32">
-                        <div class="w-10 h-10 rounded-full bg-orange-100 dark:bg-orange-900/20 text-orange-600 flex items-center justify-center text-lg"><i class="fas fa-graduation-cap"></i></div>
-                        <span class="text-xs font-bold text-gray-700 dark:text-white">Alterar Semestre</span>
-                    </button>
-
-                    <button onclick="manualBackup()" class="bg-white dark:bg-darkcard p-4 rounded-2xl border border-gray-200 dark:border-darkborder shadow-sm hover:border-blue-500 dark:hover:border-blue-500 hover:-translate-y-1 transition-all flex flex-col items-center justify-center gap-2 h-32">
-                        <div class="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/20 text-blue-600 flex items-center justify-center text-lg"><i class="fas fa-cloud-upload-alt"></i></div>
-                        <span class="text-xs font-bold text-gray-700 dark:text-white">Fazer Backup</span>
-                    </button>
-
-                    <button onclick="switchPage('ocultos')" class="bg-white dark:bg-darkcard p-4 rounded-2xl border border-gray-200 dark:border-darkborder shadow-sm hover:border-teal-500 dark:hover:border-teal-500 hover:-translate-y-1 transition-all flex flex-col items-center justify-center gap-2 h-32">
-                        <div class="w-10 h-10 rounded-full bg-teal-100 dark:bg-teal-900/20 text-teal-600 flex items-center justify-center text-lg"><i class="fas fa-eye-slash"></i></div>
-                        <span class="text-xs font-bold text-gray-700 dark:text-white">Widgets Ocultos</span>
+                    <button onclick="toggleTheme()" class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${document.documentElement.classList.contains('dark') ? 'bg-indigo-600' : 'bg-gray-300'}">
+                        <span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${document.documentElement.classList.contains('dark') ? 'translate-x-6' : 'translate-x-1'}"></span>
                     </button>
                 </div>
-
-                <div class="md:col-span-3 bg-red-50 dark:bg-red-900/10 rounded-2xl p-4 flex flex-col sm:flex-row justify-between items-center gap-4 border border-red-100 dark:border-red-900/30">
-                    <div class="flex items-center gap-4">
-                        <div class="w-10 h-10 rounded-full bg-white dark:bg-red-900/30 text-red-500 flex items-center justify-center shadow-sm"><i class="fas fa-shield-alt"></i></div>
-                        <div>
-                            <h4 class="font-bold text-red-700 dark:text-red-400 text-sm">Segurança da Conta</h4>
-                            <p class="text-xs text-red-500/80">Gerencie sua senha ou saia do dispositivo.</p>
-                        </div>
+                <div class="flex items-center justify-between p-4">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-md bg-pink-100 dark:bg-pink-900/30 text-pink-600 flex items-center justify-center shadow-sm"><i class="fas fa-palette"></i></div>
+                        <span class="text-sm font-medium text-gray-900 dark:text-white">Cor de Destaque</span>
                     </div>
-                    <div class="flex gap-3 w-full sm:w-auto">
-                        <button onclick="changePassword()" class="flex-1 sm:flex-none px-4 py-2 bg-white dark:bg-red-900/20 text-red-600 rounded-lg text-xs font-bold border border-red-200 dark:border-red-800 hover:bg-red-50 transition">Nova Senha</button>
-                        <button onclick="logoutApp()" class="flex-1 sm:flex-none px-4 py-2 bg-red-600 text-white rounded-lg text-xs font-bold hover:bg-red-700 shadow-md transition">Sair</button>
-                    </div>
+                    ${colorsGridHtml}
                 </div>
+            </div>
 
+            <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 ml-4">Sistema</h3>
+            <div class="rounded-2xl shadow-sm border border-gray-200 dark:border-neutral-800 overflow-hidden mb-8">
+                ${iOSListItem("switchPage('ocultos')", 'bg-teal-100 dark:bg-teal-900/30', 'text-teal-600', 'fas fa-eye-slash', 'Widgets Ocultos')}
+                ${iOSListItem('manualBackup()', 'bg-cyan-100 dark:bg-cyan-900/30', 'text-cyan-600', 'fas fa-cloud-upload-alt', 'Backup Manual')}
+            </div>
+
+             <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 ml-4 text-red-500">Zona de Perigo</h3>
+             <div class="rounded-2xl shadow-sm border border-red-100 dark:border-red-900/30 overflow-hidden mb-8">
+                ${iOSListItem('changePassword()', 'bg-red-50 dark:bg-red-900/20', 'text-red-500', 'fas fa-lock', 'Redefinir Senha')}
+                <button onclick="logoutApp()" class="w-full flex items-center justify-between p-4 bg-white dark:bg-darkcard hover:bg-red-50 dark:hover:bg-red-900/10 transition group text-left">
+                     <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-md bg-red-100 dark:bg-red-900/30 text-red-600 flex items-center justify-center shadow-sm">
+                            <i class="fas fa-sign-out-alt"></i>
+                        </div>
+                        <span class="text-sm font-medium text-red-600 dark:text-red-400">Sair da Conta</span>
+                    </div>
+                </button>
+            </div>
+
+            <div class="text-center pb-4">
+                <p class="text-[10px] text-gray-400 uppercase font-bold">Salve-se UFRB v4.5</p>
+                <p class="text-[10px] text-gray-300 dark:text-neutral-700 font-mono mt-1">UID: ${currentUser.uid.substring(0, 8)}...</p>
             </div>
         </div>
     `;

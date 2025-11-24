@@ -2170,216 +2170,250 @@ window.renderSettings = function () {
     const container = document.getElementById('settings-content');
     if (!container || !userProfile) return;
 
-    let dateStr = "N/A";
-    if (userProfile.createdAt) {
-        const date = new Date(userProfile.createdAt);
-        dateStr = date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
-    }
-
+    // --- DADOS DO USUÁRIO ---
+    let dateStr = userProfile.createdAt ? new Date(userProfile.createdAt).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }) : "N/A";
     const photoUrl = userProfile.photoURL || "https://files.catbox.moe/pmdtq6.png";
     const isVideo = photoUrl.match(/\.(mp4|webm)$/i);
+
+    // Mídia (Avatar)
     const mediaHtml = isVideo
         ? `<video src="${photoUrl}" class="w-full h-full object-cover" autoplay loop muted playsinline></video>`
         : `<img src="${photoUrl}" class="w-full h-full object-cover" onerror="this.src='https://files.catbox.moe/pmdtq6.png'">`;
 
-    const verifiedBadgeSettings = isUserPremium()
-        ? `<i class="fas fa-crown text-amber-500 ml-2 text-2xl drop-shadow-md animate-pulse" title="Membro Premium"></i>`
-        : ``;
-
-    // --- LÓGICA DO CARTÃO DE ASSINATURA ---
+    // --- LÓGICA DO CARD PREMIUM (REGRAS ESPECÍFICAS) ---
+    const isPremium = isUserPremium();
     let subscriptionCardHtml = '';
-    if (isUserPremium() && userProfile.subscriptionEndDate) {
-        const now = new Date();
-        const end = new Date(userProfile.subscriptionEndDate);
-        const remainingTime = end - now;
-        const daysLeft = Math.ceil(remainingTime / (1000 * 60 * 60 * 24));
-        let percent = Math.min(100, Math.max(0, (daysLeft / 30) * 100));
-        const endFormatted = end.toLocaleDateString('pt-BR');
-        let barColor = "bg-indigo-500";
-        if (daysLeft <= 5) barColor = "bg-red-500";
-        else if (daysLeft <= 10) barColor = "bg-orange-500";
+    let shouldStartTimer = false;
+
+    if (isPremium && userProfile.subscriptionEndDate) {
+        const now = new Date().getTime();
+        const end = new Date(userProfile.subscriptionEndDate).getTime();
+        const distance = end - now;
+        const oneDay = 1000 * 60 * 60 * 24;
+
+        const endFormatted = new Date(userProfile.subscriptionEndDate).toLocaleDateString('pt-BR');
+        const totalDays = 30; // Base de cálculo da barra
+        const percent = Math.min(100, Math.max(0, (distance / (oneDay * totalDays)) * 100));
+
+        // Conteúdo dinâmico (Dias ou Timer)
+        let mainContent = '';
+
+        if (distance > oneDay) {
+            // MAIS DE 24H: Mostra dias (Igual à foto)
+            const daysLeft = Math.ceil(distance / oneDay);
+            mainContent = `
+                <div class="mt-4 mb-2">
+                    <span class="text-5xl font-bold text-white tracking-tighter">${daysLeft}</span>
+                    <span class="text-gray-400 text-sm font-medium ml-1">dias restantes</span>
+                </div>
+            `;
+        } else {
+            // MENOS DE 24H: Mostra Timer (Contagem Regressiva)
+            shouldStartTimer = true;
+            mainContent = `
+                <div class="mt-4 mb-2">
+                    <div id="premium-countdown" class="text-4xl font-mono font-bold text-red-400 tracking-tight flex items-baseline gap-2">
+                        --:--:--
+                    </div>
+                    <span class="text-red-300/70 text-xs font-bold uppercase tracking-widest animate-pulse">Expirando em breve</span>
+                </div>
+            `;
+        }
 
         subscriptionCardHtml = `
-            <div class="bg-gradient-to-br from-gray-900 to-gray-800 dark:from-black dark:to-neutral-900 rounded-2xl p-5 text-white shadow-lg relative overflow-hidden border border-gray-700">
-                <div class="absolute top-0 right-0 p-3 opacity-20"><i class="fas fa-crown text-6xl"></i></div>
+            <div class="bg-[#1a1d21] dark:bg-[#0f1113] rounded-2xl p-6 relative overflow-hidden shadow-xl border border-gray-800 group">
+                <div class="absolute right-4 top-8 text-white/5 text-8xl transform rotate-12 pointer-events-none transition group-hover:scale-110 duration-700"><i class="fas fa-crown"></i></div>
+                
                 <div class="relative z-10">
-                    <div class="flex justify-between items-center mb-4">
-                        <h3 class="font-bold text-lg text-amber-400 flex items-center gap-2"><i class="fas fa-star"></i> Premium Ativo</h3>
-                        <span class="text-xs font-mono bg-white/10 px-2 py-1 rounded">Vence: ${endFormatted}</span>
+                    <div class="flex justify-between items-start">
+                        <div class="flex items-center gap-2">
+                            <i class="fas fa-star text-amber-400 text-xl drop-shadow-[0_0_10px_rgba(251,191,36,0.5)]"></i>
+                            <h3 class="text-lg font-bold text-amber-400">Premium Ativo</h3>
+                        </div>
+                        <span class="bg-white/10 text-gray-300 text-[10px] px-3 py-1 rounded-full font-mono border border-white/5">Vence: ${endFormatted}</span>
                     </div>
-                    <div class="flex justify-between items-end mb-2">
-                        <span class="text-3xl font-bold">${daysLeft} <span class="text-sm font-normal text-gray-400">dias restantes</span></span>
+
+                    ${mainContent}
+
+                    <div class="w-full bg-gray-700/50 rounded-full h-2.5 mt-4 overflow-hidden">
+                        <div class="bg-gradient-to-r from-green-500 to-emerald-400 h-2.5 rounded-full transition-all duration-1000 shadow-[0_0_15px_rgba(16,185,129,0.4)]" style="width: ${percent}%"></div>
                     </div>
-                    <div class="w-full bg-gray-700 rounded-full h-2.5 mb-2 overflow-hidden">
-                        <div class="${barColor} h-2.5 rounded-full transition-all duration-1000 shadow-[0_0_10px_rgba(255,255,255,0.3)]" style="width: ${percent}%"></div>
-                    </div>
-                    <p class="text-xs text-gray-400 text-right">Renovação necessária ao fim do prazo</p>
+                    
+                    <p class="text-[10px] text-gray-500 text-right mt-2">Renovação necessária ao fim do prazo</p>
                 </div>
             </div>
         `;
     } else {
+        // Card Versão Grátis (Convite)
         subscriptionCardHtml = `
-            <div onclick="switchPage('premium')" class="cursor-pointer bg-white dark:bg-darkcard border border-indigo-200 dark:border-indigo-900/50 rounded-2xl p-5 shadow-sm relative overflow-hidden group">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <h3 class="font-bold text-gray-900 dark:text-white text-lg">Plano Grátis</h3>
-                        <p class="text-sm text-gray-500 dark:text-gray-400">Faça o upgrade para desbloquear tudo.</p>
-                    </div>
-                    <div class="w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition">
-                        <i class="fas fa-arrow-right"></i>
-                    </div>
+            <div onclick="switchPage('premium')" class="group cursor-pointer bg-gradient-to-br from-indigo-600 to-violet-700 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden transition transform hover:scale-[1.01]">
+                <div class="absolute right-0 bottom-0 opacity-10 text-8xl transform translate-x-4 translate-y-4"><i class="fas fa-rocket"></i></div>
+                <div class="relative z-10">
+                    <h3 class="text-2xl font-bold mb-1">Seja Premium 👑</h3>
+                    <p class="text-indigo-100 text-sm mb-4 opacity-90">Desbloqueie IA Gemini, Temas e Widgets.</p>
+                    <button class="bg-white text-indigo-600 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wide shadow-md group-hover:bg-indigo-50 transition">Ver Planos</button>
                 </div>
             </div>
         `;
     }
 
-    // --- GERAÇÃO DAS CORES PARA O NOVO PAINEL (CORRIGIDO) ---
+    // --- CORES DO TEMA ---
     const freeColors = ['indigo', 'cyan', 'green'];
-    let colorsGridHtml = '<div class="grid grid-cols-5 gap-3">';
-
-    // Tenta pegar o nome salvo, ou usa 'indigo' como padrão
     const savedColorName = localStorage.getItem('salvese_color_name') || 'indigo';
+    let colorsGridHtml = '<div class="flex flex-wrap gap-3">';
 
     Object.keys(colorPalettes).forEach(color => {
         const rgb = colorPalettes[color][500];
-        const isLocked = !isUserPremium() && !freeColors.includes(color);
-        const lockIcon = isLocked ? '<i class="fas fa-lock text-white/70 text-[10px]"></i>' : '';
-
-        // Verifica se é a cor atual comparando os NOMES
+        const isLocked = !isPremium && !freeColors.includes(color);
         const isSelected = savedColorName === color;
-        const checkIcon = isSelected ? '<i class="fas fa-check text-white text-xs font-bold"></i>' : lockIcon;
-
-        // Adiciona borda extra se selecionado
-        const ringClass = isSelected ? 'ring-2 ring-offset-2 ring-gray-400 dark:ring-gray-500' : 'ring-transparent';
+        const content = isSelected ? '<i class="fas fa-check text-white text-[10px]"></i>' : (isLocked ? '<i class="fas fa-lock text-white/50 text-[8px]"></i>' : '');
+        const ring = isSelected ? 'ring-2 ring-offset-2 ring-gray-400 dark:ring-gray-600 scale-110' : '';
 
         colorsGridHtml += `
-            <button onclick="setThemeColor('${color}')" class="w-10 h-10 rounded-full flex items-center justify-center transition transform hover:scale-110 shadow-sm ${ringClass} ring-offset-white dark:ring-offset-darkcard" style="background-color: rgb(${rgb})">
-                ${checkIcon}
+            <button onclick="setThemeColor('${color}')" class="w-9 h-9 rounded-full flex items-center justify-center transition hover:scale-110 shadow-sm ${ring} ring-offset-white dark:ring-offset-darkcard" style="background-color: rgb(${rgb})">
+                ${content}
             </button>
         `;
     });
     colorsGridHtml += '</div>';
 
-    // Helper de cards
-    const createActionCard = (onclick, svgIcon, title, subtitle, colorClass = "text-gray-500 group-hover:text-indigo-500") => `
-        <button onclick="${onclick}" class="group w-full bg-white dark:bg-darkcard border border-gray-100 dark:border-darkborder p-4 rounded-2xl flex items-center justify-between hover:border-indigo-500 dark:hover:border-indigo-500 hover:shadow-md transition-all duration-200 mb-3 text-left">
-            <div class="flex items-center gap-4">
-                <div class="w-10 h-10 rounded-full bg-gray-50 dark:bg-neutral-800 flex items-center justify-center ${colorClass} transition-colors">
-                    ${svgIcon}
+    // --- LAYOUT GRID MODERNO ---
+    container.innerHTML = `
+        <div class="max-w-3xl mx-auto pb-24 px-4 pt-6 animate-fade-in">
+            
+            <div class="flex items-center gap-5 mb-8">
+                <div class="relative group cursor-pointer" onclick="changePhoto()">
+                    <div class="w-20 h-20 rounded-full overflow-hidden border-2 border-gray-200 dark:border-neutral-700 shadow-md bg-gray-100 dark:bg-neutral-800">
+                        ${mediaHtml}
+                    </div>
+                    <div class="absolute bottom-0 right-0 bg-white dark:bg-neutral-800 p-1.5 rounded-full shadow-sm border border-gray-100 dark:border-neutral-700 text-gray-500 dark:text-gray-400">
+                        <i class="fas fa-camera text-xs"></i>
+                    </div>
                 </div>
                 <div>
-                    <p class="font-bold text-gray-800 dark:text-gray-200 text-sm">${title}</p>
-                    <p class="text-xs text-gray-400 dark:text-gray-500">${subtitle}</p>
-                </div>
-            </div>
-            <div class="text-gray-300 dark:text-neutral-700 group-hover:text-indigo-500 transition-colors">
-                ${svgs.chevron}
-            </div>
-        </button>
-    `;
-
-    container.innerHTML = `
-        <div class="max-w-2xl mx-auto w-full pb-24 space-y-6">
-            
-            <div class="bg-white dark:bg-darkcard rounded-3xl shadow-sm border border-gray-200 dark:border-darkborder p-6 md:p-8 flex flex-col items-center text-center relative overflow-hidden">
-                 <div class="absolute top-0 left-0 w-full h-24 bg-gradient-to-r from-indigo-500 to-purple-600 opacity-10 dark:opacity-20 transition-colors duration-500" style="background: linear-gradient(to right, rgb(var(--theme-500)), rgb(var(--theme-700))) opacity: 0.1;"></div>
-                 
-                 <div class="relative group mb-4 mt-4">
-                    <div class="w-28 h-28 rounded-full overflow-hidden p-1 border-4 border-white dark:border-darkcard shadow-lg relative z-10 bg-white dark:bg-darkcard">
-                        <div class="w-full h-full rounded-full overflow-hidden relative">
-                            ${mediaHtml}
-                        </div>
-                    </div>
-                    <div id="btn-change-photo-settings" class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition rounded-full flex items-center justify-center cursor-pointer m-1 z-20" onclick="changePhoto()">
-                        <i class="fas fa-camera text-white text-2xl"></i>
-                    </div>
-                </div>
-
-                <div class="flex items-center justify-center gap-2 mb-0.5">
-                    <h2 class="text-2xl font-black text-gray-900 dark:text-white tracking-tight">
+                    <h1 class="text-2xl font-bold text-gray-900 dark:text-white leading-tight flex items-center gap-2">
                         ${userProfile.displayName}
-                    </h2>
-                    ${verifiedBadgeSettings}
-                </div>
-
-                <p class="text-indigo-600 dark:text-indigo-400 font-bold text-sm mb-4 bg-indigo-50 dark:bg-indigo-900/20 px-3 py-1 rounded-full">@${userProfile.handle}</p>
-                
-                <div class="grid grid-cols-2 gap-4 w-full max-w-sm mt-2">
-                    <div class="bg-gray-50 dark:bg-neutral-800/50 p-3 rounded-xl">
-                         <p class="text-xs text-gray-400 uppercase font-bold mb-1">Semestre</p>
-                         <p class="font-bold text-gray-800 dark:text-white">${userProfile.semester || 'N/A'}</p>
-                    </div>
-                    <div class="bg-gray-50 dark:bg-neutral-800/50 p-3 rounded-xl">
-                         <p class="text-xs text-gray-400 uppercase font-bold mb-1">Membro Desde</p>
-                         <p class="font-bold text-gray-800 dark:text-white">${dateStr.split(' de ')[2] || dateStr}</p>
+                        ${isPremium ? '<i class="fas fa-check-circle text-blue-500 text-base" title="Verificado"></i>' : ''}
+                    </h1>
+                    <p class="text-gray-500 dark:text-gray-400 text-sm mb-2">@${userProfile.handle}</p>
+                    <div class="flex gap-2">
+                        <span class="bg-gray-100 dark:bg-neutral-800 text-gray-600 dark:text-gray-300 text-[10px] font-bold px-2 py-1 rounded border border-gray-200 dark:border-neutral-700">Membro desde ${dateStr.split(' de ')[2] || '2025'}</span>
+                        <span class="bg-indigo-50 text-indigo-600 dark:bg-indigo-900/20 dark:text-indigo-400 text-[10px] font-bold px-2 py-1 rounded border border-indigo-100 dark:border-indigo-900/30">Nível ${userProfile.level || 1}</span>
                     </div>
                 </div>
             </div>
 
-            <div class="bg-white dark:bg-darkcard rounded-2xl border border-gray-200 dark:border-darkborder p-5 shadow-sm">
-                <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
-                    <i class="fas fa-paint-brush"></i> Personalização
-                </h3>
-                
-                <div class="flex items-center justify-between mb-6">
-                    <span class="text-sm font-bold text-gray-700 dark:text-gray-300">Modo Escuro</span>
-                    <button onclick="toggleTheme()" class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${document.documentElement.classList.contains('dark') ? 'bg-indigo-600' : 'bg-gray-200'}">
-                        <span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${document.documentElement.classList.contains('dark') ? 'translate-x-6' : 'translate-x-1'}"></span>
-                    </button>
-                </div>
-
-                <div class="space-y-3">
-                    <p class="text-sm font-bold text-gray-700 dark:text-gray-300">Cor de Destaque</p>
-                    ${colorsGridHtml}
-                    <p class="text-[10px] text-gray-400 mt-2">* Algumas cores são exclusivas Premium.</p>
-                </div>
-            </div>
-
-            <div>
-                <h3 class="px-4 text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Sua Assinatura</h3>
+            <div class="mb-8">
+                <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Sua Assinatura</h3>
                 ${subscriptionCardHtml}
             </div>
 
-            <div>
-                <h3 class="px-4 text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Gerenciar Conta</h3>
-                ${createActionCard('changePhoto()', svgs.photo, 'Foto de Perfil', 'Atualize sua imagem ou vídeo')}
-                ${createActionCard('editName()', svgs.user, 'Nome de Exibição', 'Como seu nome aparece no app')}
-                ${createActionCard('editHandle()', svgs.at, 'Nome de Usuário', 'Seu identificador único @handle')}
-                ${createActionCard('editSemester()', svgs.school, 'Semestre Atual', 'Para organizar suas matérias')}
-            </div>
-            
-            <div>
-                 <h3 class="px-4 text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Interface</h3>
-                 ${createActionCard("switchPage('ocultos')", `<i class="fas fa-eye-slash"></i>`, 'Widgets Ocultos', 'Gerenciar itens escondidos da tela inicial')}
-            </div>
-
-            <div>
-                <h3 class="px-4 text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Segurança & Dados</h3>
-                ${createActionCard('changePassword()', svgs.lock, 'Redefinir Senha', 'Receba um e-mail para trocar a senha')}
-                ${createActionCard('manualBackup()', svgs.cloud, 'Backup Manual', 'Forçar sincronização com a nuvem')}
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 
-                <button onclick="logoutApp()" class="group w-full bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/30 p-4 rounded-2xl flex items-center justify-between hover:bg-red-100 dark:hover:bg-red-900/20 transition-all duration-200 text-left mt-4">
-                    <div class="flex items-center gap-4">
-                        <div class="w-10 h-10 rounded-full bg-white dark:bg-red-900/20 flex items-center justify-center text-red-500">
-                            ${svgs.logout}
-                        </div>
-                        <div>
-                            <p class="font-bold text-red-600 dark:text-red-400 text-sm">Sair da Conta</p>
-                            <p class="text-xs text-red-400 dark:text-red-500/70">Encerrar sessão neste dispositivo</p>
+                <div class="space-y-6">
+                    <div>
+                        <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Aparência</h3>
+                        <div class="bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder rounded-2xl p-5 shadow-sm">
+                            <div class="flex justify-between items-center mb-5">
+                                <span class="font-bold text-gray-700 dark:text-gray-200 text-sm"><i class="fas fa-moon mr-2 text-indigo-500"></i> Modo Escuro</span>
+                                <button onclick="toggleTheme()" class="w-12 h-6 rounded-full transition-colors duration-300 focus:outline-none ${document.documentElement.classList.contains('dark') ? 'bg-indigo-600' : 'bg-gray-200'} relative">
+                                    <span class="absolute top-1 left-1 bg-white w-4 h-4 rounded-full transition-transform duration-300 ${document.documentElement.classList.contains('dark') ? 'translate-x-6' : ''}"></span>
+                                </button>
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-500 dark:text-gray-400 mb-3 font-medium">Cor do Sistema</p>
+                                ${colorsGridHtml}
+                            </div>
                         </div>
                     </div>
-                    <div class="text-red-300 dark:text-red-800">
-                        ${svgs.chevron}
-                    </div>
-                </button>
-            </div>
 
-            <div class="text-center pt-4 pb-8">
-                 <p class="text-xs text-gray-300 dark:text-gray-600 font-mono">ID: ${currentUser.uid.substring(0, 8)}...</p>
-                 <p class="text-xs text-gray-300 dark:text-gray-600 mt-1">Salve-se UFRB v4.1</p>
+                    <div>
+                        <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Conta</h3>
+                        <div class="bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder rounded-2xl overflow-hidden shadow-sm">
+                            <button onclick="editName()" class="w-full text-left px-5 py-4 border-b border-gray-100 dark:border-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-800/50 transition flex justify-between items-center group">
+                                <span class="text-sm font-medium text-gray-700 dark:text-gray-200"><i class="fas fa-user mr-3 text-gray-400 group-hover:text-indigo-500 transition"></i> Alterar Nome</span>
+                                <i class="fas fa-chevron-right text-gray-300 text-xs"></i>
+                            </button>
+                            <button onclick="editHandle()" class="w-full text-left px-5 py-4 border-b border-gray-100 dark:border-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-800/50 transition flex justify-between items-center group">
+                                <span class="text-sm font-medium text-gray-700 dark:text-gray-200"><i class="fas fa-at mr-3 text-gray-400 group-hover:text-indigo-500 transition"></i> Alterar Usuário</span>
+                                <i class="fas fa-chevron-right text-gray-300 text-xs"></i>
+                            </button>
+                            <button onclick="editSemester()" class="w-full text-left px-5 py-4 hover:bg-gray-50 dark:hover:bg-neutral-800/50 transition flex justify-between items-center group">
+                                <span class="text-sm font-medium text-gray-700 dark:text-gray-200"><i class="fas fa-graduation-cap mr-3 text-gray-400 group-hover:text-indigo-500 transition"></i> Semestre Atual</span>
+                                <span class="text-xs text-gray-400 bg-gray-100 dark:bg-neutral-800 px-2 py-1 rounded">${userProfile.semester || 'N/A'}</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="space-y-6">
+                    <div>
+                        <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Ajustes do App</h3>
+                        <div class="grid grid-cols-2 gap-3">
+                            <button onclick="switchPage('ocultos')" class="bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder p-4 rounded-2xl hover:border-indigo-500 dark:hover:border-indigo-500 transition text-left group shadow-sm">
+                                <div class="w-8 h-8 rounded-lg bg-teal-50 dark:bg-teal-900/20 text-teal-600 flex items-center justify-center mb-3 group-hover:scale-110 transition"><i class="fas fa-eye-slash"></i></div>
+                                <span class="block text-sm font-bold text-gray-800 dark:text-white">Widgets</span>
+                                <span class="text-[10px] text-gray-400">Gerenciar ocultos</span>
+                            </button>
+                            
+                            <button onclick="manualBackup()" class="bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder p-4 rounded-2xl hover:border-indigo-500 dark:hover:border-indigo-500 transition text-left group shadow-sm">
+                                <div class="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-600 flex items-center justify-center mb-3 group-hover:scale-110 transition"><i class="fas fa-cloud-upload-alt"></i></div>
+                                <span class="block text-sm font-bold text-gray-800 dark:text-white">Backup</span>
+                                <span class="text-[10px] text-gray-400">Sincronizar agora</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Privacidade</h3>
+                        <div class="bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder rounded-2xl overflow-hidden shadow-sm">
+                            <button onclick="changePassword()" class="w-full text-left px-5 py-4 border-b border-gray-100 dark:border-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-800/50 transition flex justify-between items-center group">
+                                <span class="text-sm font-medium text-gray-700 dark:text-gray-200"><i class="fas fa-lock mr-3 text-gray-400 group-hover:text-yellow-500 transition"></i> Redefinir Senha</span>
+                                <i class="fas fa-chevron-right text-gray-300 text-xs"></i>
+                            </button>
+                            <button onclick="logoutApp()" class="w-full text-left px-5 py-4 hover:bg-red-50 dark:hover:bg-red-900/10 transition flex justify-between items-center group">
+                                <span class="text-sm font-medium text-red-600 dark:text-red-400"><i class="fas fa-sign-out-alt mr-3 opacity-70"></i> Sair da Conta</span>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="text-center pt-2">
+                        <p class="text-[10px] text-gray-300 dark:text-neutral-700 font-mono">ID: ${currentUser.uid.substring(0, 8)}... | v4.5</p>
+                    </div>
+                </div>
             </div>
         </div>
     `;
+
+    // --- SCRIPT DA CONTAGEM REGRESSIVA (SÓ RODA SE < 24H) ---
+    if (isPremium && userProfile.subscriptionEndDate && shouldStartTimer) {
+        if (window.premiumInterval) clearInterval(window.premiumInterval);
+
+        const updateTimer = () => {
+            const now = new Date().getTime();
+            const end = new Date(userProfile.subscriptionEndDate).getTime();
+            const distance = end - now;
+
+            const el = document.getElementById('premium-countdown');
+            if (!el) { clearInterval(window.premiumInterval); return; }
+
+            if (distance < 0) {
+                el.innerHTML = "EXPIRADO";
+                el.classList.add('text-red-600');
+                return;
+            }
+
+            const h = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const m = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+            const s = Math.floor((distance % (1000 * 60)) / 1000);
+
+            // Formato HH:MM:SS
+            el.innerText = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        };
+
+        window.premiumInterval = setInterval(updateTimer, 1000);
+        updateTimer();
+    }
 }
 // ============================================================
 // --- FUNCIONALIDADE: TAREFAS (TODO LIST) ---

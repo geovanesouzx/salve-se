@@ -120,31 +120,35 @@ window.simulateSubscription = async function () {
     if (!currentUser) return showLoginScreen();
 
     const btn = document.querySelector('button[onclick="simulateSubscription()"]');
-    if (btn) btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Processando pagamento...';
+    if (btn) btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Processando...';
 
     try {
+        // Lógica de Bônus
+        if (!userProfile.level) userProfile.level = 1;
+        userProfile.level += 20; // +20 Níveis
+
         const now = new Date();
         const endDate = new Date();
-        endDate.setDate(now.getDate() + 30); // Adiciona 30 dias
+        endDate.setDate(now.getDate() + 30);
 
         const subscriptionData = {
             isPremium: true,
             subscriptionStartDate: now.toISOString(),
-            subscriptionEndDate: endDate.toISOString() // Salva data final
+            subscriptionEndDate: endDate.toISOString(),
+            level: userProfile.level // Salva
         };
 
-        // Atualiza no Firebase
+        // Salva no Firebase
         await setDoc(doc(db, "users", currentUser.uid), subscriptionData, { merge: true });
 
-        // Atualiza localmente
+        // Atualiza local
         Object.assign(userProfile, subscriptionData);
         localStorage.setItem('salvese_user_profile', JSON.stringify(userProfile));
 
-        showModal("Parabéns! 🌟", "Assinatura mensal ativada com sucesso! Você tem 30 dias de acesso.");
+        showModal("Parabéns! 🌟", "Assinatura ativada! Você ganhou +20 NÍVEIS de bônus imediatamente!");
         updateUserInterfaceInfo();
         renderPremiumPage();
 
-        // Se estiver na tela de config, recarrega para mostrar o timer
         if (document.getElementById('settings-content')) renderSettings();
 
     } catch (e) {
@@ -4272,6 +4276,16 @@ window.renderPremiumPage = function () {
                         <div class="w-8 h-8 rounded-full bg-pink-100 dark:bg-pink-900/30 text-pink-600 dark:text-pink-400 flex items-center justify-center"><i class="fas fa-eye-slash"></i></div>
                         <span class="text-xs font-bold text-gray-700 dark:text-gray-300">Ocultar Widgets</span>
                     </div>
+
+                    <div class="bg-white dark:bg-neutral-800/50 border border-gray-100 dark:border-neutral-700 p-3 rounded-xl flex items-center gap-3 col-span-2">
+                        <div class="w-8 h-8 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 text-white flex items-center justify-center shadow-md animate-pulse">
+                            <i class="fas fa-rocket"></i>
+                        </div>
+                        <div>
+                            <span class="text-xs font-black text-gray-800 dark:text-white uppercase tracking-wide">Bônus Épico</span>
+                            <p class="text-[10px] text-gray-500 dark:text-gray-400">Receba <strong class="text-indigo-600 dark:text-indigo-400">+20 Níveis</strong> imediatamente ao assinar.</p>
+                        </div>
+                    </div>
                 </div>
 
                 <button onclick="switchPage('home')" class="mt-8 w-full py-4 bg-gray-900 dark:bg-white text-white dark:text-black font-bold rounded-xl shadow-lg hover:scale-[1.02] transition">
@@ -4537,28 +4551,43 @@ async function checkPaymentStatus() {
 
 // 6. Ativa o Premium (Interna)
 async function activatePremiumForUser() {
-    showModal("Pagamento Confirmado! 🌟", "Ativando sua assinatura Premium...");
+    // 1. Lógica de Level Up (Bônus)
+    if (!userProfile.level) userProfile.level = 1;
+    const bonusLevels = 20;
+    userProfile.level += bonusLevels;
 
+    // 2. Datas
     const now = new Date();
     const endDate = new Date();
     endDate.setDate(now.getDate() + 30);
 
+    // 3. Dados para salvar
     const subscriptionData = {
         isPremium: true,
         subscriptionStartDate: now.toISOString(),
         subscriptionEndDate: endDate.toISOString(),
-        lastPaymentId: currentPaymentId
+        lastPaymentId: currentPaymentId,
+        level: userProfile.level // Salva o nível novo no banco
     };
 
+    // 4. Salva no Firebase
     await setDoc(doc(db, "users", currentUser.uid), subscriptionData, { merge: true });
 
+    // 5. Atualiza Localmente
     Object.assign(userProfile, subscriptionData);
     localStorage.setItem('salvese_user_profile', JSON.stringify(userProfile));
 
+    // 6. Atualiza Interface
     updateUserInterfaceInfo();
     renderPremiumPage();
 
     if (document.getElementById('settings-content')) renderSettings();
+
+    // 7. Modal de Celebração Épico
+    showModal("PREMIUM ATIVADO! 👑", `Parabéns! Você desbloqueou todos os recursos e ganhou +${bonusLevels} NÍVEIS de bônus!`);
+
+    // Toca um som de vitória se tiver na página de sons (opcional, mas legal)
+    // const audio = new Audio('https://files.catbox.moe/seu_som_levelup.mp3'); audio.play();
 }
 
 // ============================================================

@@ -318,6 +318,21 @@
                 </a>
 
                 <div class="pt-6"></div>
+                <a onclick="switchPage('financeiro')" id="nav-financeiro"
+                    class="nav-item flex items-center px-3 py-2.5 text-sm font-medium rounded-md cursor-pointer text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-darkhover transition-colors">
+                    <div class="w-5 h-5 mr-3 flex items-center justify-center text-emerald-500"><i
+                            class="fas fa-wallet"></i></div>
+                    Finanças <i class="fas fa-lock text-[10px] text-gray-400 ml-auto"></i>
+                </a>
+
+                <a onclick="switchPage('sounds')" id="nav-sounds"
+                    class="nav-item flex items-center px-3 py-2.5 text-sm font-medium rounded-md cursor-pointer text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-darkhover transition-colors">
+                    <div class="w-5 h-5 mr-3 flex items-center justify-center text-purple-500"><i
+                            class="fas fa-headphones"></i></div>
+                    Sons de Foco <i class="fas fa-lock text-[10px] text-gray-400 ml-auto"></i>
+                </a>
+
+                <div class="pt-6"></div>
                 <a onclick="switchPage('premium')" id="nav-premium"
                     class="nav-item flex items-center px-3 py-2.5 text-sm font-bold rounded-md cursor-pointer text-amber-600 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-900/20 transition-colors group">
                     <i class="fas fa-crown mr-3 text-amber-500 group-hover:scale-110 transition-transform"></i>
@@ -1325,7 +1340,8 @@
                                         </select>
                                         <div
                                             class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-500">
-                                            <i class="fas fa-chevron-down text-xs"></i></div>
+                                            <i class="fas fa-chevron-down text-xs"></i>
+                                        </div>
                                     </div>
                                 </div>
                                 <div>
@@ -1349,6 +1365,55 @@
         </div>
     </div>
 
+    <div id="view-financeiro" class="hidden fade-in max-w-4xl mx-auto pb-20">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Carteira do Estudante</h2>
+            <button onclick="openTransactionModal()"
+                class="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg font-bold shadow-md transition"><i
+                    class="fas fa-plus mr-2"></i> Novo Gasto</button>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+            <div
+                class="bg-white dark:bg-darkcard p-5 rounded-2xl border border-gray-100 dark:border-darkborder shadow-sm">
+                <p class="text-xs text-gray-500 uppercase font-bold">Saldo (Simulado)</p>
+                <h3 class="text-2xl font-black text-gray-800 dark:text-white mt-1" id="fin-balance">R$ 500,00</h3>
+            </div>
+            <div class="bg-red-50 dark:bg-red-900/20 p-5 rounded-2xl border border-red-100 dark:border-red-900/30">
+                <p class="text-xs text-red-500 uppercase font-bold">Gastos Totais</p>
+                <h3 class="text-2xl font-black text-red-600 dark:text-red-400 mt-1" id="fin-expense">R$ 0,00</h3>
+            </div>
+        </div>
+        <div
+            class="bg-white dark:bg-darkcard rounded-2xl border border-gray-200 dark:border-darkborder overflow-hidden">
+            <div
+                class="p-4 border-b border-gray-200 dark:border-darkborder bg-gray-50 dark:bg-neutral-900/50 font-bold text-sm text-gray-500">
+                Histórico</div>
+            <div id="finance-list" class="divide-y divide-gray-100 dark:divide-darkborder"></div>
+        </div>
+    </div>
+
+    <div id="view-sounds" class="hidden fade-in max-w-5xl mx-auto h-full flex flex-col">
+        <div class="text-center mb-8">
+            <h2 class="text-3xl font-bold text-gray-900 dark:text-white">Estúdio de Foco 🎧</h2>
+            <p class="text-gray-500">Sons ambientes para bloquear distrações.</p>
+        </div>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div onclick="toggleSound('rain')" id="card-rain"
+                class="bg-white dark:bg-darkcard p-6 rounded-2xl border-2 border-transparent hover:border-indigo-500 cursor-pointer transition-all shadow-sm group text-center relative overflow-hidden">
+                <i class="fas fa-cloud-showers-heavy text-4xl text-blue-400 mb-3"></i>
+                <h3 class="font-bold dark:text-white">Chuva</h3>
+                <audio id="audio-rain" loop
+                    src="https://assets.mixkit.co/sfx/preview/mixkit-light-rain-loop-2393.mp3"></audio>
+            </div>
+            <div onclick="toggleSound('lofi')" id="card-lofi"
+                class="bg-white dark:bg-darkcard p-6 rounded-2xl border-2 border-transparent hover:border-indigo-500 cursor-pointer transition-all shadow-sm group text-center relative overflow-hidden">
+                <i class="fas fa-music text-4xl text-purple-400 mb-3"></i>
+                <h3 class="font-bold dark:text-white">Lo-Fi</h3>
+                <audio id="audio-lofi" loop
+                    src="https://files.freemusicarchive.org/storage-freemusicarchive-org/tracks/W0d9Kj/holiznacc0-summer-evening.mp3"></audio>
+            </div>
+        </div>
+    </div>
     <!-- MODAIS -->
     <div id="class-modal"
         class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm hidden opacity-0 transition-opacity duration-300">

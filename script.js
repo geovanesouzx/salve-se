@@ -715,7 +715,7 @@ function formatAIContent(text) {
 }
 
 // ============================================================
-// --- INTEGRAÇÃO IA AVANÇADA (CÉREBRO ATUALIZADO) ---
+// --- INTEGRAÇÃO IA SUPREMA (TODAS AS FUNÇÕES + TEMA/COR) ---
 // ============================================================
 
 window.sendIAMessage = async function () {
@@ -741,74 +741,73 @@ window.sendIAMessage = async function () {
     showTypingIndicator();
 
     try {
-        // --- 1. COLETAR CONTEXTO DO APP (O que a IA vê) ---
+        // --- 1. COLETAR CONTEXTO (O que a IA vê) ---
         const now = new Date();
         const dataHora = now.toLocaleString('pt-BR');
 
-        // Contexto de Transporte e Aulas
+        // Contexto de Aulas e Ônibus
         const statusBus = getBusStatusForAI();
-        const gradeContext = getClassContextForAI(); // Sua lista de aulas
+        const gradeContext = getClassContextForAI();
 
-        // Contexto de Tarefas (Para ela saber o que editar/excluir)
-        const tasksList = tasksData.map(t => `- "${t.text}" (${t.done ? 'Feita' : 'Pendente'}, Prioridade: ${t.priority})`).join('\n') || "Nenhuma tarefa.";
+        // Contexto de Tarefas e Notas (Resumido para não estourar limite)
+        const tasksList = tasksData.map(t => `- "${t.text}" (${t.done ? 'Feita' : 'Pendente'})`).join('\n') || "Vazio.";
+        const notesList = notesData.map(n => `- "${n.title}" (ID: ${n.id})`).join('\n') || "Vazio.";
 
-        // Contexto de Notas (Apenas títulos)
-        const notesList = notesData.map(n => `- "${n.title}" (ID: ${n.id})`).join('\n') || "Nenhuma nota.";
-
-        // Contexto do Timer
-        const timerStatus = isRunning1 ? "RODANDO" : "PARADO";
-        const timerMode = currentMode1;
-
-        // --- 2. PROMPT DO SISTEMA (As Regras do Jogo) ---
+        // --- 2. PROMPT DO SISTEMA (TODAS AS REGRAS ANTIGAS + NOVAS) ---
         let systemInstructionText = `
-VOCÊ É A "SALVE-SE IA" (Versão 2.0). Responda APENAS com JSON.
-Você tem controle total sobre o aplicativo do usuário.
+VOCÊ É A "SALVE-SE IA". Responda APENAS com JSON.
+Você controla o app do estudante.
 
---- DADOS ATUAIS DO USUÁRIO ---
-Data/Hora: ${dataHora}
-Status Circular: ${statusBus}
-Aulas do Usuário:
+--- DADOS DO USUÁRIO ---
+Agora: ${dataHora}
+Ônibus: ${statusBus}
+Aulas:
 ${gradeContext}
-Tarefas Atuais:
+Tarefas:
 ${tasksList}
-Notas Atuais:
+Notas:
 ${notesList}
-Timer Pomodoro: ${timerStatus} (Modo: ${timerMode})
 
 --- COMANDOS DISPONÍVEIS (JSON) ---
 
-1. **TAREFAS**:
+1. **VISUAL & TEMA (NOVO!)**:
+   - "change_theme": { "mode": "dark" | "light" }
+   - "change_color": { "color": "indigo" | "blue" | "green" | "red" | "purple" | "pink" | "orange" | "cyan" | "black" }
+   - "toggle_zen_mode": { "active": true } (Oculta widgets)
+
+2. **TAREFAS & ESTUDOS**:
    - "create_task": { "text": "...", "priority": "high/medium/normal" }
-   - "delete_task": { "text": "texto exato da tarefa para apagar" }
-   - "edit_task": { "old_text": "texto atual", "new_text": "novo texto", "done": true/false }
+   - "bulk_create_tasks": { "tasks": [ {"text": "...", "priority": "high"} ] }
+   - "delete_task": { "text": "texto exato para apagar" }
+   - "edit_task": { "old_text": "...", "new_text": "...", "done": true/false }
 
-2. **AULAS (GRADE)**:
+3. **AULAS (GRADE)**:
    - "create_class": { "name": "...", "day": "seg/ter...", "start": "08:00", "end": "10:00", "room": "..." }
-   - "delete_class": { "name": "nome da materia" } (Apaga a aula pelo nome)
+   - "delete_class": { "name": "nome da materia" }
 
-3. **CRONÔMETRO (TIMER)**:
+4. **CRONÔMETRO (POMODORO)**:
    - "timer_control": { "action": "start" | "stop" | "reset" }
    - "timer_set": { "mode": "pomodoro" | "short" | "long" | "custom", "minutes": 30 }
 
-4. **NOTAS & ABNT**:
-   - "create_note": { "title": "...", "content": "Use HTML para formatar (<b>, <br>, <h3>)" }
-   - "delete_note": { "title": "Título da nota" }
-   - "append_note": { "title": "Título da nota", "text_to_add": "Texto para adicionar ao fim" }
+5. **CALCULADORA**:
+   - "fill_calculator": { "grades": [8.5, 7.0], "weights": [1, 2] }
 
-5. **LEMBRETES**:
+6. **NOTAS & ABNT**:
+   - "create_note": { "title": "...", "content": "HTML permitido (<b>, <br>, <h3>)" }
+   - "delete_note": { "title": "..." }
+   - "append_note": { "title": "...", "text_to_add": "..." }
+
+7. **LEMBRETES & RESUMO**:
    - "create_reminder": { "desc": "...", "date": "YYYY-MM-DD", "prio": "high/medium" }
-   - "delete_reminder": { "desc": "..." }
+   - "set_summary": { "text": "Texto motivacional para o widget" }
 
-6. **RESUMO DO DIA**:
-   - "set_summary": { "text": "Texto curto e motivador para o widget da home" }
+8. **OUTROS**:
+   - "generate_template": { "content": "..." }
+   - "navigate": { "page": "home/aulas/todo/calc/..." }
 
-7. **OUTROS**:
-   - "generate_template": { "content": "..." } (Para emails)
-   - "navigate": { "page": "home/aulas/todo/..." }
-
---- FORMATO DE RESPOSTA OBRIGATÓRIO ---
+--- RESPOSTA JSON OBRIGATÓRIA ---
 {
-  "message": "Texto amigável confirmando a ação.",
+  "message": "Texto de resposta para o usuário.",
   "commands": [ { "action": "...", "params": { ... } } ]
 }
 `;
@@ -842,13 +841,13 @@ Timer Pomodoro: ${timerStatus} (Modo: ${timerMode})
         if (responseJson.commands && Array.isArray(responseJson.commands)) {
             for (const cmd of responseJson.commands) {
                 await executeAICommand(cmd);
-                await new Promise(r => setTimeout(r, 500)); // Delay visual entre ações
+                await new Promise(r => setTimeout(r, 500));
             }
         }
 
     } catch (error) {
         console.error("Erro IA:", error);
-        appendMessage('ai', `Erro ao processar: ${error.message}. Tente simplificar.`);
+        appendMessage('ai', `Erro: ${error.message}.`);
     } finally {
         hideTypingIndicator();
         input.disabled = false;
@@ -857,145 +856,143 @@ Timer Pomodoro: ${timerStatus} (Modo: ${timerMode})
         scrollToBottom();
     }
 };
-function hideTypingIndicator() {
-    const existing = document.getElementById('dynamic-typing-indicator');
-    if (existing) existing.remove();
-}
-
-function appendMessage(sender, text) {
-    const container = document.getElementById('chat-messages-container');
-    if (!container) return;
-
-    chatHistory.push({ role: sender === 'user' ? 'user' : 'assistant', text: text });
-    if (chatHistory.length > 30) chatHistory.shift();
-
-    const div = document.createElement('div');
-    div.className = `flex w-full ${sender === 'user' ? 'justify-end' : 'justify-start'} mb-4 animate-scale-in group`;
-
-    const time = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-
-    const formattedText = text
-        .replace(/\n/g, '<br>')
-        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-        .replace(/`([^`]+)`/g, '<code class="bg-gray-200 dark:bg-neutral-700 px-1 rounded text-xs font-mono">$1</code>');
-
-    if (sender === 'user') {
-        div.innerHTML = `
-            <div class="flex flex-col items-end max-w-[85%]">
-                <div class="bg-indigo-600 text-white rounded-2xl rounded-br-sm px-4 py-3 shadow-md text-sm leading-relaxed relative">
-                    ${formattedText}
-                </div>
-                <span class="text-[10px] text-gray-400 mt-1 mr-1 opacity-0 group-hover:opacity-100 transition-opacity">${time}</span>
-            </div>
-        `;
-    } else {
-        const providerLabel = currentAIProvider === 'gemini' ? 'Gemini' : 'Llama';
-        div.innerHTML = `
-            <div class="flex gap-3 max-w-[90%]">
-                <div class="flex-shrink-0 flex flex-col justify-end">
-                    <div class="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-xs shadow-sm">
-                        <i class="fas fa-robot"></i>
-                    </div>
-                </div>
-                <div class="flex flex-col items-start">
-                    <div class="bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder text-gray-800 dark:text-gray-200 rounded-2xl rounded-bl-sm px-4 py-3 shadow-sm text-sm leading-relaxed">
-                        ${formattedText}
-                    </div>
-                    <span class="text-[10px] text-gray-400 mt-1 ml-1 opacity-0 group-hover:opacity-100 transition-opacity">${providerLabel} • ${time}</span>
-                </div>
-            </div>
-        `;
-    }
-    container.appendChild(div);
-    scrollToBottom();
-}
 
 // ============================================================
 // --- EXECUTOR DE COMANDOS (Completo + Suporte ABNT) ---
 // ============================================================
 
 async function executeAICommand(cmd) {
-    console.log("🤖 Executando Comando:", cmd);
+    console.log("🤖 Executando:", cmd.action, cmd.params);
     const p = cmd.params || {};
 
     switch (cmd.action) {
 
-        // --- TAREFAS ---
+        // --- 1. VISUAL & TEMA (NOVO!) ---
+        case 'change_theme':
+            if (p.mode === 'dark' || p.mode === 'escuro') {
+                document.documentElement.classList.add('dark');
+                localStorage.setItem('theme', 'dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+                localStorage.setItem('theme', 'light');
+            }
+            break;
+
+        case 'change_color':
+            // Converte nomes em português para inglês se necessário
+            const colorMap = { 'roxo': 'purple', 'verde': 'green', 'azul': 'indigo', 'rosa': 'pink', 'laranja': 'orange', 'preto': 'black', 'ciano': 'cyan', 'vermelho': 'red' };
+            let color = p.color;
+            if (colorMap[color]) color = colorMap[color];
+
+            if (typeof setThemeColor === 'function') {
+                setThemeColor(color);
+            }
+            break;
+
+        case 'toggle_zen_mode':
+            const allWidgets = ['widget-bus', 'widget-tasks', 'widget-quick', 'widget-class', 'widget-reminders', 'widget-ai', 'widget-notes'];
+            if (p.active) {
+                hiddenWidgets = [...allWidgets];
+                saveData();
+                showModal("Modo Zen", "Interface limpa para foco total.");
+            }
+            break;
+
+        // --- 2. TAREFAS ---
         case 'create_task':
-            tasksData.push({
-                id: Date.now().toString(),
-                text: p.text,
-                done: false,
-                priority: p.priority || 'normal',
-                category: 'geral',
-                createdAt: Date.now()
-            });
+            tasksData.push({ id: Date.now().toString(), text: p.text, done: false, priority: p.priority || 'normal', category: 'geral', createdAt: Date.now() });
             saveData();
             if (currentViewContext === 'todo' || currentViewContext === 'home') refreshAllUI();
             break;
 
         case 'delete_task':
             if (p.text) {
-                const initialLen = tasksData.length;
                 tasksData = tasksData.filter(t => !t.text.toLowerCase().includes(p.text.toLowerCase()));
-                if (tasksData.length < initialLen) {
-                    saveData();
-                    refreshAllUI();
-                }
+                saveData();
+                refreshAllUI();
             }
             break;
 
         case 'edit_task':
             if (p.old_text) {
-                const task = tasksData.find(t => t.text.toLowerCase().includes(p.old_text.toLowerCase()));
-                if (task) {
-                    if (p.new_text) task.text = p.new_text;
-                    if (p.done !== undefined) task.done = p.done;
+                const t = tasksData.find(item => item.text.toLowerCase().includes(p.old_text.toLowerCase()));
+                if (t) {
+                    if (p.new_text) t.text = p.new_text;
+                    if (p.done !== undefined) t.done = p.done;
                     saveData();
                     refreshAllUI();
                 }
             }
             break;
 
-        // --- CRONÔMETRO (TIMER) ---
+        case 'bulk_create_tasks':
+            if (p.tasks && Array.isArray(p.tasks)) {
+                p.tasks.forEach(t => tasksData.push({ id: Date.now().toString() + Math.random(), text: t.text, done: false, priority: t.priority || 'normal', category: 'estudo', createdAt: Date.now() }));
+                saveData();
+                refreshAllUI();
+            }
+            break;
+
+        // --- 3. AULAS ---
+        case 'create_class':
+            scheduleData.push({ id: Date.now().toString(), name: p.name, prof: p.prof || 'N/A', room: p.room || 'N/A', day: p.day, start: p.start, end: p.end, color: 'indigo' });
+            saveData();
+            if (currentViewContext === 'aulas') renderSchedule();
+            break;
+
+        case 'delete_class':
+            if (p.name) {
+                scheduleData = scheduleData.filter(c => !c.name.toLowerCase().includes(p.name.toLowerCase()));
+                saveData();
+                if (currentViewContext === 'aulas') renderSchedule();
+            }
+            break;
+
+        // --- 4. CRONÔMETRO ---
         case 'timer_control':
             if (p.action === 'start' && !isRunning1) toggleTimer();
             else if (p.action === 'stop' && isRunning1) toggleTimer();
             else if (p.action === 'reset') resetTimer();
-            if (currentViewContext !== 'pomo') switchPage('pomo'); // Leva para a tela
+            switchPage('pomo');
             break;
 
         case 'timer_set':
-            if (p.mode) {
-                if (p.mode === 'custom' && p.minutes) {
-                    // Simula a função customTimer
-                    stopTimerIfRunning();
-                    currentMode1 = 'custom';
-                    modes1['custom'] = parseInt(p.minutes) * 60;
-                    timeLeft1 = modes1['custom'];
-                    updateTimerDisplay();
-                    const label = document.getElementById('timer-label');
-                    if (label) label.innerText = `${p.minutes} min`;
-                } else {
-                    setTimerMode(p.mode);
-                }
-                if (currentViewContext !== 'pomo') switchPage('pomo');
+            if (p.mode === 'custom' && p.minutes) {
+                stopTimerIfRunning();
+                currentMode1 = 'custom';
+                modes1['custom'] = parseInt(p.minutes) * 60;
+                timeLeft1 = modes1['custom'];
+                updateTimerDisplay();
+                document.getElementById('timer-label').innerText = `${p.minutes} min`;
+            } else {
+                setTimerMode(p.mode);
+            }
+            switchPage('pomo');
+            break;
+
+        // --- 5. CALCULADORA ---
+        case 'fill_calculator':
+            switchPage('calc');
+            const calcC = document.getElementById('grades-container');
+            if (calcC) calcC.innerHTML = '';
+            if (p.grades && Array.isArray(p.grades)) {
+                for (let i = 0; i < p.grades.length; i++) addGradeRow();
+                setTimeout(() => {
+                    const inputs = document.querySelectorAll('.grade-input');
+                    const weights = document.querySelectorAll('.weight-input');
+                    p.grades.forEach((n, i) => { if (inputs[i]) inputs[i].value = n; if (weights[i] && p.weights && p.weights[i]) weights[i].value = p.weights[i]; });
+                    calculateAverage();
+                }, 200);
             }
             break;
 
-        // --- NOTAS ---
+        // --- 6. NOTAS ---
         case 'create_note':
-            const newId = Date.now().toString();
-            notesData.push({
-                id: newId,
-                title: p.title || "Nota da IA",
-                content: p.content || "",
-                updatedAt: Date.now(),
-                pinned: false
-            });
+            const nid = Date.now().toString();
+            notesData.push({ id: nid, title: p.title || "Nota IA", content: p.content || "", updatedAt: Date.now(), pinned: false });
             saveData();
             switchPage('notas');
-            setTimeout(() => openNote(newId), 300);
+            setTimeout(() => openNote(nid), 300);
             break;
 
         case 'delete_note':
@@ -1010,81 +1007,35 @@ async function executeAICommand(cmd) {
             if (p.title && p.text_to_add) {
                 const note = notesData.find(n => n.title.toLowerCase().includes(p.title.toLowerCase()));
                 if (note) {
-                    note.content += `<br><br>${p.text_to_add}`;
+                    note.content += `<br>${p.text_to_add}`;
                     note.updatedAt = Date.now();
                     saveData();
-                    if (activeNoteId === note.id) openNote(note.id); // Atualiza se estiver aberta
                 }
             }
             break;
 
-        // --- AULAS (GRADE) ---
-        case 'create_class':
-            scheduleData.push({
-                id: Date.now().toString(),
-                name: p.name,
-                prof: p.prof || 'N/A',
-                room: p.room || 'N/A',
-                day: p.day,
-                start: p.start,
-                end: p.end,
-                color: 'indigo'
-            });
-            saveData();
-            if (currentViewContext === 'aulas') renderSchedule();
-            break;
-
-        case 'delete_class':
-            if (p.name) {
-                scheduleData = scheduleData.filter(c => !c.name.toLowerCase().includes(p.name.toLowerCase()));
-                saveData();
-                if (currentViewContext === 'aulas') renderSchedule();
-            }
-            break;
-
-        // --- LEMBRETES ---
+        // --- 7. OUTROS ---
         case 'create_reminder':
-            remindersData.push({
-                id: Date.now().toString(),
-                desc: p.desc,
-                date: p.date,
-                prio: p.prio || 'medium',
-                createdAt: Date.now()
-            });
+            remindersData.push({ id: Date.now().toString(), desc: p.desc, date: p.date, prio: p.prio || 'medium', createdAt: Date.now() });
             saveData();
             refreshAllUI();
             break;
 
-        case 'delete_reminder':
-            if (p.desc) {
-                remindersData = remindersData.filter(r => !r.desc.toLowerCase().includes(p.desc.toLowerCase()));
-                saveData();
-                refreshAllUI();
-            }
-            break;
-
-        // --- RESUMO DO DIA (Widget) ---
         case 'set_summary':
-            if (p.text) {
-                updateAIWidget(p.text); // Força o texto da IA no widget
-            }
+            if (p.text) updateAIWidget(p.text);
             break;
 
-        // --- GERAIS ---
         case 'navigate':
             if (p.page) switchPage(p.page);
             break;
 
         case 'generate_template':
             switchPage('email');
-            setTimeout(() => {
-                const area = document.getElementById('email-content');
-                if (area) area.value = p.content;
-            }, 300);
+            setTimeout(() => { const el = document.getElementById('email-content'); if (el) el.value = p.content; }, 300);
             break;
 
         default:
-            console.warn("Comando IA desconhecido:", cmd.action);
+            console.warn("Comando desconhecido:", cmd.action);
     }
 }
 

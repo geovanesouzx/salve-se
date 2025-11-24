@@ -921,87 +921,144 @@ function hideTypingIndicator() {
 // ============================================================
 
 async function executeAICommand(cmd) {
-    console.log("🤖 Executando Comando:", cmd);
+    console.log("🤖 Executando:", cmd.action, cmd.params);
     const p = cmd.params || {};
 
     switch (cmd.action) {
 
-        // --- TAREFAS ---
+        // --- 1. VISUAL & TEMA (AGORA MAIS INTELIGENTE) ---
+        case 'change_theme':
+            // Converte para minúsculo e limpa espaços para entender "Dark", "dark ", "Escuro", etc.
+            const reqMode = (p.mode || '').toLowerCase().trim();
+
+            if (reqMode === 'dark' || reqMode === 'escuro' || reqMode === 'noite' || reqMode === 'ativar') {
+                document.documentElement.classList.add('dark');
+                localStorage.setItem('theme', 'dark');
+                console.log("🌙 Tema escuro ativado");
+            } else {
+                document.documentElement.classList.remove('dark');
+                localStorage.setItem('theme', 'light');
+                console.log("☀️ Tema claro ativado");
+            }
+            break;
+
+        case 'change_color':
+            // Mapeia nomes em português para inglês
+            const colorMap = { 'roxo': 'purple', 'verde': 'green', 'azul': 'indigo', 'rosa': 'pink', 'laranja': 'orange', 'preto': 'black', 'ciano': 'cyan', 'vermelho': 'red', 'amarelo': 'yellow' };
+            let color = (p.color || '').toLowerCase().trim();
+            if (colorMap[color]) color = colorMap[color];
+
+            if (typeof setThemeColor === 'function') {
+                setThemeColor(color);
+            }
+            break;
+
+        case 'toggle_zen_mode':
+            const allWidgets = ['widget-bus', 'widget-tasks', 'widget-quick', 'widget-class', 'widget-reminders', 'widget-ai', 'widget-notes'];
+            if (p.active) {
+                hiddenWidgets = [...allWidgets];
+                saveData();
+                showModal("Modo Zen", "Interface limpa para foco total.");
+            }
+            break;
+
+        // --- 2. TAREFAS ---
         case 'create_task':
-            tasksData.push({
-                id: Date.now().toString(),
-                text: p.text,
-                done: false,
-                priority: p.priority || 'normal',
-                category: 'geral',
-                createdAt: Date.now()
-            });
+            tasksData.push({ id: Date.now().toString(), text: p.text, done: false, priority: p.priority || 'normal', category: 'geral', createdAt: Date.now() });
             saveData();
             if (currentViewContext === 'todo' || currentViewContext === 'home') refreshAllUI();
             break;
 
         case 'delete_task':
             if (p.text) {
-                const initialLen = tasksData.length;
                 tasksData = tasksData.filter(t => !t.text.toLowerCase().includes(p.text.toLowerCase()));
-                if (tasksData.length < initialLen) {
-                    saveData();
-                    refreshAllUI();
-                }
+                saveData();
+                refreshAllUI();
             }
             break;
 
         case 'edit_task':
             if (p.old_text) {
-                const task = tasksData.find(t => t.text.toLowerCase().includes(p.old_text.toLowerCase()));
-                if (task) {
-                    if (p.new_text) task.text = p.new_text;
-                    if (p.done !== undefined) task.done = p.done;
+                const t = tasksData.find(item => item.text.toLowerCase().includes(p.old_text.toLowerCase()));
+                if (t) {
+                    if (p.new_text) t.text = p.new_text;
+                    if (p.done !== undefined) t.done = p.done;
                     saveData();
                     refreshAllUI();
                 }
             }
             break;
 
-        // --- CRONÔMETRO (TIMER) ---
+        case 'bulk_create_tasks':
+            if (p.tasks && Array.isArray(p.tasks)) {
+                p.tasks.forEach(t => tasksData.push({ id: Date.now().toString() + Math.random(), text: t.text, done: false, priority: t.priority || 'normal', category: 'estudo', createdAt: Date.now() }));
+                saveData();
+                refreshAllUI();
+            }
+            break;
+
+        // --- 3. AULAS ---
+        case 'create_class':
+            scheduleData.push({ id: Date.now().toString(), name: p.name, prof: p.prof || 'N/A', room: p.room || 'N/A', day: p.day, start: p.start, end: p.end, color: 'indigo' });
+            saveData();
+            if (currentViewContext === 'aulas') renderSchedule();
+            break;
+
+        case 'delete_class':
+            if (p.name) {
+                scheduleData = scheduleData.filter(c => !c.name.toLowerCase().includes(p.name.toLowerCase()));
+                saveData();
+                if (currentViewContext === 'aulas') renderSchedule();
+            }
+            break;
+
+        // --- 4. CRONÔMETRO ---
         case 'timer_control':
             if (p.action === 'start' && !isRunning1) toggleTimer();
             else if (p.action === 'stop' && isRunning1) toggleTimer();
             else if (p.action === 'reset') resetTimer();
-            if (currentViewContext !== 'pomo') switchPage('pomo'); // Leva para a tela
+            switchPage('pomo');
             break;
 
         case 'timer_set':
             if (p.mode) {
                 if (p.mode === 'custom' && p.minutes) {
-                    // Simula a função customTimer
                     stopTimerIfRunning();
                     currentMode1 = 'custom';
                     modes1['custom'] = parseInt(p.minutes) * 60;
                     timeLeft1 = modes1['custom'];
                     updateTimerDisplay();
-                    const label = document.getElementById('timer-label');
-                    if (label) label.innerText = `${p.minutes} min`;
+                    document.getElementById('timer-label').innerText = `${p.minutes} min`;
                 } else {
                     setTimerMode(p.mode);
                 }
-                if (currentViewContext !== 'pomo') switchPage('pomo');
+                switchPage('pomo');
             }
             break;
 
-        // --- NOTAS ---
+        // --- 5. CALCULADORA ---
+        case 'fill_calculator':
+            switchPage('calc');
+            const calcC = document.getElementById('grades-container');
+            if (calcC) calcC.innerHTML = '';
+            if (p.grades && Array.isArray(p.grades)) {
+                for (let i = 0; i < p.grades.length; i++) addGradeRow();
+                setTimeout(() => {
+                    const inputs = document.querySelectorAll('.grade-input');
+                    const weights = document.querySelectorAll('.weight-input');
+                    p.grades.forEach((n, i) => { if (inputs[i]) inputs[i].value = n; if (weights[i] && p.weights && p.weights[i]) weights[i].value = p.weights[i]; });
+                    calculateAverage();
+                }, 200);
+            }
+            break;
+
+        // --- 6. NOTAS ---
         case 'create_note':
-            const newId = Date.now().toString();
-            notesData.push({
-                id: newId,
-                title: p.title || "Nota da IA",
-                content: p.content || "",
-                updatedAt: Date.now(),
-                pinned: false
-            });
+            const nid = Date.now().toString();
+            notesData.push({ id: nid, title: p.title || "Nota IA", content: p.content || "", updatedAt: Date.now(), pinned: false });
             saveData();
             switchPage('notas');
-            setTimeout(() => openNote(newId), 300);
+            setTimeout(() => openNote(nid), 300);
             break;
 
         case 'delete_note':
@@ -1016,81 +1073,35 @@ async function executeAICommand(cmd) {
             if (p.title && p.text_to_add) {
                 const note = notesData.find(n => n.title.toLowerCase().includes(p.title.toLowerCase()));
                 if (note) {
-                    note.content += `<br><br>${p.text_to_add}`;
+                    note.content += `<br>${p.text_to_add}`;
                     note.updatedAt = Date.now();
                     saveData();
-                    if (activeNoteId === note.id) openNote(note.id); // Atualiza se estiver aberta
                 }
             }
             break;
 
-        // --- AULAS (GRADE) ---
-        case 'create_class':
-            scheduleData.push({
-                id: Date.now().toString(),
-                name: p.name,
-                prof: p.prof || 'N/A',
-                room: p.room || 'N/A',
-                day: p.day,
-                start: p.start,
-                end: p.end,
-                color: 'indigo'
-            });
-            saveData();
-            if (currentViewContext === 'aulas') renderSchedule();
-            break;
-
-        case 'delete_class':
-            if (p.name) {
-                scheduleData = scheduleData.filter(c => !c.name.toLowerCase().includes(p.name.toLowerCase()));
-                saveData();
-                if (currentViewContext === 'aulas') renderSchedule();
-            }
-            break;
-
-        // --- LEMBRETES ---
+        // --- 7. OUTROS ---
         case 'create_reminder':
-            remindersData.push({
-                id: Date.now().toString(),
-                desc: p.desc,
-                date: p.date,
-                prio: p.prio || 'medium',
-                createdAt: Date.now()
-            });
+            remindersData.push({ id: Date.now().toString(), desc: p.desc, date: p.date, prio: p.prio || 'medium', createdAt: Date.now() });
             saveData();
             refreshAllUI();
             break;
 
-        case 'delete_reminder':
-            if (p.desc) {
-                remindersData = remindersData.filter(r => !r.desc.toLowerCase().includes(p.desc.toLowerCase()));
-                saveData();
-                refreshAllUI();
-            }
-            break;
-
-        // --- RESUMO DO DIA (Widget) ---
         case 'set_summary':
-            if (p.text) {
-                updateAIWidget(p.text); // Força o texto da IA no widget
-            }
+            if (p.text) updateAIWidget(p.text);
             break;
 
-        // --- GERAIS ---
         case 'navigate':
             if (p.page) switchPage(p.page);
             break;
 
         case 'generate_template':
             switchPage('email');
-            setTimeout(() => {
-                const area = document.getElementById('email-content');
-                if (area) area.value = p.content;
-            }, 300);
+            setTimeout(() => { const el = document.getElementById('email-content'); if (el) el.value = p.content; }, 300);
             break;
 
         default:
-            console.warn("Comando IA desconhecido:", cmd.action);
+            console.warn("Comando desconhecido:", cmd.action);
     }
 }
 

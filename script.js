@@ -2187,7 +2187,7 @@ window.renderSettings = function () {
         : `<span class="bg-gray-50 text-gray-600 dark:bg-neutral-800 dark:text-gray-400 text-[10px] font-bold px-3 py-1 rounded-full border border-gray-100 dark:border-neutral-700">Grátis</span>`;
 
 
-    // --- LÓGICA DO CARD PREMIUM (SEU MODELO FAVORITO) ---
+    // --- LÓGICA DO CARD PREMIUM (ADAPTÁVEL CLARO/ESCURO) ---
     let subscriptionCardHtml = '';
     let shouldStartTimer = false;
 
@@ -2198,57 +2198,58 @@ window.renderSettings = function () {
         const oneDay = 1000 * 60 * 60 * 24;
         const endFormatted = new Date(userProfile.subscriptionEndDate).toLocaleDateString('pt-BR');
 
-        // Cálculo da barra verde (base 30 dias)
         const totalDays = 30;
         const percent = Math.min(100, Math.max(0, (distance / (oneDay * totalDays)) * 100));
 
         let mainContent = '';
 
         if (distance > oneDay) {
-            // MAIS DE 24H: Mostra dias
+            // MAIS DE 24H
             const daysLeft = Math.ceil(distance / oneDay);
             mainContent = `
                 <div>
-                    <span class="text-4xl font-bold text-white tracking-tight">${daysLeft}</span>
-                    <span class="text-gray-400 text-sm font-medium ml-1">dias restantes</span>
+                    <span class="text-4xl font-bold text-gray-900 dark:text-white tracking-tight">${daysLeft}</span>
+                    <span class="text-gray-500 dark:text-gray-400 text-sm font-medium ml-1">dias restantes</span>
                 </div>
             `;
         } else {
-            // MENOS DE 24H: Mostra Timer
+            // MENOS DE 24H (TIMER)
             shouldStartTimer = true;
             mainContent = `
                 <div>
-                    <div id="premium-countdown" class="text-3xl font-mono font-bold text-red-400 tracking-tight flex items-baseline gap-2">
+                    <div id="premium-countdown" class="text-3xl font-mono font-bold text-red-500 dark:text-red-400 tracking-tight flex items-baseline gap-2">
                         --:--:--
                     </div>
-                    <span class="text-red-400/80 text-[10px] font-bold uppercase tracking-widest animate-pulse">Expirando hoje</span>
+                    <span class="text-red-500/80 dark:text-red-400/80 text-[10px] font-bold uppercase tracking-widest animate-pulse">Expirando hoje</span>
                 </div>
             `;
         }
 
+        // CARD ADAPTÁVEL (bg-white no claro, bg-black no escuro)
         subscriptionCardHtml = `
-            <div class="bg-[#1a1d21] dark:bg-[#0f1113] rounded-2xl p-5 relative overflow-hidden shadow-lg border border-gray-800 group my-6">
-                <div class="absolute right-2 top-2 text-white/5 text-7xl transform rotate-12 pointer-events-none"><i class="fas fa-crown"></i></div>
+            <div class="bg-white dark:bg-[#0f1113] rounded-2xl p-5 relative overflow-hidden shadow-lg border border-gray-200 dark:border-gray-800 group my-6">
+                <div class="absolute right-2 top-2 text-black/5 dark:text-white/5 text-7xl transform rotate-12 pointer-events-none"><i class="fas fa-crown"></i></div>
+                
                 <div class="relative z-10">
                     <div class="flex justify-between items-start mb-4">
                         <div class="flex items-center gap-2">
-                            <i class="fas fa-star text-amber-400 text-base drop-shadow-[0_0_8px_rgba(251,191,36,0.4)]"></i>
-                            <h3 class="text-base font-bold text-amber-400">Premium Ativo</h3>
+                            <i class="fas fa-star text-amber-500 dark:text-amber-400 text-base"></i>
+                            <h3 class="text-base font-bold text-gray-800 dark:text-white">Premium Ativo</h3>
                         </div>
-                        <span class="bg-white/10 text-gray-300 text-[10px] px-2 py-1 rounded-md font-mono border border-white/5">Vence: ${endFormatted}</span>
+                        <span class="bg-gray-100 dark:bg-white/10 text-gray-500 dark:text-gray-300 text-[10px] px-2 py-1 rounded-md font-mono border border-gray-200 dark:border-white/5">Vence: ${endFormatted}</span>
                     </div>
                     
                     ${mainContent}
 
-                    <div class="w-full bg-gray-700/50 rounded-full h-2 mt-4 overflow-hidden">
-                        <div class="bg-gradient-to-r from-green-500 to-emerald-400 h-2 rounded-full transition-all duration-1000 shadow-[0_0_12px_rgba(16,185,129,0.4)]" style="width: ${percent}%"></div>
+                    <div class="w-full bg-gray-100 dark:bg-gray-800 rounded-full h-2 mt-4 overflow-hidden">
+                        <div class="bg-gradient-to-r from-green-500 to-emerald-400 h-2 rounded-full transition-all duration-1000" style="width: ${percent}%"></div>
                     </div>
-                    <p class="text-[9px] text-gray-500 text-right mt-1.5">Renovação necessária ao fim do prazo</p>
+                    <p class="text-[9px] text-gray-400 dark:text-gray-500 text-right mt-1.5">Renovação necessária ao fim do prazo</p>
                 </div>
             </div>
         `;
     } else {
-        // Card de Venda (se não for premium)
+        // CARD DE VENDA (Mantém gradiente pois é Call to Action)
         subscriptionCardHtml = `
             <div onclick="switchPage('premium')" class="group cursor-pointer bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl p-5 text-white shadow-lg my-6 relative overflow-hidden hover:scale-[1.01] transition">
                 <div class="flex justify-between items-center relative z-10">
@@ -2271,6 +2272,7 @@ window.renderSettings = function () {
         const isLocked = !isPremium && !freeColors.includes(color);
         const isSelected = savedColorName === color;
         const content = isSelected ? '<i class="fas fa-check text-white text-[10px]"></i>' : (isLocked ? '<i class="fas fa-lock text-white/50 text-[8px]"></i>' : '');
+
         colorsGridHtml += `
             <button onclick="setThemeColor('${color}')" class="w-8 h-8 rounded-full flex items-center justify-center transition hover:scale-110 shadow-sm ${isSelected ? 'ring-2 ring-gray-400 dark:ring-gray-500 ring-offset-2 dark:ring-offset-darkcard' : ''}" style="background-color: rgb(${rgb})">
                 ${content}
@@ -2279,7 +2281,7 @@ window.renderSettings = function () {
     });
     colorsGridHtml += '</div>';
 
-    // Helper para itens de lista estilo iOS (Melhorado com ícones coloridos)
+    // Helper Listas iOS
     const iOSListItem = (onclick, iconColorBg, iconColorText, iconClass, title, value = "", isLink = true) => `
         <div onclick="${onclick}" class="flex items-center justify-between p-4 ${isLink ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-neutral-800/70' : ''} transition group bg-white dark:bg-darkcard first:rounded-t-2xl last:rounded-b-2xl border-b border-gray-100 dark:border-neutral-800 last:border-b-0">
             <div class="flex items-center gap-3">
@@ -2295,7 +2297,7 @@ window.renderSettings = function () {
         </div>
     `;
 
-    // --- HTML PRINCIPAL (LAYOUT IOS MELHORADO) ---
+    // --- HTML PRINCIPAL ---
     container.innerHTML = `
         <div class="max-w-2xl mx-auto pb-24 px-4 md:px-0 pt-6">
             
@@ -2338,7 +2340,7 @@ window.renderSettings = function () {
                         <div class="w-8 h-8 rounded-md bg-gray-100 dark:bg-neutral-700 text-gray-600 dark:text-gray-300 flex items-center justify-center shadow-sm"><i class="fas fa-moon"></i></div>
                         <span class="text-sm font-medium text-gray-900 dark:text-white">Modo Escuro</span>
                     </div>
-                    <button onclick="toggleTheme()" class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${document.documentElement.classList.contains('dark') ? 'bg-indigo-600' : 'bg-gray-300'}">
+                    <button onclick="toggleTheme()" class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${document.documentElement.classList.contains('dark') ? 'bg-indigo-600' : 'bg-gray-200'}">
                         <span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${document.documentElement.classList.contains('dark') ? 'translate-x-6' : 'translate-x-1'}"></span>
                     </button>
                 </div>
@@ -2371,13 +2373,13 @@ window.renderSettings = function () {
             </div>
 
             <div class="text-center pb-4">
-                <p class="text-[10px] text-gray-400 uppercase font-bold">Salve-se UFRB v4.5</p>
+                <p class="text-[10px] text-gray-400 uppercase font-bold">Salve-se UFRB v4.6</p>
                 <p class="text-[10px] text-gray-300 dark:text-neutral-700 font-mono mt-1">UID: ${currentUser.uid.substring(0, 8)}...</p>
             </div>
         </div>
     `;
 
-    // --- SCRIPT DA CONTAGEM (SÓ RODA SE < 24H) ---
+    // --- SCRIPT DA CONTAGEM (LIVE) ---
     if (isPremium && userProfile.subscriptionEndDate && shouldStartTimer) {
         if (window.premiumInterval) clearInterval(window.premiumInterval);
 

@@ -2173,7 +2173,7 @@ window.renderSettings = function () {
     let dateStr = "N/A";
     if (userProfile.createdAt) {
         const date = new Date(userProfile.createdAt);
-        dateStr = date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+        dateStr = date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
     }
 
     const photoUrl = userProfile.photoURL || "https://files.catbox.moe/pmdtq6.png";
@@ -2182,183 +2182,193 @@ window.renderSettings = function () {
         ? `<video src="${photoUrl}" class="w-full h-full object-cover" autoplay loop muted playsinline></video>`
         : `<img src="${photoUrl}" class="w-full h-full object-cover" onerror="this.src='https://files.catbox.moe/pmdtq6.png'">`;
 
-    const isPremium = isUserPremium();
-    const premiumBadge = isPremium
-        ? `<span class="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-200 dark:border-amber-800 flex items-center gap-1"><i class="fas fa-crown"></i> PRO</span>`
-        : `<span class="bg-gray-100 text-gray-600 dark:bg-neutral-800 dark:text-gray-400 text-[10px] font-bold px-2 py-0.5 rounded-full">GRÁTIS</span>`;
+    const verifiedBadgeSettings = isUserPremium()
+        ? `<i class="fas fa-crown text-amber-500 ml-2 text-2xl drop-shadow-md animate-pulse" title="Membro Premium"></i>`
+        : ``;
 
-    // --- CORES ---
+    // --- LÓGICA DO CARTÃO DE ASSINATURA (COM CONTAGEM) ---
+    let subscriptionCardHtml = '';
+    if (isUserPremium() && userProfile.subscriptionEndDate) {
+        const endFormatted = new Date(userProfile.subscriptionEndDate).toLocaleDateString('pt-BR');
+
+        subscriptionCardHtml = `
+            <div class="bg-gradient-to-br from-gray-900 to-gray-800 dark:from-black dark:to-neutral-900 rounded-2xl p-5 text-white shadow-lg relative overflow-hidden border border-gray-700">
+                <div class="absolute top-0 right-0 p-3 opacity-20"><i class="fas fa-crown text-6xl"></i></div>
+                <div class="relative z-10">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="font-bold text-lg text-amber-400 flex items-center gap-2"><i class="fas fa-star"></i> Premium Ativo</h3>
+                        <span class="text-xs font-mono bg-white/10 px-2 py-1 rounded">Vence: ${endFormatted}</span>
+                    </div>
+                    
+                    <div class="bg-black/30 rounded-xl p-3 border border-white/10 backdrop-blur-sm mb-4">
+                        <p class="text-[10px] text-gray-400 uppercase tracking-widest text-center mb-1">Tempo Restante</p>
+                        <div id="premium-countdown" class="text-center font-mono text-xl md:text-2xl font-bold text-white tracking-tight flex justify-center gap-2">
+                            --d --h --m --s
+                        </div>
+                    </div>
+
+                    <div class="w-full bg-gray-700 rounded-full h-2.5 mb-2 overflow-hidden">
+                        <div class="bg-indigo-500 h-2.5 rounded-full transition-all duration-1000 shadow-[0_0_10px_rgba(255,255,255,0.3)]" style="width: ${Math.min(100, ((new Date(userProfile.subscriptionEndDate) - new Date()) / (1000 * 60 * 60 * 24 * 30)) * 100)}%"></div>
+                    </div>
+                    <p class="text-xs text-gray-400 text-right">Renovação necessária ao fim do prazo</p>
+                </div>
+            </div>
+        `;
+    } else {
+        subscriptionCardHtml = `
+            <div onclick="switchPage('premium')" class="cursor-pointer bg-white dark:bg-darkcard border border-indigo-200 dark:border-indigo-900/50 rounded-2xl p-5 shadow-sm relative overflow-hidden group">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 class="font-bold text-gray-900 dark:text-white text-lg">Plano Grátis</h3>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">Faça o upgrade para desbloquear tudo.</p>
+                    </div>
+                    <div class="w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition">
+                        <i class="fas fa-arrow-right"></i>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    // --- GERAÇÃO DAS CORES (Mantendo a correção do Check) ---
     const freeColors = ['indigo', 'cyan', 'green'];
+    let colorsGridHtml = '<div class="grid grid-cols-5 gap-3">';
     const savedColorName = localStorage.getItem('salvese_color_name') || 'indigo';
-    let colorsGridHtml = '<div class="flex flex-wrap gap-3 justify-center py-2">';
 
     Object.keys(colorPalettes).forEach(color => {
         const rgb = colorPalettes[color][500];
-        const isLocked = !isPremium && !freeColors.includes(color);
+        const isLocked = !isUserPremium() && !freeColors.includes(color);
+        const lockIcon = isLocked ? '<i class="fas fa-lock text-white/70 text-[10px]"></i>' : '';
         const isSelected = savedColorName === color;
-        const content = isSelected ? '<i class="fas fa-check text-white text-xs"></i>' : (isLocked ? '<i class="fas fa-lock text-white/50 text-[8px]"></i>' : '');
-        const ring = isSelected ? 'ring-2 ring-offset-2 ring-gray-400 dark:ring-gray-600' : '';
+        const checkIcon = isSelected ? '<i class="fas fa-check text-white text-xs font-bold"></i>' : lockIcon;
+        const ringClass = isSelected ? 'ring-2 ring-offset-2 ring-gray-400 dark:ring-gray-500' : 'ring-transparent';
 
         colorsGridHtml += `
-            <button onclick="setThemeColor('${color}')" class="w-8 h-8 rounded-full flex items-center justify-center transition hover:scale-110 shadow-sm ${ring} ring-offset-white dark:ring-offset-darkcard" style="background-color: rgb(${rgb})">
-                ${content}
+            <button onclick="setThemeColor('${color}')" class="w-10 h-10 rounded-full flex items-center justify-center transition transform hover:scale-110 shadow-sm ${ringClass} ring-offset-white dark:ring-offset-darkcard" style="background-color: rgb(${rgb})">
+                ${checkIcon}
             </button>
         `;
     });
     colorsGridHtml += '</div>';
 
-    // --- HTML DA PÁGINA ---
+    // Helper de cards (Estilo Original com Chevron)
+    const createActionCard = (onclick, svgIcon, title, subtitle, colorClass = "text-gray-500 group-hover:text-indigo-500") => `
+        <button onclick="${onclick}" class="group w-full bg-white dark:bg-darkcard border border-gray-100 dark:border-darkborder p-4 rounded-2xl flex items-center justify-between hover:border-indigo-500 dark:hover:border-indigo-500 hover:shadow-md transition-all duration-200 mb-3 text-left">
+            <div class="flex items-center gap-4">
+                <div class="w-10 h-10 rounded-full bg-gray-50 dark:bg-neutral-800 flex items-center justify-center ${colorClass} transition-colors">
+                    ${svgIcon}
+                </div>
+                <div>
+                    <p class="font-bold text-gray-800 dark:text-gray-200 text-sm">${title}</p>
+                    <p class="text-xs text-gray-400 dark:text-gray-500">${subtitle}</p>
+                </div>
+            </div>
+            <div class="text-gray-300 dark:text-neutral-700 group-hover:text-indigo-500 transition-colors">
+                ${svgs.chevron}
+            </div>
+        </button>
+    `;
+
+    // --- HTML DA PÁGINA (LAYOUT ORIGINAL) ---
     container.innerHTML = `
-        <div class="max-w-2xl mx-auto pb-24 px-4 md:px-0 pt-4">
+        <div class="max-w-2xl mx-auto w-full pb-24 space-y-6">
             
-            <div class="flex flex-col items-center mb-8">
-                <div class="relative group cursor-pointer" onclick="changePhoto()">
-                    <div class="w-24 h-24 rounded-full overflow-hidden border-4 border-white dark:border-neutral-800 shadow-lg">
-                        ${mediaHtml}
+            <div class="bg-white dark:bg-darkcard rounded-3xl shadow-sm border border-gray-200 dark:border-darkborder p-6 md:p-8 flex flex-col items-center text-center relative overflow-hidden">
+                 <div class="absolute top-0 left-0 w-full h-24 bg-gradient-to-r from-indigo-500 to-purple-600 opacity-10 dark:opacity-20 transition-colors duration-500" style="background: linear-gradient(to right, rgb(var(--theme-500)), rgb(var(--theme-700))) opacity: 0.1;"></div>
+                 
+                 <div class="relative group mb-4 mt-4">
+                    <div class="w-28 h-28 rounded-full overflow-hidden p-1 border-4 border-white dark:border-darkcard shadow-lg relative z-10 bg-white dark:bg-darkcard">
+                        <div class="w-full h-full rounded-full overflow-hidden relative">
+                            ${mediaHtml}
+                        </div>
                     </div>
-                    <div class="absolute inset-0 bg-black/30 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
-                        <i class="fas fa-camera text-white"></i>
-                    </div>
-                    <div class="absolute bottom-0 right-0 bg-indigo-600 text-white w-8 h-8 rounded-full flex items-center justify-center border-4 border-gray-50 dark:border-darkbg shadow-sm">
-                        <i class="fas fa-pen text-xs"></i>
+                    <div id="btn-change-photo-settings" class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition rounded-full flex items-center justify-center cursor-pointer m-1 z-20" onclick="changePhoto()">
+                        <i class="fas fa-camera text-white text-2xl"></i>
                     </div>
                 </div>
-                
-                <div class="mt-3 text-center">
-                    <h2 class="text-xl font-bold text-gray-900 dark:text-white flex items-center justify-center gap-2">
+
+                <div class="flex items-center justify-center gap-2 mb-0.5">
+                    <h2 class="text-2xl font-black text-gray-900 dark:text-white tracking-tight">
                         ${userProfile.displayName}
-                        ${isPremium ? '<i class="fas fa-check-circle text-blue-500 text-sm"></i>' : ''}
                     </h2>
-                    <p class="text-gray-500 dark:text-gray-400 text-sm">@${userProfile.handle}</p>
-                    <div class="flex justify-center gap-2 mt-2">
-                        ${premiumBadge}
-                        <span class="bg-indigo-50 text-indigo-600 dark:bg-indigo-900/20 dark:text-indigo-400 text-[10px] font-bold px-2 py-0.5 rounded-full">LVL ${userProfile.level || 1}</span>
+                    ${verifiedBadgeSettings}
+                </div>
+
+                <p class="text-indigo-600 dark:text-indigo-400 font-bold text-sm mb-4 bg-indigo-50 dark:bg-indigo-900/20 px-3 py-1 rounded-full">@${userProfile.handle}</p>
+                
+                <div class="grid grid-cols-2 gap-4 w-full max-w-sm mt-2">
+                    <div class="bg-gray-50 dark:bg-neutral-800/50 p-3 rounded-xl">
+                         <p class="text-xs text-gray-400 uppercase font-bold mb-1">Semestre</p>
+                         <p class="font-bold text-gray-800 dark:text-white">${userProfile.semester || 'N/A'}</p>
+                    </div>
+                    <div class="bg-gray-50 dark:bg-neutral-800/50 p-3 rounded-xl">
+                         <p class="text-xs text-gray-400 uppercase font-bold mb-1">Membro Desde</p>
+                         <p class="font-bold text-gray-800 dark:text-white">${dateStr.split(' de ')[2] || dateStr}</p>
                     </div>
                 </div>
             </div>
 
-            <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 ml-2">Minha Conta</h3>
-            <div class="bg-white dark:bg-darkcard rounded-2xl shadow-sm border border-gray-200 dark:border-darkborder overflow-hidden mb-6">
-                <div onclick="editName()" class="flex items-center justify-between p-4 border-b border-gray-100 dark:border-neutral-800 cursor-pointer hover:bg-gray-50 dark:hover:bg-neutral-800/50 transition">
-                    <div class="flex items-center gap-3">
-                        <div class="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600 flex items-center justify-center"><i class="fas fa-user"></i></div>
-                        <span class="text-sm font-medium text-gray-700 dark:text-gray-200">Nome de Exibição</span>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <span class="text-xs text-gray-400">${userProfile.displayName}</span>
-                        <i class="fas fa-chevron-right text-gray-300 text-xs"></i>
-                    </div>
-                </div>
-                <div onclick="editHandle()" class="flex items-center justify-between p-4 border-b border-gray-100 dark:border-neutral-800 cursor-pointer hover:bg-gray-50 dark:hover:bg-neutral-800/50 transition">
-                    <div class="flex items-center gap-3">
-                        <div class="w-8 h-8 rounded-lg bg-purple-100 dark:bg-purple-900/30 text-purple-600 flex items-center justify-center"><i class="fas fa-at"></i></div>
-                        <span class="text-sm font-medium text-gray-700 dark:text-gray-200">Nome de Usuário</span>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <span class="text-xs text-gray-400">@${userProfile.handle}</span>
-                        <i class="fas fa-chevron-right text-gray-300 text-xs"></i>
-                    </div>
-                </div>
-                <div onclick="editSemester()" class="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-neutral-800/50 transition">
-                    <div class="flex items-center gap-3">
-                        <div class="w-8 h-8 rounded-lg bg-orange-100 dark:bg-orange-900/30 text-orange-600 flex items-center justify-center"><i class="fas fa-graduation-cap"></i></div>
-                        <span class="text-sm font-medium text-gray-700 dark:text-gray-200">Semestre Atual</span>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <span class="text-xs text-gray-400">${userProfile.semester || 'Não definido'}</span>
-                        <i class="fas fa-chevron-right text-gray-300 text-xs"></i>
-                    </div>
-                </div>
-            </div>
-
-            <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 ml-2">Aparência</h3>
-            <div class="bg-white dark:bg-darkcard rounded-2xl shadow-sm border border-gray-200 dark:border-darkborder overflow-hidden mb-6 p-4">
-                <div class="flex items-center justify-between mb-4">
-                    <div class="flex items-center gap-3">
-                        <div class="w-8 h-8 rounded-lg bg-gray-100 dark:bg-neutral-700 text-gray-600 dark:text-gray-300 flex items-center justify-center"><i class="fas fa-moon"></i></div>
-                        <span class="text-sm font-medium text-gray-700 dark:text-gray-200">Modo Escuro</span>
-                    </div>
-                    <button onclick="toggleTheme()" class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${document.documentElement.classList.contains('dark') ? 'bg-green-500' : 'bg-gray-200'}">
+            <div class="bg-white dark:bg-darkcard rounded-2xl border border-gray-200 dark:border-darkborder p-5 shadow-sm">
+                <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                    <i class="fas fa-paint-brush"></i> Personalização
+                </h3>
+                
+                <div class="flex items-center justify-between mb-6">
+                    <span class="text-sm font-bold text-gray-700 dark:text-gray-300">Modo Escuro</span>
+                    <button onclick="toggleTheme()" class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${document.documentElement.classList.contains('dark') ? 'bg-indigo-600' : 'bg-gray-200'}">
                         <span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${document.documentElement.classList.contains('dark') ? 'translate-x-6' : 'translate-x-1'}"></span>
                     </button>
                 </div>
-                <div class="border-t border-gray-100 dark:border-neutral-800 pt-4">
-                    <p class="text-xs text-gray-500 mb-3 font-medium">Cor do Tema</p>
+
+                <div class="space-y-3">
+                    <p class="text-sm font-bold text-gray-700 dark:text-gray-300">Cor de Destaque</p>
                     ${colorsGridHtml}
+                    <p class="text-[10px] text-gray-400 mt-2">* Algumas cores são exclusivas Premium.</p>
                 </div>
             </div>
 
-            <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 ml-2">Plano</h3>
-            ${isPremium ? `
-                <div class="bg-gradient-to-br from-gray-900 to-black rounded-2xl p-5 text-white shadow-lg mb-6 relative overflow-hidden border border-gray-700">
-                    <div class="absolute right-0 top-0 opacity-10 text-6xl transform translate-x-2 -translate-y-2"><i class="fas fa-crown"></i></div>
-                    
-                    <div class="relative z-10">
-                        <div class="flex justify-between items-start">
-                            <h4 class="font-bold text-lg mb-1 flex items-center gap-2 text-amber-400"><i class="fas fa-star"></i> Premium Ativo</h4>
-                            <span class="bg-white/10 text-[10px] px-2 py-1 rounded font-mono">Renova em: ${new Date(userProfile.subscriptionEndDate).getDate()}</span>
-                        </div>
-                        
-                        <p class="text-xs text-gray-400 mb-6">Todos os recursos estão liberados.</p>
-                        
-                        <div class="bg-white/5 rounded-xl p-3 border border-white/10 backdrop-blur-sm">
-                            <p class="text-[10px] text-gray-400 uppercase tracking-widest text-center mb-1">Tempo Restante</p>
-                            <div id="premium-countdown" class="text-center font-mono text-xl md:text-2xl font-bold text-white tracking-tight flex justify-center gap-2">
-                                --d --h --m --s
-                            </div>
-                        </div>
+            <div>
+                <h3 class="px-4 text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Sua Assinatura</h3>
+                ${subscriptionCardHtml}
+            </div>
 
-                        <div class="w-full bg-gray-800 rounded-full h-1 mt-4">
-                            <div class="bg-gradient-to-r from-amber-400 to-orange-600 h-1 rounded-full transition-all duration-1000" style="width: ${Math.min(100, ((new Date(userProfile.subscriptionEndDate) - new Date()) / (1000 * 60 * 60 * 24 * 30)) * 100)}%"></div>
+            <div>
+                <h3 class="px-4 text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Gerenciar Conta</h3>
+                ${createActionCard('changePhoto()', svgs.photo, 'Foto de Perfil', 'Atualize sua imagem ou vídeo')}
+                ${createActionCard('editName()', svgs.user, 'Nome de Exibição', 'Como seu nome aparece no app')}
+                ${createActionCard('editHandle()', svgs.at, 'Nome de Usuário', 'Seu identificador único @handle')}
+                ${createActionCard('editSemester()', svgs.school, 'Semestre Atual', 'Para organizar suas matérias')}
+            </div>
+            
+            <div>
+                 <h3 class="px-4 text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Interface</h3>
+                 ${createActionCard("switchPage('ocultos')", `<i class="fas fa-eye-slash"></i>`, 'Widgets Ocultos', 'Gerenciar itens escondidos da tela inicial')}
+            </div>
+
+            <div>
+                <h3 class="px-4 text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Segurança & Dados</h3>
+                ${createActionCard('changePassword()', svgs.lock, 'Redefinir Senha', 'Receba um e-mail para trocar a senha')}
+                ${createActionCard('manualBackup()', svgs.cloud, 'Backup Manual', 'Forçar sincronização com a nuvem')}
+                
+                <button onclick="logoutApp()" class="group w-full bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/30 p-4 rounded-2xl flex items-center justify-between hover:bg-red-100 dark:hover:bg-red-900/20 transition-all duration-200 text-left mt-4">
+                    <div class="flex items-center gap-4">
+                        <div class="w-10 h-10 rounded-full bg-white dark:bg-red-900/20 flex items-center justify-center text-red-500">
+                            ${svgs.logout}
                         </div>
-                    </div>
-                </div>
-            ` : `
-                <div onclick="switchPage('premium')" class="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl p-5 text-white shadow-lg mb-6 cursor-pointer hover:scale-[1.02] transition group">
-                    <div class="flex justify-between items-center">
                         <div>
-                            <h4 class="font-bold text-lg">Seja Premium 👑</h4>
-                            <p class="text-xs text-indigo-100 group-hover:text-white transition">Desbloqueie IA Gemini, Temas e mais.</p>
+                            <p class="font-bold text-red-600 dark:text-red-400 text-sm">Sair da Conta</p>
+                            <p class="text-xs text-red-400 dark:text-red-500/70">Encerrar sessão neste dispositivo</p>
                         </div>
-                        <div class="bg-white/20 w-8 h-8 rounded-full flex items-center justify-center"><i class="fas fa-arrow-right"></i></div>
                     </div>
-                </div>
-            `}
-
-            <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 ml-2">Sistema</h3>
-            <div class="bg-white dark:bg-darkcard rounded-2xl shadow-sm border border-gray-200 dark:border-darkborder overflow-hidden mb-8">
-                <div onclick="switchPage('ocultos')" class="flex items-center justify-between p-4 border-b border-gray-100 dark:border-neutral-800 cursor-pointer hover:bg-gray-50 dark:hover:bg-neutral-800/50 transition">
-                    <div class="flex items-center gap-3">
-                        <div class="w-8 h-8 rounded-lg bg-teal-100 dark:bg-teal-900/30 text-teal-600 flex items-center justify-center"><i class="fas fa-eye-slash"></i></div>
-                        <span class="text-sm font-medium text-gray-700 dark:text-gray-200">Widgets Ocultos</span>
+                    <div class="text-red-300 dark:text-red-800">
+                        ${svgs.chevron}
                     </div>
-                    <i class="fas fa-chevron-right text-gray-300 text-xs"></i>
-                </div>
-                <div onclick="manualBackup()" class="flex items-center justify-between p-4 border-b border-gray-100 dark:border-neutral-800 cursor-pointer hover:bg-gray-50 dark:hover:bg-neutral-800/50 transition">
-                    <div class="flex items-center gap-3">
-                        <div class="w-8 h-8 rounded-lg bg-gray-100 dark:bg-neutral-700 text-gray-600 flex items-center justify-center"><i class="fas fa-cloud-upload-alt"></i></div>
-                        <span class="text-sm font-medium text-gray-700 dark:text-gray-200">Backup Manual</span>
-                    </div>
-                    <i class="fas fa-chevron-right text-gray-300 text-xs"></i>
-                </div>
-                <div onclick="changePassword()" class="flex items-center justify-between p-4 border-b border-gray-100 dark:border-neutral-800 cursor-pointer hover:bg-gray-50 dark:hover:bg-neutral-800/50 transition">
-                    <div class="flex items-center gap-3">
-                        <div class="w-8 h-8 rounded-lg bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 flex items-center justify-center"><i class="fas fa-lock"></i></div>
-                        <span class="text-sm font-medium text-gray-700 dark:text-gray-200">Redefinir Senha</span>
-                    </div>
-                    <i class="fas fa-chevron-right text-gray-300 text-xs"></i>
-                </div>
-                <div onclick="logoutApp()" class="flex items-center justify-between p-4 cursor-pointer hover:bg-red-50 dark:hover:bg-red-900/10 transition group">
-                    <div class="flex items-center gap-3">
-                        <div class="w-8 h-8 rounded-lg bg-red-100 dark:bg-red-900/30 text-red-600 flex items-center justify-center group-hover:bg-red-200 transition"><i class="fas fa-sign-out-alt"></i></div>
-                        <span class="text-sm font-medium text-red-600 dark:text-red-400">Sair da Conta</span>
-                    </div>
-                </div>
+                </button>
             </div>
 
-            <div class="text-center pb-4">
-                <p class="text-[10px] text-gray-400 uppercase font-bold">Salve-se UFRB v4.3</p>
-                <p class="text-[10px] text-gray-300 dark:text-neutral-700 font-mono mt-1">UID: ${currentUser.uid.substring(0, 6)}...</p>
+            <div class="text-center pt-4 pb-8">
+                 <p class="text-xs text-gray-300 dark:text-gray-600 font-mono">ID: ${currentUser.uid.substring(0, 8)}...</p>
+                 <p class="text-xs text-gray-300 dark:text-gray-600 mt-1">Salve-se UFRB v4.3</p>
             </div>
         </div>
     `;

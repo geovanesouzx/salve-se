@@ -1368,42 +1368,50 @@ function initRealtimeSync(uid) {
 }
 
 function updateUserInterfaceInfo() {
+    // --- Elementos Desktop ---
     const nameDisplay = document.getElementById('user-display-name');
     const handleDisplay = document.getElementById('user-display-id');
     const container = document.getElementById('sidebar-avatar-container');
-
-    // --- NOVO: Elementos de XP ---
     const levelBadge = document.getElementById('user-level-badge');
     const xpBar = document.getElementById('user-xp-bar');
     const xpText = document.getElementById('user-xp-text');
+
+    // --- Elementos Mobile (NOVOS) ---
+    const mobileName = document.getElementById('mobile-user-display-name');
+    const mobileContainer = document.getElementById('mobile-avatar-container');
+    const mobileLevelBadge = document.getElementById('mobile-user-level-badge');
+    const mobileXpBar = document.getElementById('mobile-user-xp-bar');
+    const mobileXpText = document.getElementById('mobile-user-xp-text');
 
     if (userProfile) {
         // 1. Garante valores padrão
         if (!userProfile.xp) userProfile.xp = 0;
         if (!userProfile.level) userProfile.level = 1;
 
-        // 2. Calcula progresso (Cada nível requer Nível atual * 100 XP)
+        // 2. Calcula progresso
         const xpToNextLevel = userProfile.level * 100;
         const xpPercentage = Math.min(100, (userProfile.xp / xpToNextLevel) * 100);
+        const levelText = `LVL ${userProfile.level}`;
+        const xpString = `${Math.floor(userProfile.xp)}/${xpToNextLevel} XP`;
 
-        // 3. Atualiza a tela
-        if (levelBadge) levelBadge.innerText = `LVL ${userProfile.level}`;
-        if (xpText) xpText.innerText = `${Math.floor(userProfile.xp)}/${xpToNextLevel} XP`;
+        // 3. Ícone Premium
+        const verifiedBadge = `<i class="fas fa-crown text-amber-500 ml-2 drop-shadow-sm text-xs" title="Membro Premium"></i>`;
+        const displayNameHtml = isUserPremium() ? `${userProfile.displayName} ${verifiedBadge}` : userProfile.displayName;
+
+        // --- ATUALIZA DESKTOP ---
+        if (levelBadge) levelBadge.innerText = levelText;
+        if (xpText) xpText.innerText = xpString;
         if (xpBar) xpBar.style.width = `${xpPercentage}%`;
-
-        // --- Código antigo (Nome e Premium) ---
-        if (nameDisplay) {
-            const verifiedBadge = `<i class="fas fa-crown text-amber-500 ml-2 drop-shadow-sm text-xs" title="Membro Premium"></i>`;
-            if (isUserPremium()) {
-                nameDisplay.innerHTML = `${userProfile.displayName} ${verifiedBadge}`;
-            } else {
-                nameDisplay.innerText = userProfile.displayName;
-            }
-        }
+        if (nameDisplay) nameDisplay.innerHTML = displayNameHtml;
         if (handleDisplay) handleDisplay.innerText = "@" + userProfile.handle;
-        if (container && userProfile.photoURL) {
-            renderMediaInContainer("sidebar-avatar-container", userProfile.photoURL);
-        }
+        if (container && userProfile.photoURL) renderMediaInContainer("sidebar-avatar-container", userProfile.photoURL);
+
+        // --- ATUALIZA MOBILE ---
+        if (mobileLevelBadge) mobileLevelBadge.innerText = levelText;
+        if (mobileXpText) mobileXpText.innerText = xpString;
+        if (mobileXpBar) mobileXpBar.style.width = `${xpPercentage}%`;
+        if (mobileName) mobileName.innerHTML = displayNameHtml;
+        if (mobileContainer && userProfile.photoURL) renderMediaInContainer("mobile-avatar-container", userProfile.photoURL);
     }
 }
 

@@ -411,6 +411,7 @@ window.switchPage = function (pageId, addToHistory = true) {
 
     // --- NOVAS RENDERIZAÇÕES ---
     if (pageId === 'financeiro' && window.renderFinance) window.renderFinance();
+    if (pageId === 'feedback' && window.renderFeedbackPage) window.renderFeedbackPage();
     if (pageId === 'sounds') {
         // Trava de segurança extra ao tentar abrir a página direto
         if (!requirePremium('Sons de Foco')) return;
@@ -4852,5 +4853,172 @@ window.toggleSound = function (type) {
         audio.play();
         card.classList.add('border-indigo-500', 'ring-2', 'ring-indigo-500/50');
         currentSound = type;
+    }
+}
+
+// ============================================================
+// --- NOVA TELA DE FEEDBACK (PREMIUM UI) ---
+// ============================================================
+
+// Variável global para guardar a escolha do usuário
+let selectedFeedbackType = { value: 'suggestion', label: 'Sugestão / Ideia', icon: 'fa-lightbulb', color: 'text-yellow-500', bg: 'bg-yellow-100 dark:bg-yellow-900/20' };
+
+window.renderFeedbackPage = function() {
+    const container = document.getElementById('view-feedback');
+    if (!container) return;
+
+    container.innerHTML = `
+        <div class="max-w-2xl mx-auto pb-24 px-4 pt-6 h-full flex flex-col">
+            
+            <div class="text-center mb-8">
+                <div class="w-16 h-16 mx-auto bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/30 mb-4 transform -rotate-6">
+                    <i class="fas fa-comment-dots text-3xl text-white"></i>
+                </div>
+                <h1 class="text-2xl font-black text-gray-900 dark:text-white">Central de Feedback</h1>
+                <p class="text-gray-500 dark:text-gray-400 text-sm mt-1">Sua opinião constrói o Salve-se UFRB.</p>
+            </div>
+
+            <div class="bg-white dark:bg-darkcard rounded-2xl p-1 shadow-sm border border-gray-200 dark:border-darkborder mb-6">
+                <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider ml-4 mt-3 mb-1">Tipo de Mensagem</label>
+                
+                <button onclick="openFeedbackSelector()" class="w-full flex items-center justify-between p-4 rounded-xl hover:bg-gray-50 dark:hover:bg-neutral-800 transition group">
+                    <div class="flex items-center gap-4">
+                        <div id="fb-selected-icon" class="w-12 h-12 rounded-xl ${selectedFeedbackType.bg} ${selectedFeedbackType.color} flex items-center justify-center text-xl shadow-sm transition-colors duration-300">
+                            <i class="fas ${selectedFeedbackType.icon}"></i>
+                        </div>
+                        <div class="text-left">
+                            <p id="fb-selected-label" class="font-bold text-gray-800 dark:text-white text-lg transition-all">${selectedFeedbackType.label}</p>
+                            <p class="text-xs text-gray-400">Toque para alterar</p>
+                        </div>
+                    </div>
+                    <div class="w-8 h-8 rounded-full bg-gray-100 dark:bg-neutral-700 flex items-center justify-center text-gray-400 group-hover:text-indigo-500 group-hover:scale-110 transition">
+                        <i class="fas fa-chevron-right text-xs"></i>
+                    </div>
+                </button>
+            </div>
+
+            <div class="flex-1 flex flex-col">
+                <div class="bg-white dark:bg-darkcard rounded-2xl shadow-sm border border-gray-200 dark:border-darkborder p-4 flex-1 flex flex-col mb-6 focus-within:ring-2 focus-within:ring-indigo-500/50 transition-all duration-300">
+                    <textarea id="feedback-message" 
+                        class="w-full h-full bg-transparent border-none outline-none resize-none text-gray-800 dark:text-gray-200 placeholder-gray-400 leading-relaxed"
+                        placeholder="Escreva aqui com detalhes... Se for um erro, conte como aconteceu. Se for uma ideia, explique como ajudaria!"
+                    ></textarea>
+                </div>
+
+                <button onclick="sendFeedback()" id="btn-send-feedback" class="w-full py-4 bg-gray-900 dark:bg-white text-white dark:text-black font-bold rounded-xl shadow-lg hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2">
+                    <span>Enviar Mensagem</span>
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </div>
+        </div>
+
+        <div id="feedback-selector-modal" class="fixed inset-0 z-[60] hidden">
+            <div class="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity opacity-0" id="fb-modal-bg" onclick="closeFeedbackSelector()"></div>
+            <div class="absolute bottom-0 left-0 right-0 bg-white dark:bg-neutral-900 rounded-t-[2rem] p-6 transform translate-y-full transition-transform duration-300" id="fb-modal-content">
+                <div class="w-12 h-1.5 bg-gray-300 dark:bg-neutral-700 rounded-full mx-auto mb-6"></div>
+                <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-6 px-2">Sobre o que você quer falar?</h3>
+                <div class="grid grid-cols-1 gap-3 pb-8">
+                    ${createFeedbackOption('suggestion', 'Sugestão / Ideia', 'Tenho uma ideia para o app', 'fa-lightbulb', 'text-yellow-500', 'bg-yellow-100 dark:bg-yellow-900/20')}
+                    ${createFeedbackOption('bug', 'Reportar Erro (Bug)', 'Algo não está funcionando', 'fa-bug', 'text-red-500', 'bg-red-100 dark:bg-red-900/20')}
+                    ${createFeedbackOption('praise', 'Elogio', 'Quero mandar um biscoito 🍪', 'fa-heart', 'text-pink-500', 'bg-pink-100 dark:bg-pink-900/20')}
+                    ${createFeedbackOption('other', 'Outro Assunto', 'Dúvidas ou parcerias', 'fa-comment', 'text-blue-500', 'bg-blue-100 dark:bg-blue-900/20')}
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function createFeedbackOption(value, title, subtitle, icon, color, bg) {
+    const isSelected = selectedFeedbackType.value === value;
+    const borderClass = isSelected ? 'border-indigo-500 ring-1 ring-indigo-500 bg-indigo-50 dark:bg-indigo-900/20' : 'border-gray-100 dark:border-neutral-800';
+    
+    return `
+        <button onclick="selectFeedbackType('${value}', '${title}', '${icon}', '${color}', '${bg}')" 
+            class="flex items-center gap-4 p-4 rounded-2xl border ${borderClass} hover:bg-gray-50 dark:hover:bg-neutral-800 transition text-left group">
+            <div class="w-12 h-12 rounded-xl ${bg} ${color} flex items-center justify-center text-xl shadow-sm group-hover:scale-110 transition-transform">
+                <i class="fas ${icon}"></i>
+            </div>
+            <div>
+                <p class="font-bold text-gray-800 dark:text-white">${title}</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400">${subtitle}</p>
+            </div>
+            ${isSelected ? '<i class="fas fa-check-circle text-indigo-500 text-xl ml-auto"></i>' : ''}
+        </button>
+    `;
+}
+
+window.openFeedbackSelector = function() {
+    const modal = document.getElementById('feedback-selector-modal');
+    const bg = document.getElementById('fb-modal-bg');
+    const content = document.getElementById('fb-modal-content');
+    modal.classList.remove('hidden');
+    setTimeout(() => { bg.classList.remove('opacity-0'); content.classList.remove('translate-y-full'); }, 10);
+}
+
+window.closeFeedbackSelector = function() {
+    const modal = document.getElementById('feedback-selector-modal');
+    const bg = document.getElementById('fb-modal-bg');
+    const content = document.getElementById('fb-modal-content');
+    bg.classList.add('opacity-0'); content.classList.add('translate-y-full');
+    setTimeout(() => { modal.classList.add('hidden'); }, 300);
+}
+
+window.selectFeedbackType = function(value, label, icon, color, bg) {
+    selectedFeedbackType = { value, label, icon, color, bg };
+    const iconEl = document.getElementById('fb-selected-icon');
+    const labelEl = document.getElementById('fb-selected-label');
+    
+    iconEl.className = `w-12 h-12 rounded-xl ${bg} ${color} flex items-center justify-center text-xl shadow-sm transition-colors duration-300`;
+    iconEl.innerHTML = `<i class="fas ${icon}"></i>`;
+    labelEl.innerText = label;
+    
+    closeFeedbackSelector();
+    setTimeout(() => {
+        const modalList = document.querySelector('#fb-modal-content .grid');
+        if(modalList) {
+            modalList.innerHTML = `
+                ${createFeedbackOption('suggestion', 'Sugestão / Ideia', 'Tenho uma ideia para o app', 'fa-lightbulb', 'text-yellow-500', 'bg-yellow-100 dark:bg-yellow-900/20')}
+                ${createFeedbackOption('bug', 'Reportar Erro (Bug)', 'Algo não está funcionando', 'fa-bug', 'text-red-500', 'bg-red-100 dark:bg-red-900/20')}
+                ${createFeedbackOption('praise', 'Elogio', 'Quero mandar um biscoito 🍪', 'fa-heart', 'text-pink-500', 'bg-pink-100 dark:bg-pink-900/20')}
+                ${createFeedbackOption('other', 'Outro Assunto', 'Dúvidas ou parcerias', 'fa-comment', 'text-blue-500', 'bg-blue-100 dark:bg-blue-900/20')}
+            `;
+        }
+    }, 300);
+}
+
+window.sendFeedback = async function () {
+    const messageInput = document.getElementById('feedback-message');
+    const btn = document.getElementById('btn-send-feedback');
+    const message = messageInput.value.trim();
+
+    if (!message) return showModal("Atenção", "Por favor, escreva sua mensagem antes de enviar.");
+    if (!currentUser) return showModal("Erro", "Faça login para enviar feedback.");
+
+    const originalHTML = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Enviando...';
+    btn.disabled = true;
+
+    try {
+        await addDoc(collection(db, "feedbacks"), {
+            uid: currentUser.uid,
+            email: userProfile.email || currentUser.email,
+            name: userProfile.displayName,
+            type: selectedFeedbackType.value,
+            typeName: selectedFeedbackType.label,
+            message: message,
+            date: new Date().toISOString(),
+            device: navigator.userAgent
+        });
+
+        showModal("Recebido! 🚀", "Obrigado pelo seu feedback. Lemos todas as mensagens!");
+        messageInput.value = '';
+        selectFeedbackType('suggestion', 'Sugestão / Ideia', 'fa-lightbulb', 'text-yellow-500', 'bg-yellow-100 dark:bg-yellow-900/20');
+
+    } catch (error) {
+        console.error(error);
+        showModal("Erro", "Falha ao enviar. Tente novamente.");
+    } finally {
+        btn.innerHTML = originalHTML;
+        btn.disabled = false;
     }
 }

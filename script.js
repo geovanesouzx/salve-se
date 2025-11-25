@@ -2187,7 +2187,7 @@ window.renderSettings = function () {
         : `<span class="bg-gray-50 text-gray-600 dark:bg-neutral-800 dark:text-gray-400 text-[10px] font-bold px-3 py-1 rounded-full border border-gray-100 dark:border-neutral-700">Grátis</span>`;
 
 
-    // --- LÓGICA DO CARD PREMIUM (COM O GRADIENTE ROXO -> ROSA) ---
+    // --- LÓGICA DO CARD PREMIUM (COM GRADIENTE ROXO -> ROSA) ---
     let subscriptionCardHtml = '';
     let shouldStartTimer = false;
 
@@ -2204,7 +2204,7 @@ window.renderSettings = function () {
         let mainContent = '';
 
         if (distance > oneDay) {
-            // MAIS DE 24H (Texto Branco)
+            // MAIS DE 24H
             const daysLeft = Math.ceil(distance / oneDay);
             mainContent = `
                 <div class="mt-6 mb-4">
@@ -2213,7 +2213,7 @@ window.renderSettings = function () {
                 </div>
             `;
         } else {
-            // MENOS DE 24H (Timer Branco)
+            // MENOS DE 24H
             shouldStartTimer = true;
             mainContent = `
                 <div class="mt-6 mb-4">
@@ -2225,7 +2225,6 @@ window.renderSettings = function () {
             `;
         }
 
-        // CARD COM GRADIENTE ROXO -> ROSA
         subscriptionCardHtml = `
             <div class="bg-gradient-to-br from-purple-600 to-pink-500 rounded-2xl p-6 relative overflow-hidden shadow-xl group my-6 text-white">
                 <div class="absolute right-2 top-2 text-white/10 text-7xl transform rotate-12 pointer-events-none"><i class="fas fa-crown"></i></div>
@@ -2249,7 +2248,6 @@ window.renderSettings = function () {
             </div>
         `;
     } else {
-        // Card de Venda (Gradiente similar, mas mais azulado/roxo para diferenciar)
         subscriptionCardHtml = `
             <div onclick="switchPage('premium')" class="group cursor-pointer bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl p-5 text-white shadow-lg my-6 relative overflow-hidden hover:scale-[1.01] transition">
                 <div class="flex justify-between items-center relative z-10">
@@ -2266,7 +2264,10 @@ window.renderSettings = function () {
     // --- CORES ---
     const freeColors = ['indigo', 'cyan', 'green'];
     const savedColorName = localStorage.getItem('salvese_color_name') || 'indigo';
-    let colorsGridHtml = '<div class="flex flex-wrap gap-3 py-2 justify-end">';
+
+    // Ajuste aqui: flex-wrap com justify-end para PC e ajuste para Mobile
+    let colorsGridHtml = '<div class="flex flex-wrap gap-2 justify-end max-w-[200px] sm:max-w-none">';
+
     Object.keys(colorPalettes).forEach(color => {
         const rgb = colorPalettes[color][500];
         const isLocked = !isPremium && !freeColors.includes(color);
@@ -2274,25 +2275,25 @@ window.renderSettings = function () {
         const content = isSelected ? '<i class="fas fa-check text-white text-[10px]"></i>' : (isLocked ? '<i class="fas fa-lock text-white/50 text-[8px]"></i>' : '');
 
         colorsGridHtml += `
-            <button onclick="setThemeColor('${color}')" class="w-8 h-8 rounded-full flex items-center justify-center transition hover:scale-110 shadow-sm ${isSelected ? 'ring-2 ring-gray-400 dark:ring-gray-500 ring-offset-2 dark:ring-offset-darkcard' : ''}" style="background-color: rgb(${rgb})">
+            <button onclick="setThemeColor('${color}')" class="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center transition hover:scale-110 shadow-sm ${isSelected ? 'ring-2 ring-gray-400 dark:ring-gray-500 ring-offset-2 dark:ring-offset-darkcard' : ''}" style="background-color: rgb(${rgb})">
                 ${content}
             </button>
         `;
     });
     colorsGridHtml += '</div>';
 
-    // Helper Listas iOS
+    // Helper Listas iOS (Com correção do ícone flex-shrink-0)
     const iOSListItem = (onclick, iconColorBg, iconColorText, iconClass, title, value = "", isLink = true) => `
         <div onclick="${onclick}" class="flex items-center justify-between p-4 ${isLink ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-neutral-800/70' : ''} transition group bg-white dark:bg-darkcard first:rounded-t-2xl last:rounded-b-2xl border-b border-gray-100 dark:border-neutral-800 last:border-b-0">
             <div class="flex items-center gap-3">
-                <div class="w-8 h-8 rounded-md ${iconColorBg} ${iconColorText} flex items-center justify-center shadow-sm">
+                <div class="w-8 h-8 flex-shrink-0 rounded-md ${iconColorBg} ${iconColorText} flex items-center justify-center shadow-sm">
                     <i class="${iconClass}"></i>
                 </div>
-                <span class="text-sm font-medium text-gray-900 dark:text-white">${title}</span>
+                <span class="text-sm font-medium text-gray-900 dark:text-white truncate">${title}</span>
             </div>
-            <div class="flex items-center gap-2">
-                ${value ? `<span class="text-sm text-gray-500 dark:text-gray-400">${value}</span>` : ''}
-                ${isLink ? `<i class="fas fa-chevron-right text-gray-300 text-xs group-hover:text-gray-400 transition"></i>` : ''}
+            <div class="flex items-center gap-2 pl-2">
+                ${value ? `<span class="text-sm text-gray-500 dark:text-gray-400 truncate max-w-[120px]">${value}</span>` : ''}
+                ${isLink ? `<i class="fas fa-chevron-right text-gray-300 text-xs group-hover:text-gray-400 transition flex-shrink-0"></i>` : ''}
             </div>
         </div>
     `;
@@ -2335,19 +2336,21 @@ window.renderSettings = function () {
 
             <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 ml-4">Aparência</h3>
             <div class="rounded-2xl shadow-sm border border-gray-200 dark:border-neutral-800 overflow-hidden mb-6 bg-white dark:bg-darkcard">
+                
                 <div class="flex items-center justify-between p-4 border-b border-gray-100 dark:border-neutral-800">
                     <div class="flex items-center gap-3">
-                        <div class="w-8 h-8 rounded-md bg-gray-100 dark:bg-neutral-700 text-gray-600 dark:text-gray-300 flex items-center justify-center shadow-sm"><i class="fas fa-moon"></i></div>
+                        <div class="w-8 h-8 flex-shrink-0 rounded-md bg-gray-100 dark:bg-neutral-700 text-gray-600 dark:text-gray-300 flex items-center justify-center shadow-sm"><i class="fas fa-moon"></i></div>
                         <span class="text-sm font-medium text-gray-900 dark:text-white">Modo Escuro</span>
                     </div>
-                    <button onclick="toggleTheme()" class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${document.documentElement.classList.contains('dark') ? 'bg-indigo-600' : 'bg-gray-200'}">
+                    <button onclick="toggleTheme()" class="relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors focus:outline-none ${document.documentElement.classList.contains('dark') ? 'bg-indigo-600' : 'bg-gray-200'}">
                         <span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${document.documentElement.classList.contains('dark') ? 'translate-x-6' : 'translate-x-1'}"></span>
                     </button>
                 </div>
-                <div class="flex items-center justify-between p-4">
-                    <div class="flex items-center gap-3">
-                        <div class="w-8 h-8 rounded-md bg-pink-100 dark:bg-pink-900/30 text-pink-600 flex items-center justify-center shadow-sm"><i class="fas fa-palette"></i></div>
-                        <span class="text-sm font-medium text-gray-900 dark:text-white">Cor de Destaque</span>
+
+                <div class="flex items-start justify-between p-4">
+                    <div class="flex items-center gap-3 mt-1">
+                        <div class="w-8 h-8 flex-shrink-0 rounded-md bg-pink-100 dark:bg-pink-900/30 text-pink-600 flex items-center justify-center shadow-sm"><i class="fas fa-palette"></i></div>
+                        <span class="text-sm font-medium text-gray-900 dark:text-white whitespace-nowrap">Destaque</span>
                     </div>
                     ${colorsGridHtml}
                 </div>
@@ -2364,7 +2367,7 @@ window.renderSettings = function () {
                 ${iOSListItem('changePassword()', 'bg-red-50 dark:bg-red-900/20', 'text-red-500', 'fas fa-lock', 'Redefinir Senha')}
                 <button onclick="logoutApp()" class="w-full flex items-center justify-between p-4 bg-white dark:bg-darkcard hover:bg-red-50 dark:hover:bg-red-900/10 transition group text-left">
                      <div class="flex items-center gap-3">
-                        <div class="w-8 h-8 rounded-md bg-red-100 dark:bg-red-900/30 text-red-600 flex items-center justify-center shadow-sm">
+                        <div class="w-8 h-8 flex-shrink-0 rounded-md bg-red-100 dark:bg-red-900/30 text-red-600 flex items-center justify-center shadow-sm">
                             <i class="fas fa-sign-out-alt"></i>
                         </div>
                         <span class="text-sm font-medium text-red-600 dark:text-red-400">Sair da Conta</span>
@@ -2373,7 +2376,7 @@ window.renderSettings = function () {
             </div>
 
             <div class="text-center pb-4">
-                <p class="text-[10px] text-gray-400 uppercase font-bold">Salve-se UFRB v4.5</p>
+                <p class="text-[10px] text-gray-400 uppercase font-bold">Salve-se UFRB v4.6</p>
                 <p class="text-[10px] text-gray-300 dark:text-neutral-700 font-mono mt-1">UID: ${currentUser.uid.substring(0, 8)}...</p>
             </div>
         </div>

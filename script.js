@@ -4223,7 +4223,7 @@ window.showTypingIndicator = function () {
 }
 
 // ============================================================
-// --- PÁGINA PREMIUM (COM BOTÃO LER MAIS) ---
+// --- PÁGINA PREMIUM (COM BOTÃO LER MAIS + SALGADO DA CANTINA) ---
 // ============================================================
 
 // Função para expandir/recolher os detalhes
@@ -4234,7 +4234,6 @@ window.togglePremiumDetails = function () {
 
     if (extras.classList.contains('hidden')) {
         extras.classList.remove('hidden');
-        // Pequeno delay para a animação de opacidade funcionar se quiser adicionar depois
         btnText.innerText = "Mostrar menos";
         icon.className = "fas fa-chevron-up ml-2";
     } else {
@@ -4251,13 +4250,26 @@ window.renderPremiumPage = function () {
     // Verifica status
     const isPremium = isUserPremium();
 
-    // --- CONTEÚDO SE JÁ FOR PREMIUM (MANTIDO IGUAL) ---
+    // --- CONTEÚDO SE JÁ FOR PREMIUM (CARTÃO BLACK/GOLD) ---
     if (isPremium) {
         const now = new Date();
         const end = new Date(userProfile.subscriptionEndDate || now);
         const remainingTime = Math.max(0, end - now);
         const daysLeft = Math.ceil(remainingTime / (1000 * 60 * 60 * 24));
         const percent = Math.min(100, Math.max(0, (daysLeft / 30) * 100));
+
+        // Função para formatar o tempo em HH:MM:SS, só se faltar menos de 24h
+        const formatTime = (ms) => {
+            if (ms <= 0) return '00:00:00';
+            const totalSeconds = Math.floor(ms / 1000);
+            const hours = Math.floor(totalSeconds / 3600);
+            const minutes = Math.floor((totalSeconds % 3600) / 60);
+            const seconds = totalSeconds % 60;
+            return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        };
+
+        const isExpiringSoon = remainingTime <= (24 * 60 * 60 * 1000); // 24 horas
+        const timerDisplay = isExpiringSoon ? `<span id="premium-countdown" class="text-red-400 font-extrabold text-sm ml-2 animate-pulse">${formatTime(remainingTime)}</span>` : '';
 
         container.innerHTML = `
             <div class="max-w-lg mx-auto pb-12 px-4 min-h-full flex flex-col justify-center animate-fade-in-up">
@@ -4286,7 +4298,7 @@ window.renderPremiumPage = function () {
                         <div>
                             <div class="flex justify-between text-xs text-gray-400 mb-2 font-mono">
                                 <span>Status: Ativo</span>
-                                <span>Expira em: ${daysLeft} dias</span>
+                                <span>Expira em: ${daysLeft} dias ${timerDisplay}</span>
                             </div>
                             <div class="w-full bg-gray-800 rounded-full h-1 mb-2 overflow-hidden">
                                 <div class="h-full bg-gradient-to-r from-amber-300 to-amber-600 shadow-[0_0_10px_rgba(245,158,11,0.5)] transition-all duration-1000" style="width: ${percent}%"></div>
@@ -4297,12 +4309,31 @@ window.renderPremiumPage = function () {
                 <button onclick="switchPage('home')" class="mt-8 w-full py-4 bg-gray-900 dark:bg-white text-white dark:text-black font-bold rounded-xl shadow-lg hover:scale-[1.02] transition">Voltar para Home</button>
             </div>
         `;
+
+        // Lógica do Timer (apenas se faltar menos de 24h)
+        if (isExpiringSoon) {
+            let timerInterval;
+            const updateCountdown = () => {
+                const now = new Date();
+                const timeLeft = Math.max(0, end - now);
+                const display = document.getElementById('premium-countdown');
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    if (display) display.textContent = 'EXPIRADO!';
+                } else if (display) {
+                    display.textContent = formatTime(timeLeft);
+                }
+            };
+            if (!document.querySelector('#premium-countdown')) {
+                updateCountdown();
+                timerInterval = setInterval(updateCountdown, 1000);
+            }
+        }
         return;
     }
 
-    // --- CONTEÚDO DE VENDA (COM BOTÃO LER MAIS) ---
+    // --- CONTEÚDO DE VENDA (COM "SALGADO DA CANTINA" + BOTÃO LER MAIS) ---
 
-    // Helper para itens
     const featureItem = (icon, color, title, desc) => `
         <div class="bg-white dark:bg-neutral-800/50 border border-gray-100 dark:border-neutral-700 p-3 rounded-xl flex items-center gap-3 shadow-sm">
             <div class="w-10 h-10 rounded-full bg-${color}-100 dark:bg-${color}-900/30 text-${color}-600 dark:text-${color}-400 flex-shrink-0 flex items-center justify-center text-lg">
@@ -4339,8 +4370,8 @@ window.renderPremiumPage = function () {
                             <span class="text-4xl font-black tracking-tighter">R$ 6,00</span>
                             <span class="text-indigo-100 font-medium mb-1">/mês</span>
                         </div>
-                        <p class="text-xs text-indigo-100/80 bg-white/10 inline-block px-3 py-1 rounded-full backdrop-blur-sm">
-                            Acesso total liberado imediatamente
+                        <p class="text-xs text-indigo-100/90 bg-white/20 inline-block px-3 py-1 rounded-full backdrop-blur-md border border-white/10 shadow-sm font-medium">
+                            Menos que um salgado na cantina 🥟
                         </p>
                     </div>
                 </div>
@@ -4398,6 +4429,18 @@ window.renderPremiumPage = function () {
 
         </div>
     `;
+
+    // Adicionar animação keyframe para o brilho do botão se não existir
+    if (!document.getElementById('shimmer-style')) {
+        const style = document.createElement('style');
+        style.id = 'shimmer-style';
+        style.innerHTML = `
+            @keyframes shimmer {
+                100% { transform: translateX(100%); }
+            }
+        `;
+        document.head.appendChild(style);
+    }
 }
 
 // ============================================================

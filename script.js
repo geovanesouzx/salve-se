@@ -114,47 +114,6 @@ function requirePremium(featureName) {
 
     return false;
 }
-
-// Função para simular assinatura (para testes)
-window.simulateSubscription = async function () {
-    if (!currentUser) return showLoginScreen();
-
-    const btn = document.querySelector('button[onclick="simulateSubscription()"]');
-    if (btn) btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Processando...';
-
-    try {
-        // Lógica de Bônus
-        if (!userProfile.level) userProfile.level = 1;
-        userProfile.level += 20; // +20 Níveis
-
-        const now = new Date();
-        const endDate = new Date();
-        endDate.setDate(now.getDate() + 30);
-
-        const subscriptionData = {
-            isPremium: true,
-            subscriptionStartDate: now.toISOString(),
-            subscriptionEndDate: endDate.toISOString(),
-            level: userProfile.level // Salva
-        };
-
-        // Salva no Firebase
-        await setDoc(doc(db, "users", currentUser.uid), subscriptionData, { merge: true });
-
-        // Atualiza local
-        Object.assign(userProfile, subscriptionData);
-        localStorage.setItem('salvese_user_profile', JSON.stringify(userProfile));
-
-        showModal("Parabéns! 🌟", "Assinatura ativada! Você ganhou +20 NÍVEIS de bônus imediatamente!");
-        updateUserInterfaceInfo();
-        renderPremiumPage();
-
-        if (document.getElementById('settings-content')) renderSettings();
-
-    } catch (e) {
-        showModal("Erro", "Falha na assinatura: " + e.message);
-    }
-}
 // ============================================================
 // --- ÍCONES SVG ---
 // ============================================================
@@ -4592,11 +4551,12 @@ window.copyPixCode = function () {
     }
 }
 
-// 5. Verifica status (Interna)
+// 5. Verifica status (Interna - Essa só o sistema chama)
 async function checkPaymentStatus() {
     if (!currentPaymentId) return;
 
     try {
+        // Chama sua API para ver se o banco confirmou
         const response = await fetch('/api/check_status', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -4605,18 +4565,24 @@ async function checkPaymentStatus() {
 
         const data = await response.json();
 
+        // SÓ ATIVA SE A API DO BANCO DISSER "TRUE"
         if (data.paid) {
             clearInterval(paymentCheckInterval);
             window.closePaymentModal();
-            activatePremiumForUser();
+
+            // Chama a função interna protegida
+            _internalActivatePremium();
         }
     } catch (e) {
         console.log("Verificando...", e);
     }
 }
 
-// 6. Ativa o Premium (Interna)
-async function activatePremiumForUser() {
+// 6. Ativa o Premium (RENAME PARA FICAR INTERNA/DIFÍCIL)
+// Mude o nome da função para algo que ninguém adivinhe, e NÃO use "window."
+async function _internalActivatePremium() {
+    showModal("Pagamento Confirmado! 🌟", "Ativando sua assinatura Premium...");
+
     // 1. Lógica de Level Up (Bônus)
     if (!userProfile.level) userProfile.level = 1;
     const bonusLevels = 20;
@@ -4633,7 +4599,7 @@ async function activatePremiumForUser() {
         subscriptionStartDate: now.toISOString(),
         subscriptionEndDate: endDate.toISOString(),
         lastPaymentId: currentPaymentId,
-        level: userProfile.level // Salva o nível novo no banco
+        level: userProfile.level
     };
 
     // 4. Salva no Firebase
@@ -4649,11 +4615,7 @@ async function activatePremiumForUser() {
 
     if (document.getElementById('settings-content')) renderSettings();
 
-    // 7. Modal de Celebração Épico
     showModal("PREMIUM ATIVADO! 👑", `Parabéns! Você desbloqueou todos os recursos e ganhou +${bonusLevels} NÍVEIS de bônus!`);
-
-    // Toca um som de vitória se tiver na página de sons (opcional, mas legal)
-    // const audio = new Audio('https://files.catbox.moe/seu_som_levelup.mp3'); audio.play();
 }
 
 // ============================================================

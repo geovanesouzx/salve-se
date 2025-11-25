@@ -4223,8 +4223,26 @@ window.showTypingIndicator = function () {
 }
 
 // ============================================================
-// --- PÁGINA PREMIUM (COM PAGAMENTO ASAAS PIX) ---
+// --- PÁGINA PREMIUM (COM BOTÃO LER MAIS) ---
 // ============================================================
+
+// Função para expandir/recolher os detalhes
+window.togglePremiumDetails = function () {
+    const extras = document.getElementById('premium-extras');
+    const btnText = document.getElementById('btn-more-text');
+    const icon = document.getElementById('btn-more-icon');
+
+    if (extras.classList.contains('hidden')) {
+        extras.classList.remove('hidden');
+        // Pequeno delay para a animação de opacidade funcionar se quiser adicionar depois
+        btnText.innerText = "Mostrar menos";
+        icon.className = "fas fa-chevron-up ml-2";
+    } else {
+        extras.classList.add('hidden');
+        btnText.innerText = "Ver todos os benefícios";
+        icon.className = "fas fa-chevron-down ml-2";
+    }
+}
 
 window.renderPremiumPage = function () {
     const container = document.getElementById('view-premium');
@@ -4233,31 +4251,27 @@ window.renderPremiumPage = function () {
     // Verifica status
     const isPremium = isUserPremium();
 
-    // --- CONTEÚDO SE JÁ FOR PREMIUM (CARTÃO BLACK/GOLD) ---
+    // --- CONTEÚDO SE JÁ FOR PREMIUM (MANTIDO IGUAL) ---
     if (isPremium) {
         const now = new Date();
         const end = new Date(userProfile.subscriptionEndDate || now);
         const remainingTime = Math.max(0, end - now);
         const daysLeft = Math.ceil(remainingTime / (1000 * 60 * 60 * 24));
-        const percent = Math.min(100, Math.max(0, (daysLeft / 30) * 100)); 
+        const percent = Math.min(100, Math.max(0, (daysLeft / 30) * 100));
 
         container.innerHTML = `
             <div class="max-w-lg mx-auto pb-12 px-4 min-h-full flex flex-col justify-center animate-fade-in-up">
-                
                 <div class="text-center mb-8">
-                    <h2 class="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-amber-600 tracking-tight mb-2">
-                        Membro Elite
-                    </h2>
+                    <h2 class="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-amber-600 tracking-tight mb-2">Membro Elite</h2>
                     <p class="text-gray-500 dark:text-gray-400">Você desbloqueou o poder máximo.</p>
                 </div>
-
                 <div class="relative w-full aspect-[1.58/1] rounded-2xl overflow-hidden shadow-2xl shadow-black/20 group transform transition hover:scale-[1.02] duration-500 border border-gray-800">
                     <div class="absolute inset-0 bg-[#0f1113]">
                         <div class="absolute inset-0 bg-gradient-to-br from-gray-800 via-black to-neutral-900"></div>
                         <div class="absolute top-0 right-0 -mr-20 -mt-20 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl group-hover:bg-amber-500/20 transition duration-1000"></div>
                         <div class="absolute bottom-0 left-0 -ml-20 -mb-20 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl group-hover:bg-indigo-500/20 transition duration-1000"></div>
+                        <div class="absolute inset-0 opacity-[0.03]" style="background-image: url('https://www.transparenttextures.com/patterns/stardust.png');"></div>
                     </div>
-
                     <div class="absolute inset-0 p-6 flex flex-col justify-between z-10">
                         <div class="flex justify-between items-start">
                             <img src="https://files.catbox.moe/pmdtq6.png" class="w-10 h-10 opacity-80 grayscale contrast-200 brightness-200">
@@ -4265,12 +4279,10 @@ window.renderPremiumPage = function () {
                                 <i class="fas fa-crown"></i> Pro
                             </div>
                         </div>
-
                         <div>
                             <p class="text-gray-400 text-xs uppercase tracking-widest mb-1 font-mono">Assinante</p>
                             <p class="text-white font-bold text-xl tracking-wide font-mono truncate shadow-black drop-shadow-md">${userProfile.displayName}</p>
                         </div>
-
                         <div>
                             <div class="flex justify-between text-xs text-gray-400 mb-2 font-mono">
                                 <span>Status: Ativo</span>
@@ -4282,17 +4294,15 @@ window.renderPremiumPage = function () {
                         </div>
                     </div>
                 </div>
-
-                <button onclick="switchPage('home')" class="mt-8 w-full py-4 bg-gray-900 dark:bg-white text-white dark:text-black font-bold rounded-xl shadow-lg hover:scale-[1.02] transition">
-                    Voltar para Home
-                </button>
+                <button onclick="switchPage('home')" class="mt-8 w-full py-4 bg-gray-900 dark:bg-white text-white dark:text-black font-bold rounded-xl shadow-lg hover:scale-[1.02] transition">Voltar para Home</button>
             </div>
         `;
         return;
     }
 
-    // --- CONTEÚDO DE VENDA (LISTANDO TODAS AS FUNÇÕES) ---
-    // Helper para criar itens da lista
+    // --- CONTEÚDO DE VENDA (COM BOTÃO LER MAIS) ---
+
+    // Helper para itens
     const featureItem = (icon, color, title, desc) => `
         <div class="bg-white dark:bg-neutral-800/50 border border-gray-100 dark:border-neutral-700 p-3 rounded-xl flex items-center gap-3 shadow-sm">
             <div class="w-10 h-10 rounded-full bg-${color}-100 dark:bg-${color}-900/30 text-${color}-600 dark:text-${color}-400 flex-shrink-0 flex items-center justify-center text-lg">
@@ -4327,25 +4337,32 @@ window.renderPremiumPage = function () {
                         <p class="text-indigo-100 font-bold text-xs uppercase tracking-widest mb-1">Plano Mensal</p>
                         <div class="flex items-center justify-center gap-1 mb-2">
                             <span class="text-4xl font-black tracking-tighter">R$ 6,00</span>
+                            <span class="text-indigo-100 font-medium mb-1">/mês</span>
                         </div>
-                        <p class="text-[10px] text-indigo-100/80 bg-white/10 inline-block px-3 py-1 rounded-full backdrop-blur-sm">
+                        <p class="text-xs text-indigo-100/80 bg-white/10 inline-block px-3 py-1 rounded-full backdrop-blur-sm">
                             Acesso total liberado imediatamente
                         </p>
                     </div>
                 </div>
 
                 <div class="p-5">
-                    <p class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 ml-1">Tudo o que você ganha:</p>
+                    <p class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 ml-1">Principais Vantagens:</p>
                     
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
                         ${featureItem('fa-robot', 'green', 'IA Gemini Google', 'Mais inteligente e rápida')}
                         ${featureItem('fa-layer-group', 'amber', 'Flashcards IA', 'Criação automática de estudos')}
-                        
+                    </div>
+
+                    <button onclick="togglePremiumDetails()" class="w-full py-2 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition mb-3 flex items-center justify-center">
+                        <span id="btn-more-text">Ver todos os benefícios</span>
+                        <i id="btn-more-icon" class="fas fa-chevron-down ml-2"></i>
+                    </button>
+
+                    <div id="premium-extras" class="hidden grid grid-cols-1 sm:grid-cols-2 gap-3 animate-fade-in-up">
                         ${featureItem('fa-wallet', 'emerald', 'Gestão Financeira', 'Controle gastos e saldo')}
                         ${featureItem('fa-headphones', 'purple', 'Sons de Foco', 'Chuva, Lo-Fi e Natureza')}
                         ${featureItem('fa-stopwatch', 'red', 'Timer Custom', 'Tempos de foco personalizados')}
                         ${featureItem('fa-envelope', 'blue', 'Templates Email', 'Emails prontos p/ professores')}
-                        
                         ${featureItem('fa-palette', 'pink', 'Cores Infinitas', 'Libere todos os temas')}
                         ${featureItem('fa-eye-slash', 'teal', 'Controle de Widgets', 'Oculte o que não usa')}
                     </div>

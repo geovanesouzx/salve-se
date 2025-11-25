@@ -731,7 +731,7 @@ function formatAIContent(text) {
 }
 
 // ============================================================
-// --- INTEGRAÇÃO IA SUPREMA (TODAS AS FUNÇÕES) ---
+// --- CÉREBRO DA IA (V6.0 - TODAS AS FUNÇÕES) ---
 // ============================================================
 
 window.sendIAMessage = async function () {
@@ -741,7 +741,7 @@ window.sendIAMessage = async function () {
 
     if (!message) return;
 
-    // 🔒 TRAVA PREMIUM
+    // 🔒 TRAVA DE PROVEDOR (GEMINI APENAS PARA PREMIUM)
     if (currentAIProvider === 'gemini' && !isUserPremium()) {
         requirePremium('IA Gemini (Google)');
         updateAISelectorUI();
@@ -757,84 +757,89 @@ window.sendIAMessage = async function () {
     showTypingIndicator();
 
     try {
-        // --- 1. COLETAR CONTEXTO GERAL ---
+        // --- 1. COLETAR CONTEXTO COMPLETO ---
         const now = new Date();
         const dataHora = now.toLocaleString('pt-BR');
+        const userStatus = isUserPremium() ? "PREMIUM (Pode tudo)" : "GRÁTIS (Bloqueado: Finanças, Sons, Gemini)";
         const statusBus = getBusStatusForAI();
         const gradeContext = getClassContextForAI();
 
-        // Contexto de Tarefas
+        // Contexto de Tarefas e Notas
         const tasksList = tasksData.map(t => `- "${t.text}" (${t.done ? 'Feita' : 'Pendente'})`).join('\n') || "Nenhuma tarefa.";
-
-        // Contexto de Notas
         const notesList = notesData.map(n => `- "${n.title}"`).join('\n') || "Nenhuma nota.";
 
-        // --- NOVO: CONTEXTO FINANCEIRO ---
-        let financeContext = "Dados financeiros não disponíveis.";
+        // Contexto Financeiro (Seguro)
+        let financeContext = "Dados ocultos (Usuário Grátis).";
         if (isUserPremium()) {
             const trans = JSON.parse(localStorage.getItem('salvese_finances')) || [];
             const budget = parseFloat(localStorage.getItem('salvese_finance_budget')) || 0;
             const totalSpent = trans.reduce((acc, t) => acc + t.val, 0);
-            const remaining = budget - totalSpent;
-
-            // Lista os 5 últimos gastos para contexto
-            const recentTrans = trans.slice(0, 5).map(t => `- R$${t.val.toFixed(2)} em ${t.desc}`).join('\n');
-
-            financeContext = `
-Saldo Mensal Definido: R$ ${budget.toFixed(2)}
-Total Gasto: R$ ${totalSpent.toFixed(2)}
-Disponível/Restante: R$ ${remaining.toFixed(2)}
-Últimos gastos:
-${recentTrans || "Nenhum gasto registrado."}
-`;
-        } else {
-            financeContext = "O usuário NÃO é Premium, então ele não tem acesso ao módulo financeiro. Se ele pedir para adicionar gastos, avise que é um recurso Pro.";
+            financeContext = `Saldo: R$${budget.toFixed(2)} | Gasto: R$${totalSpent.toFixed(2)} | Restante: R$${(budget - totalSpent).toFixed(2)}`;
         }
 
-        // --- 2. PROMPT DO SISTEMA ---
+        // --- 2. O PROMPT SUPREMO (COM TUDO) ---
         let systemInstructionText = `
 VOCÊ É A "SALVE-SE IA". Responda APENAS com JSON.
-Você controla interface, finanças, calculadora e dados.
+Você tem controle TOTAL sobre a interface.
+STATUS DO USUÁRIO: ${userStatus}
 
 --- DADOS ATUAIS ---
 Agora: ${dataHora}
 Ônibus: ${statusBus}
-Financeiro (Carteira):
-${financeContext}
-Aulas:
-${gradeContext}
-Tarefas:
-${tasksList}
+Finanças: ${financeContext}
+Aulas: ${gradeContext}
+Tarefas: ${tasksList}
 
---- COMANDOS DISPONÍVEIS (JSON) ---
+--- REGRAS ---
+Se o usuário for GRÁTIS e pedir algo PREMIUM (Finanças, Sons), recuse educadamente.
 
-1. **FINANÇAS (NOVO!)**:
-   - "set_budget": { "amount": 1500.00 } (Definir quanto o usuário tem no mês/bolsa)
-   - "add_expense": { "desc": "Lanche", "amount": 15.50 } (Adicionar um gasto)
-   - "remove_expense": { "desc": "Lanche" } (Remove o gasto mais recente com esse nome ou similar)
+--- COMANDOS DISPONÍVEIS ---
 
-2. **TAREFAS**:
+1. **FINANÇAS (PREMIUM)** 💰:
+   - "set_budget": { "amount": 1000 }
+   - "add_expense": { "desc": "Pizza", "amount": 50 }
+   - "remove_expense": { "desc": "Pizza" } (Remove o último gasto com esse nome)
+
+2. **SONS DE FOCO (PREMIUM)** 🎧 (NOVO):
+   - "control_sound": { "action": "play", "type": "rain/lofi/cafe/forest" }
+   - "control_sound": { "action": "stop" }
+
+3. **FEEDBACK & SUPORTE** 🗣️ (NOVO):
+   - "report_issue": { "type": "bug", "message": "..." } (Vai para tela de feedback)
+   - "send_suggestion": { "message": "..." }
+
+4. **CONTROLE DA HOME** 🏠 (NOVO):
+   - "set_summary": { "text": "Frase motivacional..." } (Edita o texto do widget da IA)
+   - "toggle_widget": { "id": "widget-bus/widget-tasks/widget-calc" } (Ocultar/Mostrar)
+
+5. **TAREFAS** ✅:
    - "create_task": { "text": "...", "priority": "high/medium/normal" }
-   - "delete_task": { "text": "..." }
+   - "complete_task": { "text": "..." } (Marca feita e dá XP)
+   - "delete_task": { "text": "..." } (Apaga para sempre)
 
-3. **CALCULADORA**:
+6. **CALCULADORA** 🧮:
    - "fill_calculator": { "grades": [8.5, 7.0], "weights": [1, 2] }
 
-4. **VISUAL**:
-   - "change_theme": { "mode": "dark" | "light" }
-   - "change_color": { "color": "indigo/green/orange/etc" }
+7. **AULAS** 🎓:
+   - "create_class": { "name": "...", "day": "seg", "start": "08:00", "end": "10:00", "room": "..." }
+   - "delete_class": { "name": "..." }
 
-5. **CRONÔMETRO**:
-   - "timer_set": { "mode": "pomodoro" | "short" | "custom", "minutes": 30 }
-   - "timer_control": { "action": "start" | "stop" }
+8. **CRONÔMETRO** 🍅:
+   - "timer_set": { "mode": "pomodoro/short/custom", "minutes": 30 }
+   - "timer_control": { "action": "start/stop" }
 
-6. **OUTROS**:
-   - "navigate": { "page": "financeiro" | "home" | "todo" | ... }
+9. **NOTAS** 📝:
    - "create_note": { "title": "...", "content": "..." }
+   - "delete_note": { "title": "..." }
 
---- RESPOSTA OBRIGATÓRIA ---
+10. **SISTEMA** ⚙️:
+   - "change_theme": { "mode": "dark/light" }
+   - "change_color": { "color": "indigo/green/orange/etc" }
+   - "navigate": { "page": "home/financeiro/sounds/config/feedback/aulas/todo" }
+
+--- RESPOSTA OBRIGATÓRIA (JSON) ---
 {
-  "message": "Texto curto conversando com o usuário (ex: 'Adicionei o gasto de R$15').",
+  "message": "Texto curto para o usuário.",
   "commands": [ { "action": "...", "params": { ... } } ]
 }
 `;
@@ -874,7 +879,7 @@ ${tasksList}
 
     } catch (error) {
         console.error("Erro IA:", error);
-        appendMessage('ai', `Erro: ${error.message}. Tente novamente.`);
+        appendMessage('ai', `Erro técnico: ${error.message}`);
     } finally {
         hideTypingIndicator();
         input.disabled = false;
@@ -883,7 +888,6 @@ ${tasksList}
         scrollToBottom();
     }
 };
-
 // ============================================================
 // --- FUNÇÕES AUXILIARES DO CHAT (QUE ESTAVAM FALTANDO) ---
 // ============================================================
@@ -944,91 +948,173 @@ function hideTypingIndicator() {
 }
 
 // ============================================================
-// --- EXECUTOR DE COMANDOS (Completo + Suporte ABNT) ---
+// --- EXECUTOR DE COMANDOS (V6.0 - COMPLETO) ---
 // ============================================================
 
 async function executeAICommand(cmd) {
-    console.log("🤖 Executando:", cmd.action, cmd.params);
+    console.log("🤖 Comando IA:", cmd.action, cmd.params);
     const p = cmd.params || {};
 
     switch (cmd.action) {
 
-        // --- 1. VISUAL & TEMA (AGORA MAIS INTELIGENTE) ---
-        case 'change_theme':
-            // Converte para minúsculo e limpa espaços para entender "Dark", "dark ", "Escuro", etc.
-            const reqMode = (p.mode || '').toLowerCase().trim();
-
-            if (reqMode === 'dark' || reqMode === 'escuro' || reqMode === 'noite' || reqMode === 'ativar') {
-                document.documentElement.classList.add('dark');
-                localStorage.setItem('theme', 'dark');
-                console.log("🌙 Tema escuro ativado");
-            } else {
-                document.documentElement.classList.remove('dark');
-                localStorage.setItem('theme', 'light');
-                console.log("☀️ Tema claro ativado");
+        // --- 1. FINANÇAS (PREMIUM) ---
+        case 'set_budget':
+            if (!requirePremium('Finanças IA')) return;
+            if (p.amount) {
+                localStorage.setItem('salvese_finance_budget', parseFloat(p.amount));
+                if (currentViewContext === 'financeiro') renderFinance();
+                showModal("Finanças", `Orçamento definido para R$ ${p.amount}`);
             }
             break;
 
-        case 'change_color':
-            // Mapeia nomes em português para inglês
-            const colorMap = { 'roxo': 'purple', 'verde': 'green', 'azul': 'indigo', 'rosa': 'pink', 'laranja': 'orange', 'preto': 'black', 'ciano': 'cyan', 'vermelho': 'red', 'amarelo': 'yellow' };
-            let color = (p.color || '').toLowerCase().trim();
-            if (colorMap[color]) color = colorMap[color];
-
-            if (typeof setThemeColor === 'function') {
-                setThemeColor(color);
+        case 'add_expense':
+            if (!requirePremium('Finanças IA')) return;
+            if (p.amount && p.desc) {
+                let currentTrans = JSON.parse(localStorage.getItem('salvese_finances')) || [];
+                currentTrans.unshift({
+                    val: parseFloat(p.amount),
+                    desc: p.desc,
+                    date: new Date().toISOString()
+                });
+                localStorage.setItem('salvese_finances', JSON.stringify(currentTrans));
+                if (typeof transactions !== 'undefined') transactions = currentTrans;
+                if (currentViewContext === 'financeiro') renderFinance();
+                showModal("Gasto Adicionado", `- R$${p.amount} em ${p.desc}`);
             }
             break;
 
-        case 'toggle_zen_mode':
-            const allWidgets = ['widget-bus', 'widget-tasks', 'widget-quick', 'widget-class', 'widget-reminders', 'widget-ai', 'widget-notes'];
-            if (p.active) {
-                hiddenWidgets = [...allWidgets];
-                saveData();
-                showModal("Modo Zen", "Interface limpa para foco total.");
+        case 'remove_expense':
+            if (!requirePremium('Finanças IA')) return;
+            if (p.desc) {
+                let currentTrans = JSON.parse(localStorage.getItem('salvese_finances')) || [];
+                const index = currentTrans.findIndex(t => t.desc.toLowerCase().includes(p.desc.toLowerCase()));
+                if (index !== -1) {
+                    currentTrans.splice(index, 1);
+                    localStorage.setItem('salvese_finances', JSON.stringify(currentTrans));
+                    if (typeof transactions !== 'undefined') transactions = currentTrans;
+                    if (currentViewContext === 'financeiro') renderFinance();
+                    showModal("Gasto Removido", `O item "${p.desc}" foi apagado.`);
+                } else {
+                    showModal("Não encontrado", `Não achei nenhum gasto com nome "${p.desc}".`);
+                }
             }
             break;
 
-        // --- 2. TAREFAS ---
+        // --- 2. SONS (PREMIUM) ---
+        case 'control_sound':
+            if (!requirePremium('Controle de Sons')) return;
+            if (p.action === 'stop') {
+                document.querySelectorAll('audio').forEach(a => { a.pause(); a.currentTime = 0; });
+                document.querySelectorAll('[id^="card-"]').forEach(c => c.classList.remove('border-indigo-500', 'ring-2'));
+                if (typeof currentSound !== 'undefined') currentSound = null;
+            } else if (p.action === 'play' && p.type) {
+                switchPage('sounds');
+                setTimeout(() => {
+                    if (window.toggleSound) window.toggleSound(p.type);
+                }, 500);
+            }
+            break;
+
+        // --- 3. FEEDBACK & SUPORTE ---
+        case 'report_issue':
+        case 'send_suggestion':
+            switchPage('feedback');
+            setTimeout(() => {
+                const txt = document.getElementById('feedback-message');
+                if (txt && p.message) txt.value = p.message;
+                if (cmd.action === 'report_issue' && window.selectFeedbackType) {
+                    window.selectFeedbackType('bug', 'Reportar Erro', 'fa-bug', 'text-red-500', 'bg-red-100');
+                }
+            }, 500);
+            break;
+
+        // --- 4. CONTROLE DA HOME (RESUMO) ---
+        case 'set_summary':
+            if (p.text) {
+                localStorage.setItem('salvese_ai_widget', p.text);
+                if (typeof aiWidgetContent !== 'undefined') aiWidgetContent = p.text;
+                if (window.updateAIWidgetUI) window.updateAIWidgetUI();
+            }
+            break;
+
+        case 'toggle_widget':
+            if (p.id && window.toggleWidget) window.toggleWidget(p.id);
+            break;
+
+        // --- 5. TAREFAS (COM XP) ---
         case 'create_task':
-            tasksData.push({ id: Date.now().toString(), text: p.text, done: false, priority: p.priority || 'normal', category: 'geral', createdAt: Date.now() });
+            tasksData.push({
+                id: Date.now().toString(),
+                text: p.text,
+                done: false,
+                priority: p.priority || 'normal',
+                category: 'geral',
+                createdAt: Date.now()
+            });
             saveData();
-            if (currentViewContext === 'todo' || currentViewContext === 'home') refreshAllUI();
+            if (currentViewContext === 'todo') renderTasks();
+            showModal("Tarefa Criada", p.text);
+            break;
+
+        case 'complete_task':
+            if (p.text) {
+                const t = tasksData.find(item => item.text.toLowerCase().includes(p.text.toLowerCase()));
+                if (t) {
+                    if (!t.done) {
+                        t.done = true;
+                        if (window.addXP) window.addXP(20); // XP!
+                        showModal("Concluído!", `Marquei "${t.text}" como feita (+20 XP).`);
+                    } else {
+                        showModal("Já feita", `A tarefa "${t.text}" já estava pronta.`);
+                    }
+                    saveData();
+                    if (currentViewContext === 'todo') renderTasks();
+                }
+            }
             break;
 
         case 'delete_task':
             if (p.text) {
                 tasksData = tasksData.filter(t => !t.text.toLowerCase().includes(p.text.toLowerCase()));
                 saveData();
-                refreshAllUI();
+                if (currentViewContext === 'todo') renderTasks();
             }
             break;
 
-        case 'edit_task':
-            if (p.old_text) {
-                const t = tasksData.find(item => item.text.toLowerCase().includes(p.old_text.toLowerCase()));
-                if (t) {
-                    if (p.new_text) t.text = p.new_text;
-                    if (p.done !== undefined) t.done = p.done;
-                    saveData();
-                    refreshAllUI();
-                }
+        // --- 6. CALCULADORA ---
+        case 'fill_calculator':
+            switchPage('calc');
+            const calcC = document.getElementById('grades-container');
+            if (calcC) calcC.innerHTML = '';
+            if (p.grades && Array.isArray(p.grades)) {
+                for (let i = 0; i < p.grades.length; i++) addGradeRow();
+                setTimeout(() => {
+                    const inputs = document.querySelectorAll('.grade-input');
+                    const weights = document.querySelectorAll('.weight-input');
+                    p.grades.forEach((n, i) => {
+                        if (inputs[i]) inputs[i].value = n;
+                        if (weights[i] && p.weights && p.weights[i]) weights[i].value = p.weights[i];
+                    });
+                    calculateAverage();
+                }, 200);
             }
             break;
 
-        case 'bulk_create_tasks':
-            if (p.tasks && Array.isArray(p.tasks)) {
-                p.tasks.forEach(t => tasksData.push({ id: Date.now().toString() + Math.random(), text: t.text, done: false, priority: t.priority || 'normal', category: 'estudo', createdAt: Date.now() }));
-                saveData();
-                refreshAllUI();
-            }
-            break;
-
-        // --- 3. AULAS ---
+        // --- 7. AULAS ---
         case 'create_class':
-            scheduleData.push({ id: Date.now().toString(), name: p.name, prof: p.prof || 'N/A', room: p.room || 'N/A', day: p.day, start: p.start, end: p.end, color: 'indigo' });
+            scheduleData.push({
+                id: Date.now().toString(),
+                name: p.name,
+                prof: p.prof || 'N/A',
+                room: p.room || 'N/A',
+                day: p.day || 'seg',
+                start: p.start || '08:00',
+                end: p.end || '10:00',
+                color: 'indigo'
+            });
             saveData();
             if (currentViewContext === 'aulas') renderSchedule();
+            showModal("Aula Adicionada", `${p.name} na ${p.day}`);
             break;
 
         case 'delete_class':
@@ -1039,23 +1125,22 @@ async function executeAICommand(cmd) {
             }
             break;
 
-        // --- 4. CRONÔMETRO ---
+        // --- 8. CRONÔMETRO ---
         case 'timer_control':
             if (p.action === 'start' && !isRunning1) toggleTimer();
             else if (p.action === 'stop' && isRunning1) toggleTimer();
-            else if (p.action === 'reset') resetTimer();
             switchPage('pomo');
             break;
 
         case 'timer_set':
             if (p.mode) {
                 if (p.mode === 'custom' && p.minutes) {
+                    // Lógica custom (Simplificada para IA)
                     stopTimerIfRunning();
                     currentMode1 = 'custom';
                     modes1['custom'] = parseInt(p.minutes) * 60;
                     timeLeft1 = modes1['custom'];
                     updateTimerDisplay();
-                    document.getElementById('timer-label').innerText = `${p.minutes} min`;
                 } else {
                     setTimerMode(p.mode);
                 }
@@ -1063,23 +1148,7 @@ async function executeAICommand(cmd) {
             }
             break;
 
-        // --- 5. CALCULADORA ---
-        case 'fill_calculator':
-            switchPage('calc');
-            const calcC = document.getElementById('grades-container');
-            if (calcC) calcC.innerHTML = '';
-            if (p.grades && Array.isArray(p.grades)) {
-                for (let i = 0; i < p.grades.length; i++) addGradeRow();
-                setTimeout(() => {
-                    const inputs = document.querySelectorAll('.grade-input');
-                    const weights = document.querySelectorAll('.weight-input');
-                    p.grades.forEach((n, i) => { if (inputs[i]) inputs[i].value = n; if (weights[i] && p.weights && p.weights[i]) weights[i].value = p.weights[i]; });
-                    calculateAverage();
-                }, 200);
-            }
-            break;
-
-        // --- 6. NOTAS ---
+        // --- 9. NOTAS ---
         case 'create_note':
             const nid = Date.now().toString();
             notesData.push({ id: nid, title: p.title || "Nota IA", content: p.content || "", updatedAt: Date.now(), pinned: false });
@@ -1096,74 +1165,33 @@ async function executeAICommand(cmd) {
             }
             break;
 
-        case 'append_note':
-            if (p.title && p.text_to_add) {
-                const note = notesData.find(n => n.title.toLowerCase().includes(p.title.toLowerCase()));
-                if (note) {
-                    note.content += `<br>${p.text_to_add}`;
-                    note.updatedAt = Date.now();
-                    saveData();
-                }
-            }
-            break;
-
-        // --- 7. OUTROS ---
-        case 'create_reminder':
-            remindersData.push({ id: Date.now().toString(), desc: p.desc, date: p.date, prio: p.prio || 'medium', createdAt: Date.now() });
-            saveData();
-            refreshAllUI();
-            break;
-
-        case 'set_summary':
-            if (p.text) updateAIWidget(p.text);
-            break;
-
+        // --- 10. SISTEMA ---
         case 'navigate':
             if (p.page) switchPage(p.page);
             break;
 
-        case 'generate_template':
-            switchPage('email');
-            setTimeout(() => { const el = document.getElementById('email-content'); if (el) el.value = p.content; }, 300);
-            break;
-
-        // --- 8. FINANÇAS (NOVO) ---
-        case 'set_budget':
-            if (p.amount) {
-                localStorage.setItem('salvese_finance_budget', parseFloat(p.amount));
-                if (currentViewContext === 'financeiro') renderFinance();
+        case 'change_theme':
+            const reqMode = (p.mode || '').toLowerCase();
+            if (reqMode.includes('dark') || reqMode.includes('escuro')) {
+                document.documentElement.classList.add('dark');
+                localStorage.setItem('theme', 'dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+                localStorage.setItem('theme', 'light');
             }
+            if (window.renderSettings) window.renderSettings();
             break;
 
-        case 'add_expense':
-            if (p.amount && p.desc) {
-                let currentTrans = JSON.parse(localStorage.getItem('salvese_finances')) || [];
-                currentTrans.unshift({
-                    val: parseFloat(p.amount),
-                    desc: p.desc,
-                    date: new Date().toISOString()
-                });
-                transactions = currentTrans;
-                localStorage.setItem('salvese_finances', JSON.stringify(currentTrans));
-                if (currentViewContext === 'financeiro') renderFinance();
-            }
-            break;
-
-        case 'remove_expense':
-            if (p.desc) {
-                let currentTrans = JSON.parse(localStorage.getItem('salvese_finances')) || [];
-                const index = currentTrans.findIndex(t => t.desc.toLowerCase().includes(p.desc.toLowerCase()));
-                if (index !== -1) {
-                    currentTrans.splice(index, 1);
-                    transactions = currentTrans;
-                    localStorage.setItem('salvese_finances', JSON.stringify(currentTrans));
-                    if (currentViewContext === 'financeiro') renderFinance();
-                }
+        case 'change_color':
+            if (window.setThemeColor && p.color) {
+                const map = { 'roxo': 'indigo', 'verde': 'green', 'azul': 'blue', 'laranja': 'orange', 'rosa': 'pink', 'preto': 'black' };
+                const color = map[p.color.toLowerCase()] || p.color.toLowerCase();
+                window.setThemeColor(color);
             }
             break;
 
         default:
-            console.warn("Comando desconhecido:", cmd.action);
+            console.warn("Comando IA desconhecido:", cmd.action);
     }
 }
 
@@ -4863,7 +4891,7 @@ window.toggleSound = function (type) {
 // Variável global para guardar a escolha do usuário
 let selectedFeedbackType = { value: 'suggestion', label: 'Sugestão / Ideia', icon: 'fa-lightbulb', color: 'text-yellow-500', bg: 'bg-yellow-100 dark:bg-yellow-900/20' };
 
-window.renderFeedbackPage = function() {
+window.renderFeedbackPage = function () {
     const container = document.getElementById('view-feedback');
     if (!container) return;
 
@@ -4931,7 +4959,7 @@ window.renderFeedbackPage = function() {
 function createFeedbackOption(value, title, subtitle, icon, color, bg) {
     const isSelected = selectedFeedbackType.value === value;
     const borderClass = isSelected ? 'border-indigo-500 ring-1 ring-indigo-500 bg-indigo-50 dark:bg-indigo-900/20' : 'border-gray-100 dark:border-neutral-800';
-    
+
     return `
         <button onclick="selectFeedbackType('${value}', '${title}', '${icon}', '${color}', '${bg}')" 
             class="flex items-center gap-4 p-4 rounded-2xl border ${borderClass} hover:bg-gray-50 dark:hover:bg-neutral-800 transition text-left group">
@@ -4947,7 +4975,7 @@ function createFeedbackOption(value, title, subtitle, icon, color, bg) {
     `;
 }
 
-window.openFeedbackSelector = function() {
+window.openFeedbackSelector = function () {
     const modal = document.getElementById('feedback-selector-modal');
     const bg = document.getElementById('fb-modal-bg');
     const content = document.getElementById('fb-modal-content');
@@ -4955,7 +4983,7 @@ window.openFeedbackSelector = function() {
     setTimeout(() => { bg.classList.remove('opacity-0'); content.classList.remove('translate-y-full'); }, 10);
 }
 
-window.closeFeedbackSelector = function() {
+window.closeFeedbackSelector = function () {
     const modal = document.getElementById('feedback-selector-modal');
     const bg = document.getElementById('fb-modal-bg');
     const content = document.getElementById('fb-modal-content');
@@ -4963,19 +4991,19 @@ window.closeFeedbackSelector = function() {
     setTimeout(() => { modal.classList.add('hidden'); }, 300);
 }
 
-window.selectFeedbackType = function(value, label, icon, color, bg) {
+window.selectFeedbackType = function (value, label, icon, color, bg) {
     selectedFeedbackType = { value, label, icon, color, bg };
     const iconEl = document.getElementById('fb-selected-icon');
     const labelEl = document.getElementById('fb-selected-label');
-    
+
     iconEl.className = `w-12 h-12 rounded-xl ${bg} ${color} flex items-center justify-center text-xl shadow-sm transition-colors duration-300`;
     iconEl.innerHTML = `<i class="fas ${icon}"></i>`;
     labelEl.innerText = label;
-    
+
     closeFeedbackSelector();
     setTimeout(() => {
         const modalList = document.querySelector('#fb-modal-content .grid');
-        if(modalList) {
+        if (modalList) {
             modalList.innerHTML = `
                 ${createFeedbackOption('suggestion', 'Sugestão / Ideia', 'Tenho uma ideia para o app', 'fa-lightbulb', 'text-yellow-500', 'bg-yellow-100 dark:bg-yellow-900/20')}
                 ${createFeedbackOption('bug', 'Reportar Erro (Bug)', 'Algo não está funcionando', 'fa-bug', 'text-red-500', 'bg-red-100 dark:bg-red-900/20')}

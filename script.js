@@ -2180,14 +2180,14 @@ window.renderSettings = function () {
 
     const isPremium = isUserPremium();
 
-    // Badge de Nível e Premium para o Cabeçalho
+    // Badges do Cabeçalho
     const levelBadge = `<span class="bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400 text-[10px] font-bold px-3 py-1 rounded-full border border-indigo-100 dark:border-indigo-800">Nível ${userProfile.level || 1}</span>`;
     const premiumStatusBadge = isPremium
         ? `<span class="bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-400 text-[10px] font-bold px-3 py-1 rounded-full border border-amber-100 dark:border-amber-800 flex items-center gap-1"><i class="fas fa-crown text-[9px]"></i> Premium</span>`
         : `<span class="bg-gray-50 text-gray-600 dark:bg-neutral-800 dark:text-gray-400 text-[10px] font-bold px-3 py-1 rounded-full border border-gray-100 dark:border-neutral-700">Grátis</span>`;
 
 
-    // --- LÓGICA DO CARD PREMIUM (ADAPTÁVEL CLARO/ESCURO) ---
+    // --- LÓGICA DO CARD PREMIUM (COM O GRADIENTE ROXO -> ROSA) ---
     let subscriptionCardHtml = '';
     let shouldStartTimer = false;
 
@@ -2204,52 +2204,52 @@ window.renderSettings = function () {
         let mainContent = '';
 
         if (distance > oneDay) {
-            // MAIS DE 24H
+            // MAIS DE 24H (Texto Branco)
             const daysLeft = Math.ceil(distance / oneDay);
             mainContent = `
-                <div>
-                    <span class="text-4xl font-bold text-gray-900 dark:text-white tracking-tight">${daysLeft}</span>
-                    <span class="text-gray-500 dark:text-gray-400 text-sm font-medium ml-1">dias restantes</span>
+                <div class="mt-6 mb-4">
+                    <span class="text-5xl font-bold text-white tracking-tight">${daysLeft}</span>
+                    <span class="text-white/80 text-lg font-medium ml-1">dias restantes</span>
                 </div>
             `;
         } else {
-            // MENOS DE 24H (TIMER)
+            // MENOS DE 24H (Timer Branco)
             shouldStartTimer = true;
             mainContent = `
-                <div>
-                    <div id="premium-countdown" class="text-3xl font-mono font-bold text-red-500 dark:text-red-400 tracking-tight flex items-baseline gap-2">
+                <div class="mt-6 mb-4">
+                    <div id="premium-countdown" class="text-4xl font-mono font-bold text-white tracking-tight flex items-baseline gap-2">
                         --:--:--
                     </div>
-                    <span class="text-red-500/80 dark:text-red-400/80 text-[10px] font-bold uppercase tracking-widest animate-pulse">Expirando hoje</span>
+                    <span class="text-white/80 text-[10px] font-bold uppercase tracking-widest animate-pulse">Expirando hoje</span>
                 </div>
             `;
         }
 
-        // CARD ADAPTÁVEL (bg-white no claro, bg-black no escuro)
+        // CARD COM GRADIENTE ROXO -> ROSA
         subscriptionCardHtml = `
-            <div class="bg-white dark:bg-[#0f1113] rounded-2xl p-5 relative overflow-hidden shadow-lg border border-gray-200 dark:border-gray-800 group my-6">
-                <div class="absolute right-2 top-2 text-black/5 dark:text-white/5 text-7xl transform rotate-12 pointer-events-none"><i class="fas fa-crown"></i></div>
+            <div class="bg-gradient-to-br from-purple-600 to-pink-500 rounded-2xl p-6 relative overflow-hidden shadow-xl group my-6 text-white">
+                <div class="absolute right-2 top-2 text-white/10 text-7xl transform rotate-12 pointer-events-none"><i class="fas fa-crown"></i></div>
                 
                 <div class="relative z-10">
                     <div class="flex justify-between items-start mb-4">
                         <div class="flex items-center gap-2">
-                            <i class="fas fa-star text-amber-500 dark:text-amber-400 text-base"></i>
-                            <h3 class="text-base font-bold text-gray-800 dark:text-white">Premium Ativo</h3>
+                            <i class="fas fa-star text-amber-300 text-lg drop-shadow-sm"></i>
+                            <h3 class="text-lg font-bold">Premium Ativo</h3>
                         </div>
-                        <span class="bg-gray-100 dark:bg-white/10 text-gray-500 dark:text-gray-300 text-[10px] px-2 py-1 rounded-md font-mono border border-gray-200 dark:border-white/5">Vence: ${endFormatted}</span>
+                        <span class="bg-white/20 text-white text-[10px] px-3 py-1 rounded-full font-mono backdrop-blur-sm">Vence: ${endFormatted}</span>
                     </div>
                     
                     ${mainContent}
 
-                    <div class="w-full bg-gray-100 dark:bg-gray-800 rounded-full h-2 mt-4 overflow-hidden">
-                        <div class="bg-gradient-to-r from-green-500 to-emerald-400 h-2 rounded-full transition-all duration-1000" style="width: ${percent}%"></div>
+                    <div class="w-full bg-black/20 rounded-full h-2.5 mt-4 overflow-hidden">
+                        <div class="bg-white h-2.5 rounded-full transition-all duration-1000 shadow-[0_0_15px_rgba(255,255,255,0.6)]" style="width: ${percent}%"></div>
                     </div>
-                    <p class="text-[9px] text-gray-400 dark:text-gray-500 text-right mt-1.5">Renovação necessária ao fim do prazo</p>
+                    <p class="text-[10px] text-white/70 text-right mt-2 font-medium">Renovação necessária ao fim do prazo</p>
                 </div>
             </div>
         `;
     } else {
-        // CARD DE VENDA (Mantém gradiente pois é Call to Action)
+        // Card de Venda (Gradiente similar, mas mais azulado/roxo para diferenciar)
         subscriptionCardHtml = `
             <div onclick="switchPage('premium')" class="group cursor-pointer bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl p-5 text-white shadow-lg my-6 relative overflow-hidden hover:scale-[1.01] transition">
                 <div class="flex justify-between items-center relative z-10">
@@ -2373,7 +2373,7 @@ window.renderSettings = function () {
             </div>
 
             <div class="text-center pb-4">
-                <p class="text-[10px] text-gray-400 uppercase font-bold">Salve-se UFRB v4.6</p>
+                <p class="text-[10px] text-gray-400 uppercase font-bold">Salve-se UFRB v4.5</p>
                 <p class="text-[10px] text-gray-300 dark:text-neutral-700 font-mono mt-1">UID: ${currentUser.uid.substring(0, 8)}...</p>
             </div>
         </div>

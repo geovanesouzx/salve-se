@@ -356,7 +356,8 @@ window.switchPage = function (pageId, addToHistory = true) {
         feedback: 'Central de Feedback',
         premium: 'Planos & Assinatura',
         financeiro: 'Gestor Financeiro', // <--- ADICIONADO
-        sounds: 'Estúdio de Foco'        // <--- ADICIONADO
+        sounds: 'Estúdio de Foco',
+        pdf: 'Leitor de PDF IA'     // <--- ADICIONADO
     };
     const pageTitleEl = document.getElementById('page-title');
     if (pageTitleEl) pageTitleEl.innerText = titles[pageId] || 'Salve-se UFRB';
@@ -5024,3 +5025,84 @@ window.sendFeedback = async function () {
         btn.disabled = false;
     }
 }
+
+// ============================================================
+// --- LÓGICA LEITOR PDF (NOVO) ---
+// ============================================================
+let currentPDFText = "";
+window.handlePDFUpload = async function (input) {
+    if (!requirePremium('Leitor de PDF IA')) { input.value = ''; return; }
+    const file = input.files[0];
+    if (!file) return;
+
+    const area = document.getElementById('pdf-upload-area');
+    const original = area.innerHTML;
+    area.innerHTML = `<div class="animate-pulse text-center"><i class="fas fa-spinner fa-spin text-3xl text-rose-500"></i><p class="mt-2 font-bold dark:text-white">Lendo PDF...</p></div>`;
+
+    try {
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        let fullText = "";
+        const max = Math.min(pdf.numPages, 15); // Limite 15 pags para não travar
+
+        for (let i = 1; i <= max; i++) {
+            const page = await pdf.getPage(i);
+            const content = await page.getTextContent();
+            fullText += content.items.map(item => item.str).join(' ') + "\n";
+        }
+        currentPDFText = fullText;
+
+        document.getElementById('pdf-filename').innerText = file.name;
+        document.getElementById('pdf-pagecount').innerText = `${pdf.numPages} páginas`;
+        area.classList.add('hidden');
+        area.innerHTML = original;
+        document.getElementById('pdf-chat-interface').classList.remove('hidden');
+
+        const msgs = document.getElementById('pdf-messages');
+        msgs.innerHTML = `<div class="flex gap-3 max-w-[90%]"><div class="w-8 h-8 rounded-full bg-rose-500 flex items-center justify-center text-white text-xs"><i class="fas fa-robot"></i></div><div class="bg-white dark:bg-darkcard border dark:border-darkborder p-3 rounded-2xl text-sm shadow-sm">Li o PDF! O que quer saber?</div></div>`;
+    } catch (e) {
+        console.error(e);
+        showModal("Erro", "Falha ao ler PDF.");
+        resetPDF();
+    }
+};
+
+window.resetPDF = function () {
+    currentPDFText = "";
+    document.getElementById('pdf-file-input').value = '';
+    document.getElementById('pdf-upload-area').classList.remove('hidden');
+    document.getElementById('pdf-chat-interface').classList.add('hidden');
+};
+
+window.sendPDFMessage = async function () {
+    const input = document.getElementById('pdf-chat-input');
+    const msg = input.value.trim();
+    const box = document.getElementById('pdf-messages');
+    if (!msg || !currentPDFText) return;
+
+    input.value = ''; input.disabled = true;
+    box.innerHTML += `<div class="flex justify-end mb-4"><div class="bg-rose-500 text-white rounded-2xl rounded-br-sm px-4 py-3 shadow-md text-sm max-w-[85%]">${msg}</div></div>`;
+    box.scrollTo({ top: box.scrollHeight, behavior: 'smooth' });
+
+    try {
+        const response = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                provider: currentAIProvider,
+                message: msg,
+                history: [{ role: 'system', text: `Responda baseando-se APENAS neste texto de PDF:\n${currentPDFText.substring(0, 25000)}` }]
+            })
+        });
+        const data = await response.json();
+        let reply = data.text.replace(/```json[\s\S]*?```/g, "").trim();
+        if (reply.startsWith('{')) try { reply = JSON.parse(reply).message; } catch (e) { }
+
+        box.innerHTML += `<div class="flex gap-3 max-w-[90%] mb-4"><div class="w-8 h-8 rounded-full bg-rose-500 flex items-center justify-center text-white text-xs flex-shrink-0"><i class="fas fa-robot"></i></div><div class="bg-white dark:bg-darkcard border dark:border-darkborder px-4 py-3 rounded-2xl text-sm text-gray-800 dark:text-gray-200">${reply.replace(/\n/g, '<br>')}</div></div>`;
+    } catch (e) {
+        showModal("Erro", "A IA falhou.");
+    } finally {
+        input.disabled = false; input.focus();
+        box.scrollTo({ top: box.scrollHeight, behavior: 'smooth' });
+    }
+};

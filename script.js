@@ -5027,12 +5027,12 @@ window.sendFeedback = async function () {
 }
 
 // ============================================================
-// --- LÓGICA LEITOR PDF (CORRIGIDO) ---
+// --- LÓGICA LEITOR PDF (CORRIGIDO V2) ---
 // ============================================================
 let currentPDFText = "";
 
 window.handlePDFUpload = async function (input) {
-    // Verifica permissão
+    // Verifica permissão Premium
     if (!requirePremium('Leitor de PDF IA')) {
         input.value = '';
         return;
@@ -5041,7 +5041,7 @@ window.handlePDFUpload = async function (input) {
     const file = input.files[0];
     if (!file) return;
 
-    // UI: Mostra carregando
+    // UI: Mostra estado de carregamento
     const uploadArea = document.getElementById('pdf-upload-area');
     const originalHTML = uploadArea.innerHTML;
 
@@ -5049,54 +5049,61 @@ window.handlePDFUpload = async function (input) {
     uploadArea.innerHTML = `
         <div class="animate-pulse text-center">
             <i class="fas fa-spinner fa-spin text-3xl text-rose-500 mb-2"></i>
-            <p class="font-bold text-gray-700 dark:text-white">Processando PDF...</p>
-            <p class="text-xs text-gray-400">Isso pode levar alguns segundos</p>
+            <p class="font-bold text-gray-700 dark:text-white">Lendo PDF...</p>
+            <p class="text-xs text-gray-400">Extraindo texto e formatando...</p>
         </div>
     `;
 
     try {
-        // Converte o arquivo
         const arrayBuffer = await file.arrayBuffer();
 
-        // Acessa a biblioteca via window para garantir compatibilidade
+        // Garante acesso à biblioteca PDF.js
         const pdfLib = window.pdfjsLib;
-        if (!pdfLib) throw new Error("Biblioteca PDF não carregada.");
+        if (!pdfLib) throw new Error("Erro: Biblioteca PDF não carregou.");
 
         const pdf = await pdfLib.getDocument({ data: arrayBuffer }).promise;
 
         let fullText = "";
-        const maxPages = 20; // Limite de páginas para não travar
+        const maxPages = 20; // Limite de segurança
         const numPages = Math.min(pdf.numPages, maxPages);
 
-        // Extrai o texto
+        // Loop pelas páginas
         for (let i = 1; i <= numPages; i++) {
             const page = await pdf.getPage(i);
             const content = await page.getTextContent();
-            const pageText = content.items.map(item => item.str).join(' ');
-            fullText += `[Pág ${i}] ${pageText}\n`;
+
+            // AQUI ESTAVA O BUG: Mudamos de ' ' para '\n' (Quebra de linha)
+            // E adicionamos um filtro para ignorar linhas vazias inúteis
+            const pageText = content.items
+                .map(item => item.str)
+                .filter(str => str.trim().length > 0) // Remove linhas vazias
+                .join('\n');
+
+            fullText += `--- Página ${i} ---\n${pageText}\n\n`;
         }
 
-        // VERIFICAÇÃO CRÍTICA: PDF É IMAGEM?
-        if (fullText.trim().length < 50) {
-            throw new Error("Não encontrei texto. Este PDF parece ser uma imagem escaneada?");
+        // Verifica se o PDF é imagem (texto muito curto)
+        if (fullText.length < 50) {
+            throw new Error("O PDF parece ser uma imagem escaneada. A IA não consegue ler imagens, apenas texto.");
         }
 
         currentPDFText = fullText;
 
-        // Atualiza Interface
+        // Sucesso: Atualiza a Interface
         document.getElementById('pdf-filename').innerText = file.name;
         document.getElementById('pdf-pagecount').innerText = `${pdf.numPages} páginas`;
 
         uploadArea.classList.add('hidden');
-        uploadArea.innerHTML = originalHTML; // Restaura para futuro
+        uploadArea.innerHTML = originalHTML;
         document.getElementById('pdf-chat-interface').classList.remove('hidden');
 
+        // Mensagem de Boas-vindas
         const msgs = document.getElementById('pdf-messages');
         msgs.innerHTML = `
-            <div class="flex gap-3 max-w-[90%] animate-fade-in-up">
+            <div class="flex gap-3 max-w-[90%] animate-fade-in-up mb-4">
                 <div class="w-8 h-8 rounded-full bg-rose-500 flex items-center justify-center text-white text-xs shadow-sm flex-shrink-0"><i class="fas fa-robot"></i></div>
-                <div class="bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder p-3 rounded-2xl rounded-bl-sm text-sm shadow-sm text-gray-800 dark:text-gray-200">
-                    <p>Li o documento com sucesso! O que você quer saber?</p>
+                <div class="bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder p-4 rounded-2xl rounded-bl-sm text-sm shadow-sm text-gray-800 dark:text-gray-200 leading-relaxed">
+                    <p><strong>Documento lido com sucesso!</strong> 📄<br>Consegui extrair o texto mantendo a formatação. O que você precisa saber?</p>
                 </div>
             </div>`;
 
@@ -5110,12 +5117,9 @@ window.handlePDFUpload = async function (input) {
 window.resetPDF = function () {
     currentPDFText = "";
     document.getElementById('pdf-file-input').value = '';
-
-    const uploadArea = document.getElementById('pdf-upload-area');
-    uploadArea.classList.remove('hidden');
-    // Restaura o clique do upload area se tiver sido removido
-    uploadArea.onclick = function () { document.getElementById('pdf-file-input').click() };
-
+    const area = document.getElementById('pdf-upload-area');
+    area.classList.remove('hidden');
+    area.onclick = function () { document.getElementById('pdf-file-input').click() };
     document.getElementById('pdf-chat-interface').classList.add('hidden');
 };
 
@@ -5130,34 +5134,51 @@ window.sendPDFMessage = async function () {
     const box = document.getElementById('pdf-messages');
 
     if (!msg) return;
-    if (!currentPDFText) {
-        showModal("Erro", "Nenhum PDF carregado na memória.");
-        return;
-    }
+    if (!currentPDFText) { showModal("Erro", "Nenhum PDF carregado."); return; }
 
-    // Prepara UI
+    // Trava input
     input.value = '';
     input.disabled = true;
 
-    // Balão Usuário
+    // 1. Balão do Usuário
     box.innerHTML += `
-        <div class="flex justify-end mb-4 animate-scale-in">
-            <div class="bg-rose-500 text-white rounded-2xl rounded-br-sm px-4 py-3 shadow-md text-sm max-w-[85%]">${msg}</div>
+        <div class="flex justify-end mb-6 animate-scale-in">
+            <div class="bg-rose-500 text-white rounded-2xl rounded-br-sm px-4 py-3 shadow-md text-sm max-w-[85%] leading-relaxed">
+                ${msg}
+            </div>
         </div>`;
     box.scrollTo({ top: box.scrollHeight, behavior: 'smooth' });
 
-    // Balão Loading
+    // 2. Balão de Loading
     const loadingId = 'pdf-load-' + Date.now();
     box.innerHTML += `
-        <div id="${loadingId}" class="flex gap-3 max-w-[90%] mb-4">
+        <div id="${loadingId}" class="flex gap-3 max-w-[90%] mb-6">
             <div class="w-8 h-8 rounded-full bg-rose-500 flex items-center justify-center text-white text-xs animate-pulse"><i class="fas fa-robot"></i></div>
             <div class="bg-white dark:bg-darkcard border dark:border-darkborder px-4 py-3 rounded-2xl text-sm text-gray-500">Analisando documento...</div>
         </div>`;
     box.scrollTo({ top: box.scrollHeight, behavior: 'smooth' });
 
     try {
-        // Limita contexto para não estourar limite da API (aprox 20k caracteres)
-        const safeContext = currentPDFText.substring(0, 20000);
+        // Contexto limitado
+        const safeContext = currentPDFText.substring(0, 22000);
+
+        // Prompt Otimizado para Formatação
+        const systemPrompt = `
+            Você é um assistente acadêmico. Analise o seguinte texto extraído de um PDF:
+            
+            === INÍCIO TEXTO PDF ===
+            ${safeContext}
+            === FIM TEXTO PDF ===
+            
+            PERGUNTA DO USUÁRIO: "${msg}"
+            
+            DIRETRIZES DE RESPOSTA:
+            1. Use QUEBRAS DE LINHA duplas para separar parágrafos.
+            2. Use listas ( - item) para enumerar pontos.
+            3. Use negrito (**texto**) para destacar partes importantes.
+            4. Se a resposta não estiver no texto, diga "Não encontrei no documento".
+            5. Seja direto e organizado.
+        `;
 
         const response = await fetch('/api/chat', {
             method: 'POST',
@@ -5165,32 +5186,31 @@ window.sendPDFMessage = async function () {
             body: JSON.stringify({
                 provider: currentAIProvider,
                 message: msg,
-                history: [{
-                    role: 'system',
-                    text: `Você é um assistente que responde perguntas baseadas APENAS no seguinte texto extraído de um PDF:\n\n${safeContext}\n\nSe a resposta não estiver no texto, diga que não encontrou.`
-                }]
+                history: [{ role: 'system', text: systemPrompt }]
             })
         });
 
         const data = await response.json();
-
-        // Remove loading
-        const loader = document.getElementById(loadingId);
-        if (loader) loader.remove();
+        document.getElementById(loadingId).remove();
 
         if (data.error) throw new Error(data.error);
 
-        let reply = data.text;
-        // Limpeza extra caso a IA mande JSON
-        reply = reply.replace(/```json[\s\S]*?```/g, "").trim();
+        // Limpa resposta crua
+        let reply = data.text.replace(/```json[\s\S]*?```/g, "").trim();
         if (reply.startsWith('{')) { try { reply = JSON.parse(reply).message || reply; } catch (e) { } }
 
-        // Balão Resposta
+        // Formatação HTML melhorada
+        // Converte Markdown bold para HTML bold e quebras de linha para <br>
+        const formattedReply = reply
+            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') // Negrito
+            .replace(/\n/g, '<br>'); // Quebra de linha
+
+        // 3. Balão da IA (Resposta Final)
         box.innerHTML += `
-            <div class="flex gap-3 max-w-[90%] mb-4 animate-fade-in-up">
+            <div class="flex gap-3 max-w-[90%] mb-6 animate-fade-in-up">
                 <div class="w-8 h-8 rounded-full bg-rose-500 flex items-center justify-center text-white text-xs flex-shrink-0"><i class="fas fa-robot"></i></div>
-                <div class="bg-white dark:bg-darkcard border dark:border-darkborder px-4 py-3 rounded-2xl text-sm text-gray-800 dark:text-gray-200 leading-relaxed">
-                    ${reply.replace(/\n/g, '<br>')}
+                <div class="bg-white dark:bg-darkcard border dark:border-darkborder px-4 py-3 rounded-2xl rounded-bl-sm text-sm text-gray-800 dark:text-gray-200 leading-relaxed shadow-sm">
+                    ${formattedReply}
                 </div>
             </div>
         `;
@@ -5199,7 +5219,7 @@ window.sendPDFMessage = async function () {
         console.error(e);
         const loader = document.getElementById(loadingId);
         if (loader) loader.remove();
-        showModal("Erro IA", "A IA não conseguiu responder. Tente uma pergunta mais curta.");
+        showModal("Erro IA", "A IA não conseguiu responder agora.");
     } finally {
         input.disabled = false;
         input.focus();

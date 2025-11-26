@@ -5027,42 +5027,82 @@ window.sendFeedback = async function () {
 }
 
 // ============================================================
-// --- LÓGICA LEITOR PDF (NOVO) ---
+// --- LÓGICA LEITOR PDF (CORRIGIDO) ---
 // ============================================================
 let currentPDFText = "";
+
 window.handlePDFUpload = async function (input) {
-    if (!requirePremium('Leitor de PDF IA')) { input.value = ''; return; }
+    // Verifica permissão
+    if (!requirePremium('Leitor de PDF IA')) {
+        input.value = '';
+        return;
+    }
+
     const file = input.files[0];
     if (!file) return;
 
-    const area = document.getElementById('pdf-upload-area');
-    const original = area.innerHTML;
-    area.innerHTML = `<div class="animate-pulse text-center"><i class="fas fa-spinner fa-spin text-3xl text-rose-500"></i><p class="mt-2 font-bold dark:text-white">Lendo PDF...</p></div>`;
+    // UI: Mostra carregando
+    const uploadArea = document.getElementById('pdf-upload-area');
+    const originalHTML = uploadArea.innerHTML;
+
+    uploadArea.onclick = null; // Bloqueia cliques
+    uploadArea.innerHTML = `
+        <div class="animate-pulse text-center">
+            <i class="fas fa-spinner fa-spin text-3xl text-rose-500 mb-2"></i>
+            <p class="font-bold text-gray-700 dark:text-white">Processando PDF...</p>
+            <p class="text-xs text-gray-400">Isso pode levar alguns segundos</p>
+        </div>
+    `;
 
     try {
+        // Converte o arquivo
         const arrayBuffer = await file.arrayBuffer();
-        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-        let fullText = "";
-        const max = Math.min(pdf.numPages, 15); // Limite 15 pags para não travar
 
-        for (let i = 1; i <= max; i++) {
+        // Acessa a biblioteca via window para garantir compatibilidade
+        const pdfLib = window.pdfjsLib;
+        if (!pdfLib) throw new Error("Biblioteca PDF não carregada.");
+
+        const pdf = await pdfLib.getDocument({ data: arrayBuffer }).promise;
+
+        let fullText = "";
+        const maxPages = 20; // Limite de páginas para não travar
+        const numPages = Math.min(pdf.numPages, maxPages);
+
+        // Extrai o texto
+        for (let i = 1; i <= numPages; i++) {
             const page = await pdf.getPage(i);
             const content = await page.getTextContent();
-            fullText += content.items.map(item => item.str).join(' ') + "\n";
+            const pageText = content.items.map(item => item.str).join(' ');
+            fullText += `[Pág ${i}] ${pageText}\n`;
         }
+
+        // VERIFICAÇÃO CRÍTICA: PDF É IMAGEM?
+        if (fullText.trim().length < 50) {
+            throw new Error("Não encontrei texto. Este PDF parece ser uma imagem escaneada?");
+        }
+
         currentPDFText = fullText;
 
+        // Atualiza Interface
         document.getElementById('pdf-filename').innerText = file.name;
         document.getElementById('pdf-pagecount').innerText = `${pdf.numPages} páginas`;
-        area.classList.add('hidden');
-        area.innerHTML = original;
+
+        uploadArea.classList.add('hidden');
+        uploadArea.innerHTML = originalHTML; // Restaura para futuro
         document.getElementById('pdf-chat-interface').classList.remove('hidden');
 
         const msgs = document.getElementById('pdf-messages');
-        msgs.innerHTML = `<div class="flex gap-3 max-w-[90%]"><div class="w-8 h-8 rounded-full bg-rose-500 flex items-center justify-center text-white text-xs"><i class="fas fa-robot"></i></div><div class="bg-white dark:bg-darkcard border dark:border-darkborder p-3 rounded-2xl text-sm shadow-sm">Li o PDF! O que quer saber?</div></div>`;
+        msgs.innerHTML = `
+            <div class="flex gap-3 max-w-[90%] animate-fade-in-up">
+                <div class="w-8 h-8 rounded-full bg-rose-500 flex items-center justify-center text-white text-xs shadow-sm flex-shrink-0"><i class="fas fa-robot"></i></div>
+                <div class="bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder p-3 rounded-2xl rounded-bl-sm text-sm shadow-sm text-gray-800 dark:text-gray-200">
+                    <p>Li o documento com sucesso! O que você quer saber?</p>
+                </div>
+            </div>`;
+
     } catch (e) {
-        console.error(e);
-        showModal("Erro", "Falha ao ler PDF.");
+        console.error("Erro PDF:", e);
+        showModal("Erro na Leitura", e.message || "Falha ao processar arquivo.");
         resetPDF();
     }
 };
@@ -5070,39 +5110,99 @@ window.handlePDFUpload = async function (input) {
 window.resetPDF = function () {
     currentPDFText = "";
     document.getElementById('pdf-file-input').value = '';
-    document.getElementById('pdf-upload-area').classList.remove('hidden');
+
+    const uploadArea = document.getElementById('pdf-upload-area');
+    uploadArea.classList.remove('hidden');
+    // Restaura o clique do upload area se tiver sido removido
+    uploadArea.onclick = function () { document.getElementById('pdf-file-input').click() };
+
     document.getElementById('pdf-chat-interface').classList.add('hidden');
 };
+
+window.sendPDFQuickPrompt = function (text) {
+    document.getElementById('pdf-chat-input').value = text;
+    sendPDFMessage();
+}
 
 window.sendPDFMessage = async function () {
     const input = document.getElementById('pdf-chat-input');
     const msg = input.value.trim();
     const box = document.getElementById('pdf-messages');
-    if (!msg || !currentPDFText) return;
 
-    input.value = ''; input.disabled = true;
-    box.innerHTML += `<div class="flex justify-end mb-4"><div class="bg-rose-500 text-white rounded-2xl rounded-br-sm px-4 py-3 shadow-md text-sm max-w-[85%]">${msg}</div></div>`;
+    if (!msg) return;
+    if (!currentPDFText) {
+        showModal("Erro", "Nenhum PDF carregado na memória.");
+        return;
+    }
+
+    // Prepara UI
+    input.value = '';
+    input.disabled = true;
+
+    // Balão Usuário
+    box.innerHTML += `
+        <div class="flex justify-end mb-4 animate-scale-in">
+            <div class="bg-rose-500 text-white rounded-2xl rounded-br-sm px-4 py-3 shadow-md text-sm max-w-[85%]">${msg}</div>
+        </div>`;
+    box.scrollTo({ top: box.scrollHeight, behavior: 'smooth' });
+
+    // Balão Loading
+    const loadingId = 'pdf-load-' + Date.now();
+    box.innerHTML += `
+        <div id="${loadingId}" class="flex gap-3 max-w-[90%] mb-4">
+            <div class="w-8 h-8 rounded-full bg-rose-500 flex items-center justify-center text-white text-xs animate-pulse"><i class="fas fa-robot"></i></div>
+            <div class="bg-white dark:bg-darkcard border dark:border-darkborder px-4 py-3 rounded-2xl text-sm text-gray-500">Analisando documento...</div>
+        </div>`;
     box.scrollTo({ top: box.scrollHeight, behavior: 'smooth' });
 
     try {
+        // Limita contexto para não estourar limite da API (aprox 20k caracteres)
+        const safeContext = currentPDFText.substring(0, 20000);
+
         const response = await fetch('/api/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 provider: currentAIProvider,
                 message: msg,
-                history: [{ role: 'system', text: `Responda baseando-se APENAS neste texto de PDF:\n${currentPDFText.substring(0, 25000)}` }]
+                history: [{
+                    role: 'system',
+                    text: `Você é um assistente que responde perguntas baseadas APENAS no seguinte texto extraído de um PDF:\n\n${safeContext}\n\nSe a resposta não estiver no texto, diga que não encontrou.`
+                }]
             })
         });
-        const data = await response.json();
-        let reply = data.text.replace(/```json[\s\S]*?```/g, "").trim();
-        if (reply.startsWith('{')) try { reply = JSON.parse(reply).message; } catch (e) { }
 
-        box.innerHTML += `<div class="flex gap-3 max-w-[90%] mb-4"><div class="w-8 h-8 rounded-full bg-rose-500 flex items-center justify-center text-white text-xs flex-shrink-0"><i class="fas fa-robot"></i></div><div class="bg-white dark:bg-darkcard border dark:border-darkborder px-4 py-3 rounded-2xl text-sm text-gray-800 dark:text-gray-200">${reply.replace(/\n/g, '<br>')}</div></div>`;
+        const data = await response.json();
+
+        // Remove loading
+        const loader = document.getElementById(loadingId);
+        if (loader) loader.remove();
+
+        if (data.error) throw new Error(data.error);
+
+        let reply = data.text;
+        // Limpeza extra caso a IA mande JSON
+        reply = reply.replace(/```json[\s\S]*?```/g, "").trim();
+        if (reply.startsWith('{')) { try { reply = JSON.parse(reply).message || reply; } catch (e) { } }
+
+        // Balão Resposta
+        box.innerHTML += `
+            <div class="flex gap-3 max-w-[90%] mb-4 animate-fade-in-up">
+                <div class="w-8 h-8 rounded-full bg-rose-500 flex items-center justify-center text-white text-xs flex-shrink-0"><i class="fas fa-robot"></i></div>
+                <div class="bg-white dark:bg-darkcard border dark:border-darkborder px-4 py-3 rounded-2xl text-sm text-gray-800 dark:text-gray-200 leading-relaxed">
+                    ${reply.replace(/\n/g, '<br>')}
+                </div>
+            </div>
+        `;
+
     } catch (e) {
-        showModal("Erro", "A IA falhou.");
+        console.error(e);
+        const loader = document.getElementById(loadingId);
+        if (loader) loader.remove();
+        showModal("Erro IA", "A IA não conseguiu responder. Tente uma pergunta mais curta.");
     } finally {
-        input.disabled = false; input.focus();
+        input.disabled = false;
+        input.focus();
         box.scrollTo({ top: box.scrollHeight, behavior: 'smooth' });
     }
 };

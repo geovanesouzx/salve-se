@@ -1206,10 +1206,18 @@ window.logoutApp = async () => {
 };
 
 window.saveUserProfile = async () => {
+    // 1. Verifica se o usuário está logado
+    if (!currentUser) {
+        document.getElementById('profile-error').innerText = "Erro: Usuário não autenticado. Recarregue a página.";
+        return;
+    }
+
     const handleInput = document.getElementById('input-handle').value.toLowerCase().trim();
     const nameInput = document.getElementById('input-display-name').value.trim();
     const errorMsg = document.getElementById('profile-error');
+    const btn = document.querySelector('#profile-setup-screen button');
 
+    // 2. Validações Locais
     if (!handleInput || !nameInput) {
         errorMsg.innerText = "Preencha todos os campos.";
         return;
@@ -1221,17 +1229,33 @@ window.saveUserProfile = async () => {
         return;
     }
 
+    if (handleInput.length < 3) {
+        errorMsg.innerText = "O usuário deve ter pelo menos 3 caracteres.";
+        return;
+    }
+
+    // Feedback visual de carregamento
+    const originalBtnText = btn.innerText;
+    btn.innerText = "Salvando...";
+    btn.disabled = true;
+    errorMsg.innerText = "";
+
     try {
+        // 3. Verifica se o handle já existe
         const usernameRef = doc(db, "usernames", handleInput);
         const usernameSnap = await getDoc(usernameRef);
 
         if (usernameSnap.exists()) {
-            errorMsg.innerText = "Este nome de usuário já está em uso.";
-            return;
+            // Se o documento existe, verifica se já é deste usuário (reuso)
+            if (usernameSnap.data().uid !== currentUser.uid) {
+                throw new Error("Este nome de usuário já está em uso.");
+            }
         }
 
+        // 4. Salva a reserva do nome de usuário
         await setDoc(doc(db, "usernames", handleInput), { uid: currentUser.uid });
 
+        // 5. Prepara dados do perfil
         const profileData = {
             handle: handleInput,
             displayName: nameInput,
@@ -1239,11 +1263,24 @@ window.saveUserProfile = async () => {
             photoURL: currentUser.photoURL,
             createdAt: new Date().toISOString(),
             semester: "N/A",
-            lastHandleChange: Date.now()
+            lastHandleChange: Date.now(),
+            // Garante campos de nível inicial
+            xp: 0,
+            level: 1,
+            isPremium: false
         };
 
-        await setDoc(doc(db, "users", currentUser.uid), profileData);
+        // 6. Salva o perfil do usuário
+        await setDoc(doc(db, "users", currentUser.uid), profileData, { merge: true });
 
+        // 7. Atualiza o perfil no Auth do Firebase (opcional, mas bom para cache)
+        try {
+            await updateProfile(currentUser, { displayName: nameInput });
+        } catch (e) {
+            console.warn("Aviso: Não foi possível atualizar o Auth Profile, mas o Firestore está ok.");
+        }
+
+        // 8. Cria estrutura de dados inicial se não existir
         const initialData = {
             schedule: [],
             tasks: [],
@@ -1254,8 +1291,10 @@ window.saveUserProfile = async () => {
             lastUpdated: new Date().toISOString()
         };
 
-        await setDoc(doc(db, "users", currentUser.uid, "data", "appData"), initialData);
+        // Usa setDoc com merge para não sobrescrever se já tiver dados antigos recuperados
+        await setDoc(doc(db, "users", currentUser.uid, "data", "appData"), initialData, { merge: true });
 
+        // 9. Sucesso: Atualiza LocalStorage e UI
         userProfile = profileData;
         localStorage.setItem('salvese_session_active', 'true');
         localStorage.setItem('salvese_user_profile', JSON.stringify(userProfile));
@@ -1264,8 +1303,20 @@ window.saveUserProfile = async () => {
         initRealtimeSync(currentUser.uid);
 
     } catch (error) {
-        console.error("Erro ao criar perfil:", error);
-        errorMsg.innerText = "Erro ao salvar perfil. Verifique sua conexão.";
+        console.error("Erro detalhado ao salvar perfil:", error);
+
+        // Tratamento de mensagens de erro amigáveis
+        if (error.code === 'permission-denied') {
+            errorMsg.innerText = "Erro de permissão no banco de dados. Verifique as Regras.";
+        } else if (error.message.includes("já está em uso")) {
+            errorMsg.innerText = error.message;
+        } else {
+            errorMsg.innerText = "Erro: " + error.message;
+        }
+    } finally {
+        // Restaura o botão
+        btn.innerText = originalBtnText;
+        btn.disabled = false;
     }
 };
 
